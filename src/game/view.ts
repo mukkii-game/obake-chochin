@@ -7,9 +7,11 @@ export function txt(size: number, color = '#f3e6c8', extra: Record<string, unkno
   return { fontFamily: FONT, fontSize: `${size}px`, color, stroke: '#0b0810', strokeThickness: Math.max(2, size / 8), ...extra };
 }
 
-const WATCH_JA = ['戌の刻', '亥の刻', '子の刻', '丑の刻', '寅の刻', '夜明け前'];
-const WATCH_EN = ['Hour of the Dog', 'Hour of the Boar', 'Hour of the Rat', 'Hour of the Ox', 'Hour of the Tiger', 'Before dawn'];
+const HOURS_JA = ['戌', '亥', '子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉'];
+const HOURS_EN = ['Dog', 'Boar', 'Rat', 'Ox', 'Tiger', 'Rabbit', 'Dragon', 'Snake', 'Horse', 'Goat', 'Monkey', 'Rooster'];
+/** 刻の名前。戌の刻から始まり、12 刻で一巡したら「二夜目」… と数える */
 export function watchName(n: number) {
-  const a = lang() === 'ja' ? WATCH_JA : WATCH_EN;
-  return a[Math.min(n, a.length - 1)];
+  const night = Math.floor(n / 12) + 1, h = n % 12;
+  if (lang() === 'ja') return (night > 1 ? `${night}夜目 ` : '') + `${HOURS_JA[h]}の刻`;
+  return (night > 1 ? `Night ${night}, ` : '') + `Hour of the ${HOURS_EN[h]}`;
 }

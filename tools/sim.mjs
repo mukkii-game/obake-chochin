@@ -15,8 +15,16 @@ import { readParams } from '../src/game/params';
 export function run(seed: number, skill: number) {
   const g = new Game(seed, readParams());
   const bot = new Bot(skill, seed);
-  while (!g.over && g.t < 900) { g.step(bot.decide(g)); g.drainEvents(); }
-  return { seed, sec: Math.round(g.t), score: g.score, bestChain: g.bestChain, purified: g.purified };
+  let breaks = 0, caught = 0, multi = 0, eaten = 0;
+  while (!g.over && g.t < 900) {
+    g.step(bot.decide(g));
+    for (const e of g.drainEvents()) {
+      if (e.type === 'break') { breaks++; caught += e.inside; if (e.inside >= 3) multi++; }
+      if (e.type === 'eaten') eaten++;
+    }
+  }
+  return { seed, sec: Math.round(g.t), score: g.score, bestChain: g.bestChain, purified: g.purified, wave: g.wave,
+    perBreak: breaks ? caught / breaks : 0, multiRate: breaks ? multi / breaks : 0, eaten };
 }
 /** bot の入力を記録 → 文字列 → 再生して、同じ結果になるか(?replay= の仕組みと同じ道) */
 export function replayCheck(seed: number) {
@@ -34,11 +42,14 @@ try {
   globalThis.location = { search: '' };
   const mod = await import('data:text/javascript,' + encodeURIComponent(out[0].output[0].code));
   const rows = [];
+  if (process.env.DUMP) { for (let s = 1; s <= N; s++) { const r = mod.run(s * 7919, SKILL); if (r.sec < 80) console.log(JSON.stringify(r)); } }
   for (let s = 1; s <= N; s++) rows.push(mod.run(s * 7919, SKILL));
   const again = mod.run(7919, SKILL);
   const deterministic = JSON.stringify(again) === JSON.stringify(rows[0]) && mod.replayCheck(4242);
   const med = (k) => rows.map((r) => r[k]).sort((a, b) => a - b)[Math.floor(rows.length / 2)];
   console.log(JSON.stringify({ ok: deterministic, deterministic, skill: SKILL, runs: N,
+    medianWave: med('wave'), perBreak: +(rows.reduce((s, r) => s + r.perBreak, 0) / rows.length).toFixed(2),
+    multi3Rate: +(rows.reduce((s, r) => s + r.multiRate, 0) / rows.length).toFixed(2), medianEaten: med('eaten'),
     medianSec: med('sec'), medianScore: med('score'), medianBestChain: med('bestChain'),
     minSec: Math.min(...rows.map((r) => r.sec)), maxSec: Math.max(...rows.map((r) => r.sec)) }, null, 1));
   process.exitCode = deterministic ? 0 : 1;
