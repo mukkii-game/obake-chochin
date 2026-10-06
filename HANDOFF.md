@@ -13,7 +13,8 @@
 - `tsc --noEmit` / `npm run build` / `npm run test:replay` / `node tools/sim.mjs 20`(決定性・記録→再生の一致 OK。bot skill 0.8 で生存中央値 約 4.5 分)
 - `node tools/check.mjs`(60 秒自動プレイ、コンソールエラーなし、スコア増加)
 - Playwright で PC のクリックとスマホのタッチ(844×390, hasTouch)の両方で、提灯の設置・割りが効くこと。
-- 未確認: 実機スマホ、itch.io 埋め込み、CI 上での実行。
+- CI(Build and Deploy (Pages) run #4)は緑で、Pages への公開まで完了。
+- 未確認: 実機スマホ、itch.io 埋め込み、公開ページを開いての目視(この環境から github.io に繋がらない)。
 
 ## 次の一手
 - 人間が遊んで手触りを決める(F2 の値をコピーして AI に渡せば既定値にできる)。特に `lantern.life` `chain.radius` `spawn.rateGrow`。
