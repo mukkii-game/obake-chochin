@@ -1,0 +1,56 @@
+{
+  "slug": "game",
+  "title": "",
+  "tagline": "",
+  "author": "MUKKII",
+  "playUrl": "",
+  "zipName": "game-html5.zip",
+  "tags": ["#個人開発", "#インディーゲーム", "#ブラウザゲーム"],
+  "texts": [
+    { "id": "catch", "label": "キャッチコピー(1行)", "body": "" },
+    { "id": "short", "label": "短い紹介(100字・概要欄向け)", "body": "" },
+    { "id": "long", "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)", "body": "" },
+    { "id": "short-en", "label": "Short description (English)", "body": "" },
+    { "id": "controls-en", "label": "Controls (English)", "body": "" },
+    { "id": "x-a", "label": "X: 公開告知", "body": "" },
+    { "id": "x-b", "label": "X: 仕掛けで引く", "body": "" }
+  ],
+  "sites": [
+    {
+      "id": "itch",
+      "label": "itch.io",
+      "auto": true,
+      "uploadUrl": "https://itch.io/dashboard",
+      "note": "publish-itch ワークフローのボタンで公開。ページ設定: Kind=HTML / Embed in page / Viewport 540×720 / Mobile friendly / Fullscreen / Auto start。Languages=Japanese, English。AI generation disclosure=Yes(コード・絵・音のどれに使ったか)。",
+      "use": ["catch", "short", "long", "short-en", "controls-en"]
+    },
+    {
+      "id": "plicy",
+      "label": "PLiCy",
+      "uploadUrl": "https://plicy.net/GameRegist",
+      "note": "ZIP を上げる(index.html が直下の形で出してある)。スマホのプレイが多いので操作説明はスマホを先に。",
+      "use": ["catch", "short", "long"]
+    },
+    {
+      "id": "freem",
+      "label": "ふりーむ!",
+      "uploadUrl": "https://www.freem.ne.jp/",
+      "note": "ZIP 配布。審査があり公開まで数日かかることがある。",
+      "use": ["catch", "short", "long"]
+    },
+    {
+      "id": "newgrounds",
+      "label": "Newgrounds",
+      "uploadUrl": "https://www.newgrounds.com/projects/games",
+      "note": "英語圏。説明は英語の文面を使う。",
+      "use": ["short-en", "controls-en"]
+    },
+    {
+      "id": "x",
+      "label": "X",
+      "uploadUrl": "https://x.com/compose/post",
+      "note": "プレイ中の画像か動画を付ける。最初の 1 行で何のゲームか言い切る。",
+      "use": ["x-a", "x-b"]
+    }
+  ]
+}

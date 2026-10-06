@@ -1,0 +1,53 @@
+name: Publish to itch.io
+
+# 手動実行(Run workflow)で dist を itch.io の html5 チャンネルへ push する。
+# 事前に: itch.io で作品ページを作る(Kind: HTML、Draft 可)、repo secret BUTLER_API_KEY を入れる。
+# 常に自動で出したいなら on: に push: branches: ['main'] を足す。
+
+on:
+  workflow_dispatch:
+    inputs:
+      itch_target:
+        description: 'user/game-slug(例 mukkii/galaxtiris)'
+        required: true
+        type: string
+      channel:
+        description: 'butler channel'
+        default: 'html5'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 'itch'
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - name: Install butler
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 -o butler.zip \
+            "https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default"
+          unzip -q -o butler.zip -d butler-bin
+          chmod +x butler-bin/butler
+          ./butler-bin/butler -V
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          TARGET: ${{ inputs.itch_target }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          [ -n "${BUTLER_API_KEY}" ] || { echo "::error::BUTLER_API_KEY secret is not set."; exit 1; }
+          ./butler-bin/butler push dist "${TARGET}:${CHANNEL}" --userversion "${GITHUB_SHA::7}"

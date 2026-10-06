@@ -1,0 +1,64 @@
+name: Build and Deploy (Pages)
+
+# main に push → ビルド → 起動確認(tools/check.mjs)→ 公開キット(/kit/)→ GitHub Pages。
+# 事前に repo の Settings → Pages → Source を「GitHub Actions」にする。
+
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:replay
+      - name: Install Chromium for check
+        run: npx playwright install --with-deps chromium
+      - name: Smoke check (auto play, no console errors)
+        run: node tools/check.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: tools/out/*.png
+          if-no-files-found: ignore
+      # 公開キット: 配布用 ZIP・スクショ・日英の文面・投稿ページへのリンクを /kit/ の 1 ページに。
+      # 文面は publish.json、画像は kit/assets/ と起動確認のスクショから。
+      - name: Build publish kit
+        run: |
+          SLUG=$(node -p "require('./publish.json').zipName || 'game-html5.zip'")
+          (cd dist && zip -qr "../$SLUG" . -x '.*' 'kit/*')
+          mkdir -p dist/kit && mv "$SLUG" dist/kit/
+          node tools/build-kit.mjs dist publish.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

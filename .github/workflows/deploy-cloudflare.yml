@@ -1,0 +1,48 @@
+name: Deploy to Cloudflare Pages (optional)
+
+# secret CLOUDFLARE_API_TOKEN と CLOUDFLARE_ACCOUNT_ID がある時だけ動く。無ければ黙って終了。
+# 使う場面: repo を private にしたまま公開したい / Workers でサーバー処理を足したい /
+#           ブランチごとのプレビュー URL で複数案を比べたい。
+# 準備(1 回): Cloudflare で Pages プロジェクトを作り、API トークン(Pages 編集権限)を repo secret に入れる。
+
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 'cloudflare'
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip if not configured
+        id: gate
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "${TOKEN}" ]; then echo 'go=true' >> "$GITHUB_OUTPUT"; else
+            echo '::notice::CLOUDFLARE_API_TOKEN が未設定のため Cloudflare へのデプロイを飛ばします。'
+            echo 'go=false' >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.go == 'true'
+        with:
+          node-version: 22
+          cache: 'npm'
+      - if: steps.gate.outputs.go == 'true'
+        run: npm ci
+      - if: steps.gate.outputs.go == 'true'
+        run: npm run build
+      - name: Deploy
+        if: steps.gate.outputs.go == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROJECT: ${{ vars.CLOUDFLARE_PROJECT || github.event.repository.name }}
+        run: npx --yes wrangler@4 pages deploy dist --project-name "$PROJECT" --branch "${GITHUB_REF_NAME}"
