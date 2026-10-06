@@ -1,6 +1,13 @@
-# game-template-web
+# おばけ提灯(obake-chochin)
 
-Phaser 4 + Vite + TypeScript のブラウザゲーム雛形。push するだけで GitHub Pages に公開、手動ボタンで itch.io に公開。
+夜の村に寄ってくるおばけを提灯でおびき寄せて集め、割ってまとめて成仏させる和風スコアアタック。
+遊ぶ: https://mukkii-game.github.io/obake-chochin/ (企画は `SPEC.md`、引き継ぎは `HANDOFF.md`)
+
+- ゲームの中身: `src/game/logic.ts`(描画なし・seed とタップ列で決まる)/ bot: `src/game/bot.ts` / 数値: `src/tuning.ts`(F2)
+- 絵: `src/game/art.ts`(Canvas2D で手続き描画)/ 音: `src/game/sound.ts`(WebAudio 合成)
+- `node tools/sim.mjs` で bot を描画なしで回し、決定性と難易度(生存秒数・スコア)を見る。`node tools/og.mjs` で og.png を撮り直す。
+
+以下は雛形(game-template-web)の説明。
 
 ## 新作の作り方
 1. GitHub で「Use this template」→ repo 名は `game-<slug>`。

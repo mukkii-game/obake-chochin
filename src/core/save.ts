@@ -1,5 +1,5 @@
 // 名前空間つき localStorage。DEFAULTS とマージ、版番号、try/catch。
-const NS = 'game-template'; // 作品ごとに変える(package.json の name と同じに)
+const NS = 'obake-chochin';
 const VERSION = 1;
 
 export interface SaveData {

@@ -1,19 +1,52 @@
 {
-  "slug": "game",
-  "title": "",
-  "tagline": "",
+  "slug": "obake-chochin",
+  "title": "おばけ提灯",
+  "tagline": "提灯でおばけを集めて、割って、まとめて成仏。",
   "author": "MUKKII",
-  "playUrl": "",
-  "zipName": "game-html5.zip",
-  "tags": ["#個人開発", "#インディーゲーム", "#ブラウザゲーム"],
+  "playUrl": "https://mukkii-game.github.io/obake-chochin/",
+  "zipName": "obake-chochin-html5.zip",
+  "tags": [
+    "#おばけ提灯",
+    "#個人開発",
+    "#インディーゲーム",
+    "#ブラウザゲーム"
+  ],
   "texts": [
-    { "id": "catch", "label": "キャッチコピー(1行)", "body": "" },
-    { "id": "short", "label": "短い紹介(100字・概要欄向け)", "body": "" },
-    { "id": "long", "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)", "body": "" },
-    { "id": "short-en", "label": "Short description (English)", "body": "" },
-    { "id": "controls-en", "label": "Controls (English)", "body": "" },
-    { "id": "x-a", "label": "X: 公開告知", "body": "" },
-    { "id": "x-b", "label": "X: 仕掛けで引く", "body": "" }
+    {
+      "id": "catch",
+      "label": "キャッチコピー(1行)",
+      "body": "提灯でおばけを寄せ集め、割ってまとめて成仏させろ。"
+    },
+    {
+      "id": "short",
+      "label": "短い紹介(100字・概要欄向け)",
+      "body": "夜の村に寄ってくるおばけを、提灯の灯りでおびき寄せて集め、割ってまとめて成仏させる和風スコアアタック。溜めて割るほど連鎖が伸び、成仏したおばけは味方の灯りになる。ブラウザですぐ遊べます。"
+    },
+    {
+      "id": "long",
+      "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
+      "body": "夜が更けるほど、村におばけが寄ってくる。家に入られると、その家の灯りが消えてしまう。\nあなたは提灯を置いて、おばけをおびき寄せる。集まったところで提灯を割れば、まとめて成仏。\n\n■ 遊び方(スマホ)\n・画面をタップすると提灯を置く(同時に 3 つまで)。灯りの輪に入ったおばけは提灯に寄ってくる\n・置いた提灯をもう一度タップすると割れる。周りのおばけが成仏し、近くのおばけへ次々と連鎖する\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで置く / もう一度クリックで割る。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 漂いながら近づく\n・ジグザグ鬼火 … 左右に振れながら迫る\n・跳ねる唐傘 … 溜めてから急に跳ぶ\n・光嫌いの影法師 … 提灯の光を避けて回り込む。でも成仏した仲間の灯りには寄ってくる\n\n■ コツ\n・成仏したおばけは、しばらく味方の灯りになって近くのおばけを引き寄せ、消える時にまた成仏させる\n・8 連鎖以上で、消えた家の灯りがひとつ戻る\n・提灯は燃え尽きると、集めたおばけを放してしまう。割りどきを見極めよう\n\n全部の家の灯りが消えたら夜明けを待たずに終わり。スコアを競おう。"
+    },
+    {
+      "id": "short-en",
+      "label": "Short description (English)",
+      "body": "Lure the ghosts haunting a night village with paper lanterns, then break the lantern to send them all to rest at once. Gather more before breaking for bigger chains — freed ghosts become friendly lights that lure even more."
+    },
+    {
+      "id": "controls-en",
+      "label": "Controls (English)",
+      "body": "Tap / click to place a lantern (up to 3). Tap / click a lantern again to break it and free nearby ghosts in a chain. M toggles sound. Landscape recommended on phones."
+    },
+    {
+      "id": "x-a",
+      "label": "X: 公開告知",
+      "body": "和風スコアアタック『おばけ提灯』を公開しました。\n提灯でおばけを寄せ集めて、割って、まとめて成仏。ブラウザですぐ遊べます。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #個人開発 #ブラウザゲーム"
+    },
+    {
+      "id": "x-b",
+      "label": "X: 仕掛けで引く",
+      "body": "溜めて、溜めて、割る。\nおばけが 20 連鎖で成仏していく気持ちよさを作りました。成仏したおばけは味方の灯りになって、次のおばけを呼び寄せます。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
+    }
   ],
   "sites": [
     {
@@ -21,36 +54,56 @@
       "label": "itch.io",
       "auto": true,
       "uploadUrl": "https://itch.io/dashboard",
-      "note": "publish-itch ワークフローのボタンで公開。ページ設定: Kind=HTML / Embed in page / Viewport 540×720 / Mobile friendly / Fullscreen / Auto start。Languages=Japanese, English。AI generation disclosure=Yes(コード・絵・音のどれに使ったか)。",
-      "use": ["catch", "short", "long", "short-en", "controls-en"]
+      "note": "publish-itch ワークフローのボタンで公開。ページ設定: Kind=HTML / Embed in page / Viewport 960×540 / Mobile friendly / Fullscreen / Auto start。Languages=Japanese, English。AI generation disclosure=Yes(コード・絵・音のどれに使ったか)。",
+      "use": [
+        "catch",
+        "short",
+        "long",
+        "short-en",
+        "controls-en"
+      ]
     },
     {
       "id": "plicy",
       "label": "PLiCy",
       "uploadUrl": "https://plicy.net/GameRegist",
       "note": "ZIP を上げる(index.html が直下の形で出してある)。スマホのプレイが多いので操作説明はスマホを先に。",
-      "use": ["catch", "short", "long"]
+      "use": [
+        "catch",
+        "short",
+        "long"
+      ]
     },
     {
       "id": "freem",
       "label": "ふりーむ!",
       "uploadUrl": "https://www.freem.ne.jp/",
       "note": "ZIP 配布。審査があり公開まで数日かかることがある。",
-      "use": ["catch", "short", "long"]
+      "use": [
+        "catch",
+        "short",
+        "long"
+      ]
     },
     {
       "id": "newgrounds",
       "label": "Newgrounds",
       "uploadUrl": "https://www.newgrounds.com/projects/games",
       "note": "英語圏。説明は英語の文面を使う。",
-      "use": ["short-en", "controls-en"]
+      "use": [
+        "short-en",
+        "controls-en"
+      ]
     },
     {
       "id": "x",
       "label": "X",
       "uploadUrl": "https://x.com/compose/post",
       "note": "プレイ中の画像か動画を付ける。最初の 1 行で何のゲームか言い切る。",
-      "use": ["x-a", "x-b"]
+      "use": [
+        "x-a",
+        "x-b"
+      ]
     }
   ]
 }

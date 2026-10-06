@@ -47,3 +47,10 @@ plumbing with a Phaser 4 game template: direct push to main, one Pages
 workflow with a Playwright smoke check, one manual itch.io workflow, and a
 small `src/core` layer (save, i18n, audio, input, demo, meta). Rationale in
 mukkii-game/Perfect_Dev_Environment decisions of 2026-09-13.
+
+## 2026-10-06 — おばけ提灯: 中身と描画を分け、絵と音はすべて手続き生成
+
+ゲームの中身は `src/game/logic.ts`(1/60 秒固定刻み、seed とタップ列だけで決まる)。Play シーンは state を絵にするだけ。
+bot も中身だけを回す(`tools/sim.mjs` を CI で実行し、決定性と記録→再生の一致を確かめる)。
+素材探しの時間を消すため、絵は Canvas2D、音は WebAudio 合成で全部コード内に描く(外部素材ゼロ)。
+画面は横長の巻物にするため 960×540。タップは canvas/コンテナ/body/document に多重登録して重複排除(`src/ui/taps.ts`)。

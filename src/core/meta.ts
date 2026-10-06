@@ -3,6 +3,8 @@ export const META = {
   buildTime: __BUILD_TIME__,
   sha: __GIT_SHA__,
   version: `${__GIT_SHA__}`,
+  /** 画面の隅に出す ID。dist/version.json と照合する */
+  buildId: typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : __GIT_SHA__,
 };
 
 const params = new URLSearchParams(location.search);

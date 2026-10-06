@@ -15,7 +15,7 @@ const server = createServer(async (req, res) => {
 }).listen(0);
 const port = server.address().port;
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined });
-const ctx = await browser.newContext({ viewport: { width: 540, height: 720 }, recordVideo: { dir: OUT, size: { width: 540, height: 720 } } });
+const ctx = await browser.newContext({ viewport: { width: 960, height: 540 }, recordVideo: { dir: OUT, size: { width: 960, height: 540 } } });
 const page = await ctx.newPage();
 await page.goto(`http://127.0.0.1:${port}/?auto=1`);
 await page.waitForTimeout(SECONDS * 1000);

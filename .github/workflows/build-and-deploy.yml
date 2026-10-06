@@ -29,6 +29,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run test:replay
+      - name: Bot simulation (determinism + balance, no rendering)
+        run: node tools/sim.mjs 8
       - name: Install Chromium for check
         run: npx playwright install --with-deps chromium
       - name: Smoke check (auto play, no console errors)

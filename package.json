@@ -1,5 +1,5 @@
 {
-  "name": "game-template-web",
+  "name": "obake-chochin",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "check": "node tools/check.mjs",
     "record": "node tools/record.mjs",
-    "test:replay": "node tools/replay-test.mjs"
+    "test:replay": "node tools/replay-test.mjs",
+    "sim": "node tools/sim.mjs",
+    "og": "node tools/og.mjs"
   },
   "dependencies": {
     "phaser": "^4.0.0"

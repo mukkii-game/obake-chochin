@@ -18,7 +18,7 @@ console.log(JSON.stringify({ ok, sameSequence: sa, replayed }));
 `);
 try {
   const out = await build({ logLevel: 'silent', configFile: false,
-    define: { __BUILD_TIME__: '""', __GIT_SHA__: '""' },
+    define: { __BUILD_TIME__: '""', __GIT_SHA__: '""', __BUILD_ID__: '""' },
     build: { write: false, lib: { entry, formats: ['es'], fileName: 't' }, rollupOptions: { output: { inlineDynamicImports: true } } } });
   globalThis.location = { search: '' };
   await import('data:text/javascript,' + encodeURIComponent(out[0].output[0].code));

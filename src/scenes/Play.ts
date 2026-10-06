@@ -1,70 +1,367 @@
-// 「動くサンプル」。← → で移動、タップ / スペースで加点。20 秒で終了。
-// 作品はこのシーンを丸ごと置き換える。core の使い方の見本として残す。
+// プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
+// 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { UnifiedInput } from '../core/input';
+import { Game, DT, W, H, encodeTaps, decodeTaps, type Ghost, type GameEvent } from '../game/logic';
+import { readParams } from '../game/params';
+import { Bot } from '../game/bot';
+import { snd, bgmStart, bgmStop, bgmIntensity } from '../game/sound';
+import { txt, watchName } from '../game/view';
+import { PAPER } from '../game/art';
+import { onTap } from '../ui/taps';
 import { DemoDriver, expose } from '../core/demo';
-import { sfx } from '../core/audio';
 import { t } from '../core/i18n';
 import { save, load } from '../core/save';
 import { tune } from '../core/tuning';
+import { startSeed } from '../core/rng';
+import { Recorder, Player, replayFromUrl } from '../core/replay';
+import { isMuted, toggleMuted } from '../core/audio';
+
+const GHOST_TEX = { fuwa: 'g_fuwa', zig: 'g_zig', hop: 'g_hop', kirai: 'g_kirai' } as const;
 
 export class Play extends Phaser.Scene {
-  private input2!: UnifiedInput;
-  private player!: Phaser.GameObjects.Rectangle;
-  private score = 0;
-  private timeLeft = 0;
+  private game2!: Game;
+  private acc = 0;
+  private pending: Array<[number, number]> = [];
+  private rec!: Recorder;
+  private player: Player | null = null;
+  private bot: Bot | null = null;
+  private hitstop = 0;
+  private ended = false;
+  private offTap: (() => void) | null = null;
+
+  private gSprites = new Map<number, Phaser.GameObjects.Image>();
+  private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text }>();
+  private wSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }> = [];
+  private fx!: Phaser.GameObjects.Graphics;
+  private moon!: Phaser.GameObjects.Image;
   private scoreText!: Phaser.GameObjects.Text;
-  private timeText!: Phaser.GameObjects.Text;
-  private demo!: DemoDriver;
+  private watchText!: Phaser.GameObjects.Text;
+  private lanternIcons: Phaser.GameObjects.Image[] = [];
+  private chainText!: Phaser.GameObjects.Text;
+  private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private tipShown = new Set<string>();
 
   constructor() { super('Play'); }
 
   create() {
     expose('scene', 'Play');
-    const { width, height } = this.scale;
-    this.score = 0; this.timeLeft = tune('game.duration');
-    this.cameras.main.setBackgroundColor('#0f2027');
-    this.input2 = new UnifiedInput(this);
-    this.player = this.add.rectangle(width / 2, height * 0.7, 40, 40, 0x4ecdc4);
-    this.scoreText = this.add.text(12, 12, '', { fontSize: '20px', color: '#fff', fontFamily: 'sans-serif' });
-    this.timeText = this.add.text(width - 12, 12, '', { fontSize: '20px', color: '#fff', fontFamily: 'sans-serif' }).setOrigin(1, 0);
+    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0;
+    this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.lanternIcons = [];
+    this.tipShown.clear();
 
-    // 自動プレイ: 左右に揺れながら 0.4 秒ごとに加点
-    let last = 0;
-    this.demo = new DemoDriver((tt) => {
-      this.player.x = width / 2 + Math.sin(tt / 400) * width * 0.3;
-      if (tt - last > 400) { last = tt; this.addScore(); }
+    const replay = replayFromUrl();
+    const seed = replay ? replay.seed : startSeed();
+    this.player = replay ? new Player(replay) : null;
+    this.rec = new Recorder(seed);
+    this.game2 = new Game(seed, readParams());
+    this.bot = DemoDriver.enabled && !replay ? new Bot(0.8, seed) : null;
+    expose('seed', seed); expose('score', 0);
+
+    this.add.image(0, 0, 'bg').setOrigin(0);
+    this.moon = this.add.image(0, 0, 'moon').setAlpha(0.95);
+    for (const h of this.game2.houses) {
+      const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.3).setAlpha(0.55);
+      const img = this.add.image(h.x, h.y, 'house_lit').setOrigin(0.5, 0.6);
+      this.houseImgs.push({ img, glow });
+    }
+    this.fx = this.add.graphics().setDepth(5);
+
+    this.sparks = this.add.particles(0, 0, 'dot', {
+      lifespan: 900, speed: { min: 20, max: 110 }, angle: { min: 200, max: 340 }, gravityY: -40,
+      scale: { start: 0.9, end: 0 }, alpha: { start: 1, end: 0 }, tint: [0xfff2b0, 0xffd27a, 0xffffff],
+      blendMode: 'ADD', emitting: false,
+    }).setDepth(30);
+    this.shards = this.add.particles(0, 0, 'shard', {
+      lifespan: 700, speed: { min: 80, max: 220 }, gravityY: 300, rotate: { min: 0, max: 360 },
+      scale: { start: 1, end: 0.4 }, alpha: { start: 1, end: 0 }, emitting: false,
+    }).setDepth(31);
+
+    // HUD(巻物の上の縁に)
+    this.scoreText = this.add.text(PAPER.x0 + 14, 6, '', txt(20)).setDepth(50);
+    this.watchText = this.add.text(W / 2, 6, '', txt(18, '#e8d6ff')).setOrigin(0.5, 0).setDepth(50);
+    for (let i = 0; i < this.game2.P.maxLanterns; i++) {
+      this.lanternIcons.push(this.add.image(PAPER.x1 - 110 - i * 22, 16, 'lantern').setScale(0.42).setDepth(50));
+    }
+    const mute = this.add.text(PAPER.x1 - 14, 6, isMuted() ? '♪×' : '♪', txt(18, '#cfe')).setOrigin(1, 0).setDepth(50);
+    this.chainText = this.add.text(W / 2, H / 2, '', txt(44, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
+    if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
+    else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
+
+    this.offTap = onTap((x, y) => {
+      // 右上の音ボタン
+      if (x > PAPER.x1 - 50 && y < 34) { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); return; }
+      if (this.player || this.ended) return;
+      this.pending.push([x, y]);
     });
+    this.input.keyboard?.on('keydown-M', () => { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); });
+    this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; bgmStop(); });
+
+    bgmStart();
     this.updateHud();
-  }
-
-  private addScore() {
-    this.score += tune('score.per'); sfx.score(); expose('score', this.score);
-    this.tweens.add({ targets: this.player, scale: tune('juice.pop'), yoyo: true, duration: 80 });
-  }
-
-  private updateHud() {
-    this.scoreText.setText(`${t('score')}: ${this.score}`);
-    this.timeText.setText(`${Math.ceil(this.timeLeft)}`);
   }
 
   update(_time: number, deltaMs: number) {
-    const dt = deltaMs / 1000;
-    this.input2.update();
-    const s = this.input2.state;
-    const speed = tune('player.speed');
-    const dx = (s.right ? 1 : 0) - (s.left ? 1 : 0) + s.axisX;
-    this.player.x = Phaser.Math.Clamp(this.player.x + dx * speed * dt, 20, this.scale.width - 20);
-    if (s.action) this.addScore();
-    this.demo.update(deltaMs);
-
-    this.timeLeft -= dt;
-    this.updateHud();
-    if (this.timeLeft <= 0) {
-      const best = Math.max(load().best, this.score);
-      save({ best, played: load().played + 1 });
-      sfx.over();
-      this.scene.start('Result', { score: this.score, best });
+    if (this.hitstop > 0) { this.hitstop -= deltaMs; this.render(deltaMs / 1000); return; }
+    this.acc += Math.min(deltaMs, 100) / 1000;
+    const g = this.game2;
+    while (this.acc >= DT && !g.over) {
+      this.acc -= DT;
+      let taps: Array<[number, number]>;
+      if (this.player) taps = decodeTaps(this.player.input(g.frame + 1));
+      else if (this.bot) taps = this.bot.decide(g);
+      else { taps = this.pending; this.pending = []; }
+      if (taps.length) this.rec.push(g.frame + 1, encodeTaps(taps));
+      g.step(taps);
+      for (const e of g.drainEvents()) this.onEvent(e);
     }
+    this.render(deltaMs / 1000);
+    this.updateHud();
+    bgmIntensity(g.t / 180);
+    if (g.over && !this.ended) this.finish();
+  }
+
+  private finish() {
+    this.ended = true;
+    const g = this.game2;
+    const prev = load();
+    const best = Math.max(prev.best, g.score);
+    save({ best, played: prev.played + 1 });
+    expose('replay', this.rec.toString());
+    bgmStop();
+    snd.over();
+    this.cameras.main.fadeOut(1400, 5, 3, 10);
+    this.time.delayedCall(1500, () => this.scene.start('Result', {
+      score: g.score, best, newBest: g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
+      watch: Math.floor(g.t / 30), seconds: Math.floor(g.t), replay: this.rec.toString(),
+    }));
+  }
+
+  private onEvent(e: GameEvent) {
+    switch (e.type) {
+      case 'place':
+        snd.place();
+        this.sparks.explode(6, e.x, e.y);
+        break;
+      case 'deny': {
+        snd.deny();
+        for (const ic of this.lanternIcons) this.tweens.add({ targets: ic, scale: 0.55, yoyo: true, duration: 90 });
+        const x = this.add.text(e.x, e.y, '×', txt(26, '#ff8a80')).setOrigin(0.5).setDepth(40);
+        this.tweens.add({ targets: x, alpha: 0, y: e.y - 14, duration: 500, onComplete: () => x.destroy() });
+        break;
+      }
+      case 'break':
+        snd.break(e.held);
+        this.shards.explode(14, e.x, e.y);
+        this.sparks.explode(10 + e.held * 2, e.x, e.y);
+        this.cameras.main.flash(80, 255, 220, 160, false);
+        this.ring(e.x, e.y, e.r, 0xffe9a8, 4);
+        break;
+      case 'burnout':
+        snd.burnout();
+        this.puff(e.x, e.y);
+        break;
+      case 'purify': {
+        snd.purify(e.n);
+        this.sparks.explode(5, e.x, e.y);
+        const s = this.add.text(e.x, e.y - 12, `+${e.pts}`, txt(e.n >= 8 ? 20 : 15, e.n >= 8 ? '#ffe27a' : '#fff6dc')).setOrigin(0.5).setDepth(40);
+        this.tweens.add({ targets: s, y: e.y - 44, alpha: 0, duration: 800, ease: 'Cubic.Out', onComplete: () => s.destroy() });
+        if (e.n >= 3) this.showChain(e.n, e.x, e.y);
+        break;
+      }
+      case 'wispPop':
+        snd.wispPop();
+        this.sparks.explode(4, e.x, e.y);
+        break;
+      case 'chainEnd':
+        snd.chainEnd(e.n);
+        if (e.n >= 8) { this.hitstop = tune<number>('juice.hitstop'); this.cameras.main.shake(180, 0.006); }
+        break;
+      case 'houseOut':
+        snd.houseOut();
+        this.cameras.main.shake(260, tune<number>('juice.shake'));
+        this.puff(e.x, e.y);
+        break;
+      case 'relight': {
+        snd.relight();
+        const orb = this.add.image(e.from[0], e.from[1], 'wisp').setBlendMode(Phaser.BlendModes.ADD).setDepth(35);
+        this.tweens.add({ targets: orb, x: e.x, y: e.y, duration: 700, ease: 'Sine.InOut', onComplete: () => { orb.destroy(); this.sparks.explode(16, e.x, e.y); } });
+        const s = this.add.text(e.x, e.y - 40, t('relit'), txt(18, '#ffd27a')).setOrigin(0.5).setDepth(45);
+        this.tweens.add({ targets: s, y: e.y - 64, alpha: 0, delay: 600, duration: 1200, onComplete: () => s.destroy() });
+        break;
+      }
+      case 'spawn': {
+        const tip = e.kind === 'kirai' ? 'kiraiTip' : e.kind === 'hop' ? 'hopTip' : e.kind === 'zig' ? 'zigTip' : '';
+        if (tip && !this.tipShown.has(tip)) {
+          this.tipShown.add(tip);
+          const s = this.add.text(W / 2, H - 46, t(tip), txt(16, '#e8d6ff')).setOrigin(0.5).setDepth(55);
+          this.tweens.add({ targets: s, alpha: 0, delay: 3200, duration: 800, onComplete: () => s.destroy() });
+        }
+        break;
+      }
+      case 'watch': {
+        snd.watch();
+        const s = this.add.text(W / 2, H / 2 - 60, watchName(e.n), txt(36, '#e8d6ff')).setOrigin(0.5).setDepth(55).setAlpha(0);
+        this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: 900, duration: 500, onComplete: () => s.destroy() });
+        break;
+      }
+      case 'over':
+        break;
+    }
+  }
+
+  private showChain(n: number, x: number, y: number) {
+    const c = this.chainText;
+    c.setText(`${n}${t('chain')}!`);
+    c.setPosition(Phaser.Math.Clamp(x, 140, W - 140), Phaser.Math.Clamp(y - 50, 70, H - 60));
+    c.setFontSize(Math.min(30 + n * 2, 72));
+    c.setColor(n >= 15 ? '#ffb0e0' : n >= 8 ? '#ffe27a' : '#fff3c0');
+    this.tweens.killTweensOf(c);
+    c.setAlpha(1).setScale(1.3);
+    this.tweens.add({ targets: c, scale: 1, duration: 140, ease: 'Back.Out' });
+    this.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 400 });
+  }
+
+  private ring(x: number, y: number, r: number, color: number, width: number) {
+    const gr = this.add.graphics().setDepth(20).setBlendMode(Phaser.BlendModes.ADD);
+    const o = { k: 0 };
+    this.tweens.add({
+      targets: o, k: 1, duration: 420, ease: 'Cubic.Out',
+      onUpdate: () => { gr.clear(); gr.lineStyle(width * (1 - o.k) + 1, color, 1 - o.k); gr.strokeCircle(x, y, r * (0.4 + 0.8 * o.k)); },
+      onComplete: () => gr.destroy(),
+    });
+  }
+
+  private puff(x: number, y: number) {
+    const p = this.add.image(x, y, 'glow').setTint(0x404060).setAlpha(0.8).setDepth(25);
+    this.tweens.add({ targets: p, scale: 1.6, alpha: 0, duration: 600, onComplete: () => p.destroy() });
+  }
+
+  private updateHud() {
+    const g = this.game2;
+    this.scoreText.setText(`${t('score')} ${g.score}`);
+    this.watchText.setText(`${watchName(Math.floor(g.t / 30))}   ${t('houses')} ${g.litCount}/${g.houses.length}`);
+    this.lanternIcons.forEach((ic, i) => ic.setAlpha(i < g.P.maxLanterns - g.lanterns.length ? 1 : 0.2));
+    expose('score', g.score); expose('lanterns', g.lanterns.length);
+  }
+
+  /** state → 絵。スプライトは id ごとに使い回し、消えたものは捨てる */
+  private render(dt: number) {
+    const g = this.game2, P = g.P;
+    const time = this.time.now / 1000;
+
+    // 月は夜更けとともに巻物の上を右から左へ
+    const k = Math.min(g.t / 180, 1);
+    this.moon.setPosition(PAPER.x1 - 80 - k * (PAPER.x1 - PAPER.x0 - 160), 95 - Math.sin(k * Math.PI) * 30);
+
+    g.houses.forEach((h, i) => {
+      const o = this.houseImgs[i];
+      o.img.setTexture(h.lit ? 'house_lit' : 'house_dark');
+      o.glow.setVisible(h.lit).setAlpha(0.45 + 0.1 * Math.sin(time * 3 + i));
+      o.img.setScale(1 + h.flash * 0.25);
+    });
+
+    // 提灯
+    const seenL = new Set<number>();
+    for (const l of g.lanterns) {
+      seenL.add(l.id);
+      let s = this.lSprites.get(l.id);
+      if (!s) {
+        const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8);
+        const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.2);
+        this.tweens.add({ targets: body, scale: 1, duration: 220, ease: 'Back.Out' });
+        const label = this.add.text(l.x, l.y + 30, '', txt(14, '#ffe8b0')).setOrigin(0.5, 0).setDepth(13);
+        s = { body, glow, label };
+        this.lSprites.set(l.id, s);
+      }
+      const remain = P.lanternLife - l.age;
+      const lit = Math.min(1, l.age / 0.25);
+      const flick = remain < 2 ? (Math.sin(time * 30) > 0 ? 0.35 : 1) : 0.9 + 0.1 * Math.sin(time * 9 + l.id);
+      s.glow.setScale((P.attractR * 2 / 128) * 1.25 * lit).setAlpha(0.42 * flick);
+      s.body.setAlpha(remain < 2 ? 0.6 + 0.4 * flick : 1).setAngle(Math.sin(time * 2 + l.id) * 4);
+      s.label.setText(l.held > 0 ? `${l.held}` : '');
+    }
+    for (const [id, s] of this.lSprites) if (!seenL.has(id)) { s.body.destroy(); s.glow.destroy(); s.label.destroy(); this.lSprites.delete(id); }
+
+    // 味方の灯り
+    const seenW = new Set<number>();
+    for (const w of g.wisps) {
+      seenW.add(w.id);
+      let s = this.wSprites.get(w.id);
+      if (!s) {
+        s = {
+          glow: this.add.image(w.x, w.y, 'glow').setTint(0xffe0a0).setBlendMode(Phaser.BlendModes.ADD).setDepth(9),
+          body: this.add.image(w.x, w.y, 'wisp').setBlendMode(Phaser.BlendModes.ADD).setDepth(18),
+        };
+        this.wSprites.set(w.id, s);
+      }
+      const fade = Math.min(1, (P.wispLife - w.age) / 0.4);
+      s.body.setPosition(w.x, w.y + Math.sin(time * 6 + w.id) * 2).setAlpha(fade).setScale(0.9 + 0.1 * Math.sin(time * 12 + w.id));
+      s.glow.setPosition(w.x, w.y).setScale((P.wispAttract * 2 / 128) * 1.1).setAlpha(0.25 * fade);
+    }
+    for (const [id, s] of this.wSprites) if (!seenW.has(id)) { s.body.destroy(); s.glow.destroy(); this.wSprites.delete(id); }
+
+    // おばけ
+    const seenG = new Set<number>();
+    for (const gh of g.ghosts) {
+      seenG.add(gh.id);
+      let s = this.gSprites.get(gh.id);
+      if (!s) {
+        s = this.add.image(gh.x, gh.y, GHOST_TEX[gh.kind]).setDepth(15).setAlpha(0);
+        this.gSprites.set(gh.id, s);
+      }
+      this.drawGhost(s, gh, time);
+    }
+    for (const [id, s] of this.gSprites) {
+      if (seenG.has(id)) continue;
+      this.gSprites.delete(id);
+      // 消える時: 上へ昇って薄れる(成仏)/ 家に吸い込まれる
+      this.tweens.add({ targets: s, y: s.y - 30, alpha: 0, scale: 0.6, duration: 450, onComplete: () => s.destroy() });
+    }
+
+    // 成仏の波
+    this.fx.clear();
+    for (const w of g.waves) {
+      if (w.delay > 0 || w.r <= 0) continue;
+      const a = 1 - w.r / w.maxR;
+      this.fx.fillStyle(0xfff0c0, 0.08 + 0.12 * a); this.fx.fillCircle(w.x, w.y, w.r);
+      this.fx.lineStyle(w.big ? 3 : 2, 0xfff0c0, 0.4 + 0.5 * a); this.fx.strokeCircle(w.x, w.y, w.r);
+    }
+    // 提灯の寄せ範囲(点線の輪)
+    for (const l of g.lanterns) {
+      const lit = Math.min(1, l.age / 0.25);
+      const n = 72;
+      this.fx.lineStyle(1.2, 0xffc080, 0.22);
+      const R = P.attractR * lit;
+      for (let i = 0; i < n; i += 2) {
+        const a0 = (i / n) * Math.PI * 2 + time * 0.3, a1 = ((i + 1) / n) * Math.PI * 2 + time * 0.3;
+        this.fx.lineBetween(l.x + Math.cos(a0) * R, l.y + Math.sin(a0) * R, l.x + Math.cos(a1) * R, l.y + Math.sin(a1) * R);
+      }
+      // 燃え残りの弧
+      const remain = Math.max(0, 1 - l.age / P.lanternLife);
+      this.fx.lineStyle(3, 0xffe0a0, 0.7);
+      const steps = Math.max(1, Math.ceil(remain * 24));
+      for (let i = 0; i < steps; i++) {
+        const a0 = -Math.PI / 2 + (i / steps) * remain * Math.PI * 2, a1 = -Math.PI / 2 + ((i + 1) / steps) * remain * Math.PI * 2;
+        this.fx.lineBetween(l.x + Math.cos(a0) * 26, l.y + Math.sin(a0) * 26, l.x + Math.cos(a1) * 26, l.y + Math.sin(a1) * 26);
+      }
+    }
+    void dt;
+  }
+
+  private drawGhost(s: Phaser.GameObjects.Image, gh: Ghost, time: number) {
+    const bob = Math.sin(time * 3 + gh.id) * 3;
+    let sx = 1, sy = 1;
+    if (gh.kind === 'hop') {
+      sy = 1 - gh.crouch * 0.3; sx = 1 + gh.crouch * 0.15;
+      if (gh.dashT > 0) { sy = 1.2; sx = 0.85; }
+    }
+    const appear = Math.min(1, gh.age / 0.6);
+    let alpha = appear * (gh.kind === 'fuwa' ? 0.8 + 0.2 * Math.sin(time * 4 + gh.id) : 1);
+    if (gh.kind === 'kirai') alpha *= 0.92;
+    s.setPosition(gh.x, gh.y + (gh.kind === 'hop' ? 0 : bob)).setScale(sx * 0.9, sy * 0.9).setAlpha(alpha).setFlipX(gh.face < 0);
+    s.setAngle(gh.kind === 'zig' ? Math.sin(time * 8 + gh.id) * 8 : 0);
+    if (gh.held !== 0) s.setTint(0xffe6c0); else s.clearTint();
   }
 }
