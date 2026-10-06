@@ -6,15 +6,17 @@ import fs from 'node:fs';
 
 const N = Number(process.argv[2] ?? 20);
 const SKILL = Number(process.argv[3] ?? 0.8);
+const LAG = Number(process.argv[4] ?? 0);
+const LAGON = process.argv[5] ?? 'all';
 const entry = 'tools/.sim-entry.ts';
 fs.writeFileSync(entry, `
 import { Game, encodeTaps, decodeTaps } from '../src/game/logic';
 import { Recorder, Player, decodeRecording } from '../src/core/replay';
 import { Bot } from '../src/game/bot';
 import { readParams } from '../src/game/params';
-export function run(seed: number, skill: number) {
+export function run(seed: number, skill: number, lag = 0, lagOn = 'all') {
   const g = new Game(seed, readParams());
-  const bot = new Bot(skill, seed);
+  const bot = new Bot(skill, seed, lag, lagOn as any);
   let breaks = 0, caught = 0, multi = 0, eaten = 0;
   while (!g.over && g.t < 900) {
     g.step(bot.decide(g));
@@ -42,12 +44,12 @@ try {
   globalThis.location = { search: '' };
   const mod = await import('data:text/javascript,' + encodeURIComponent(out[0].output[0].code));
   const rows = [];
-  if (process.env.DUMP) { for (let s = 1; s <= N; s++) { const r = mod.run(s * 7919, SKILL); if (r.sec < 80) console.log(JSON.stringify(r)); } }
-  for (let s = 1; s <= N; s++) rows.push(mod.run(s * 7919, SKILL));
-  const again = mod.run(7919, SKILL);
+  if (process.env.DUMP) { for (let s = 1; s <= N; s++) { const r = mod.run(s * 7919, SKILL, LAG, LAGON); if (r.sec < 80) console.log(JSON.stringify(r)); } }
+  for (let s = 1; s <= N; s++) rows.push(mod.run(s * 7919, SKILL, LAG, LAGON));
+  const again = mod.run(7919, SKILL, LAG, LAGON);
   const deterministic = JSON.stringify(again) === JSON.stringify(rows[0]) && mod.replayCheck(4242);
   const med = (k) => rows.map((r) => r[k]).sort((a, b) => a - b)[Math.floor(rows.length / 2)];
-  console.log(JSON.stringify({ ok: deterministic, deterministic, skill: SKILL, runs: N,
+  console.log(JSON.stringify({ ok: deterministic, deterministic, skill: SKILL, lag: LAG, runs: N,
     medianWave: med('wave'), perBreak: +(rows.reduce((s, r) => s + r.perBreak, 0) / rows.length).toFixed(2),
     multi3Rate: +(rows.reduce((s, r) => s + r.multiRate, 0) / rows.length).toFixed(2), medianBreaks: med('eaten'),
     medianSec: med('sec'), medianScore: med('score'), medianBestChain: med('bestChain'),

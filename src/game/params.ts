@@ -7,6 +7,9 @@ export function readParams() {
     flySpeed: tune('lantern.speed'),
     tapR: tune('lantern.tapR'),
     lureR: tune('lure.r'),
+    dwell: tune('lure.dwell'),
+    orbitR: tune('lure.orbit'),
+    lureSpeed: tune('lure.speed'),
     kiraiR: tune('kirai.r'),
     blastR: tune('blast.r'),
     blastDur: tune('blast.dur'),
@@ -26,6 +29,8 @@ export function readParams() {
     salvoGapMin: tune('wave.gapMin'),
     waveBonus: tune('wave.bonus'),
     multiEvery: tune('wave.multi'),
+    ammoRatio: tune('wave.ammo'),
+    ammoBonus: tune('wave.ammoBonus'),
   };
 }
 export type Params = ReturnType<typeof readParams>;

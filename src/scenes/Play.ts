@@ -39,6 +39,7 @@ export class Play extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private watchText!: Phaser.GameObjects.Text;
   private lanternIcons: Phaser.GameObjects.Image[] = [];
+  private ammoText!: Phaser.GameObjects.Text;
   private chainText!: Phaser.GameObjects.Text;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -87,6 +88,7 @@ export class Play extends Phaser.Scene {
     for (let i = 0; i < this.game2.P.maxLanterns; i++) {
       this.lanternIcons.push(this.add.image(PAPER.x1 - 110 - i * 22, 16, 'lantern').setScale(0.42).setDepth(50));
     }
+    this.ammoText = this.add.text(PAPER.x1 - 176, 6, '', txt(18, '#ffd9a0')).setOrigin(1, 0).setDepth(50);
     const mute = this.add.text(PAPER.x1 - 14, 6, isMuted() ? '♪×' : '♪', txt(18, '#cfe')).setOrigin(1, 0).setDepth(50);
     this.chainText = this.add.text(W / 2, H / 2, '', txt(44, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
@@ -146,6 +148,9 @@ export class Play extends Phaser.Scene {
       case 'launch':
         snd.launch();
         this.sparks.explode(4, e.sx, e.sy);
+        break;
+      case 'arm':
+        snd.arm();
         break;
       case 'light':
         snd.place();
@@ -228,7 +233,8 @@ export class Play extends Phaser.Scene {
     this.scoreText.setText(`${t('score')} ${g.score}`);
     this.watchText.setText(`${watchName(g.wave)}   ${t('houses')} ${g.litCount}/${g.houses.length}`);
     this.lanternIcons.forEach((ic, i) => ic.setAlpha(i < g.P.maxLanterns - g.lanterns.length ? 1 : 0.2));
-    expose('score', g.score); expose('lanterns', g.lanterns.length);
+    this.ammoText.setText(`${t('ammo')} ${g.ammo}`);
+    expose('score', g.score); expose('lanterns', g.lanterns.length); expose('ammo', g.ammo);
   }
 
   /** state → 絵。スプライトは id ごとに使い回し、消えたものは捨てる */

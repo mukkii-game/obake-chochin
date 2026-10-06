@@ -37,8 +37,12 @@ export interface Ghost {
   speed: number; target: number; age: number; phase: number;
   /** 吸い寄せられている提灯の id。0 = 家へ向かう */
   lure: number;
-  /** もう通り抜けた提灯(同じ提灯には二度寄らない) */
+  /** もう離れた提灯(同じ提灯には二度寄らない) */
   passed: number[];
+  /** 提灯のまわりを回る残り秒。負 = まだ向かっている途中 */
+  dwell: number;
+  /** 回る輪の上の角度 */
+  orbitA: number;
   hopT: number; dashT: number;
   /** 跳ぶ前の溜め 0..1(見た目用) */
   crouch: number;
@@ -50,6 +54,8 @@ export interface Lantern {
   sx: number; sy: number; tx: number; ty: number;
   x: number; y: number;
   flying: boolean; flyT: number; flyDur: number;
+  /** 飛んでいる最中に押された = 着いたらすぐ割れる(撃ち落とし。着く瞬間に合わせて押す必要は無い) */
+  armed: boolean;
   /** 灯ってからの秒(見た目用) */
   age: number;
 }
@@ -61,6 +67,7 @@ export interface Chain { id: number; count: number; pts: number; lx: number; ly:
 
 export type GameEvent =
   | { type: 'launch'; sx: number; sy: number; x: number; y: number }
+  | { type: 'arm'; x: number; y: number }
   | { type: 'light'; x: number; y: number }
   | { type: 'deny'; x: number; y: number }
   | { type: 'break'; x: number; y: number }
@@ -115,9 +122,14 @@ export class Game {
     this.rng = new Rng(seed);
     this.houses = HOUSE_POS.map(([x, y]) => ({ x, y, lit: true, flash: 0 }));
     this.waveLeft = this.waveSize(0);
+    this.ammo = this.ammoFor(0);
   }
 
   waveSize(n: number) { return Math.round(this.P.waveBase + this.P.waveGrow * n); }
+  /** この刻に撃てる提灯の数(ミサイルコマンドと同じく、撃ち放題にしない) */
+  ammoFor(n: number) { return Math.max(3, Math.ceil(this.waveSize(n) * this.P.ammoRatio)); }
+  /** 残りの提灯 */
+  ammo = 0;
 
   get litCount() { return this.houses.filter((h) => h.lit).length; }
 
@@ -138,7 +150,7 @@ export class Game {
     return h ? Math.hypot(x - h.x, y - (h.y - 18)) / this.P.flySpeed : Infinity;
   }
 
-  /** 1 タップ。提灯の近く → 割る(飛んでいても) / それ以外 → 飛ばす */
+  /** 1 タップ。灯った提灯 → 割る / 飛んでいる提灯(か行き先)→ 着いたら割る / それ以外 → 飛ばす */
   tap(x: number, y: number) {
     if (this.over) return;
     x = Math.round(x); y = Math.round(y); // 記録(整数)と同じ値で動かす
@@ -148,14 +160,19 @@ export class Game {
       const d = Math.min(Math.hypot(l.x - x, l.y - y), l.flying ? Math.hypot(l.tx - x, l.ty - y) : Infinity);
       if (d <= bd) { bd = d; best = l; }
     }
-    if (best) { this.breakLantern(best); return; }
+    if (best) {
+      if (!best.flying) this.breakLantern(best);
+      else if (!best.armed) { best.armed = true; this.events.push({ type: 'arm', x: best.tx, y: best.ty }); }
+      return;
+    }
     x = clamp(x, FIELD.x0 + 8, FIELD.x1 - 8);
     y = clamp(y, FIELD.y0 + 8, FIELD.y1 - 8);
     const h = this.launchHouse(x, y);
-    if (!h || this.lanterns.length >= P.maxLanterns) { this.events.push({ type: 'deny', x, y }); return; }
+    if (!h || this.lanterns.length >= P.maxLanterns || this.ammo <= 0) { this.events.push({ type: 'deny', x, y }); return; }
+    this.ammo--;
     const sy = h.y - 18;
     const flyDur = Math.max(0.08, Math.hypot(x - h.x, y - sy) / P.flySpeed);
-    this.lanterns.push({ id: this.nextId++, sx: h.x, sy, tx: x, ty: y, x: h.x, y: sy, flying: true, flyT: 0, flyDur, age: 0 });
+    this.lanterns.push({ id: this.nextId++, sx: h.x, sy, tx: x, ty: y, x: h.x, y: sy, flying: true, flyT: 0, flyDur, armed: false, age: 0 });
     this.events.push({ type: 'launch', sx: h.x, sy, x, y });
   }
 
@@ -186,7 +203,11 @@ export class Game {
       l.flyT += dt;
       const k = Math.min(1, l.flyT / l.flyDur);
       l.x = lerp(l.sx, l.tx, k); l.y = lerp(l.sy, l.ty, k);
-      if (k >= 1) { l.flying = false; l.x = l.tx; l.y = l.ty; this.events.push({ type: 'light', x: l.x, y: l.y }); }
+      if (k >= 1) {
+        l.flying = false; l.x = l.tx; l.y = l.ty;
+        if (l.armed) { this.breakLantern(l); continue; }
+        this.events.push({ type: 'light', x: l.x, y: l.y });
+      }
     }
 
     // 人魂(成仏したおばけ): ふわりと昇って、弾ける
@@ -217,7 +238,7 @@ export class Game {
 
   private resume(g: Ghost) {
     if (g.lure) g.passed.push(g.lure);
-    g.lure = 0; g.bx = g.x; g.by = g.y;
+    g.lure = 0; g.dwell = -1; g.bx = g.x; g.by = g.y;
     if (!this.houses[g.target].lit) g.target = this.pickTarget(g.x, g.y);
   }
 
@@ -233,14 +254,14 @@ export class Game {
     if (this.pause > 0) {
       this.pause -= dt;
       if (this.pause <= 0) {
-        this.wave++; this.waveLeft = this.waveSize(this.wave); this.salvoT = 0.8;
+        this.wave++; this.waveLeft = this.waveSize(this.wave); this.ammo = this.ammoFor(this.wave); this.salvoT = 0.8;
         this.events.push({ type: 'watch', n: this.wave });
       }
       return;
     }
     if (this.waveLeft <= 0) {
       if (this.ghosts.length === 0) {
-        const bonus = this.litCount * P.waveBonus * (this.wave + 1);
+        const bonus = (this.litCount * P.waveBonus + this.ammo * P.ammoBonus) * (this.wave + 1);
         this.score += bonus;
         this.pause = WAVE_PAUSE;
         this.events.push({ type: 'waveEnd', n: this.wave, bonus });
@@ -286,7 +307,7 @@ export class Game {
       id: this.nextId++, kind, x, y, bx: x, by: y, face: 1,
       speed: this.P.ghostSpeed * mult,
       target: this.pickTarget(x, y), age: 0, phase: this.rng.next() * Math.PI * 2,
-      lure: 0, passed: [],
+      lure: 0, passed: [], dwell: -1, orbitA: 0,
       hopT: 1.2 + this.rng.next() * 1.0, dashT: 0, crouch: 0, dead: false,
     };
     this.ghosts.push(g);
@@ -319,7 +340,11 @@ export class Game {
       const d = Math.hypot(l.x - g.x, l.y - g.y);
       if (d < bd) { bd = d; best = l.id; }
     }
-    if (best) { g.lure = best; g.bx = g.x; g.by = g.y; }
+    if (best) {
+      const l = this.lanterns.find((q) => q.id === best)!;
+      g.lure = best; g.dwell = -1; g.bx = g.x; g.by = g.y;
+      g.orbitA = Math.atan2(g.y - l.y, g.x - l.x);
+    }
   }
 
   private moveGhosts(dt: number) {
@@ -332,6 +357,7 @@ export class Game {
       if (!g.lure && !this.houses[g.target].lit) g.target = this.pickTarget(g.x, g.y);
       if (!g.lure) this.tryLure(g);
       const sp = g.speed * ramp;
+      if (g.lure && this.orbit(g, sp, dt)) continue;
 
       const [hx, hy] = this.goal(g);
       let dx = hx - g.bx, dy = hy - g.by;
@@ -386,17 +412,35 @@ export class Game {
       g.x = clamp(nx, FIELD.x0 - 10, FIELD.x1 + 10);
       g.y = clamp(ny, FIELD.y0 - 10, FIELD.y1 + 10);
 
-      if (g.lure) {
-        // 提灯を通り抜けたら、また家へ
-        if (dist <= stp + 0.5) this.resume(g);
-        continue;
-      }
       const h = this.houses[g.target];
       if (Math.hypot(h.x - g.x, h.y - g.y) < 16 && h.lit) {
         h.lit = false; h.flash = 0.6; g.dead = true;
         this.events.push({ type: 'houseOut', x: h.x, y: h.y, left: this.litCount });
       }
     }
+  }
+
+  /** 提灯のまわりを回る。着いたら dwell 秒だけ回って、離れて家へ向かう。まだ回っているなら true */
+  private orbit(g: Ghost, sp: number, dt: number): boolean {
+    const P = this.P;
+    const l = this.lanterns.find((q) => q.id === g.lure);
+    if (!l) { this.resume(g); return false; }
+    const ring = (a: number): [number, number] => [l.x + Math.cos(a) * P.orbitR, l.y + Math.sin(a) * P.orbitR * 0.8];
+    if (g.dwell < 0) {
+      const [tx, ty] = ring(g.orbitA);
+      const dx = tx - g.x, dy = ty - g.y, d = Math.hypot(dx, dy) || 1;
+      const st = Math.min(d, sp * P.lureSpeed * dt);
+      g.x += (dx / d) * st; g.y += (dy / d) * st;
+      if (Math.abs(dx) > 0.3) g.face = dx < 0 ? -1 : 1;
+      if (d - st < 1) g.dwell = P.dwell;
+    } else {
+      g.dwell -= dt;
+      g.orbitA += dt * 2.2 * (g.id % 2 ? 1 : -1);
+      [g.x, g.y] = ring(g.orbitA);
+      if (g.dwell <= 0) { this.resume(g); return false; }
+    }
+    g.bx = g.x; g.by = g.y; g.crouch = 0;
+    return true;
   }
 
   private runBlasts(dt: number) {

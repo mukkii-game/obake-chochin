@@ -13,7 +13,10 @@ export const KNOBS: Knob[] = [
   { key: 'lantern.max', label: '同時に出せる提灯', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: 'SPEC では 3。飛んでいるものも数える' },
   { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 280, min: 100, max: 1200, step: 10, unit: 'px/秒', aim: '先読みが要るが、読めば当たる。遠い所は約1秒' },
   { key: 'lantern.tapR', label: '提灯を押す当たり', value: 40, min: 20, max: 80, step: 2, unit: 'px', aim: 'スマホの指でも外さない' },
-  { key: 'lure.r', label: '灯りが届く範囲', value: 110, min: 40, max: 250, step: 5, unit: 'px', aim: '灯りの明るい所がそのまま範囲。入ったおばけは提灯を通り抜けていく' },
+  { key: 'lure.r', label: '灯りが届く範囲', value: 100, min: 40, max: 250, step: 5, unit: 'px', aim: '灯りの明るい所がそのまま範囲。通りかかったおばけは提灯のまわりを回る' },
+  { key: 'lure.dwell', label: '提灯のまわりを回る時間', value: 3.0, min: 0.5, max: 8, step: 0.1, unit: '秒', aim: '長いほど猶予が広い。いつ割るかを考える余裕' },
+  { key: 'lure.orbit', label: '回る輪の半径', value: 34, min: 10, max: 60, step: 2, unit: 'px', aim: '成仏の光の半径より小さく。回っている全員が収まる' },
+  { key: 'lure.speed', label: '吸い寄せられる速さ', value: 1.6, min: 0.5, max: 3, step: 0.1, unit: '倍' },
   { key: 'kirai.r', label: '光嫌いが避ける距離', value: 52, min: 20, max: 200, step: 2, unit: 'px', aim: '成仏の光よりわずかに内。灯りを避けて回り込む瞬間に割れば当たる' },
   // 成仏の光(広がって・留まって・縮む。いつも同じ)
   { key: 'blast.r', label: '成仏の光の半径', value: 58, min: 20, max: 160, step: 2, unit: 'px', aim: '群れ 3〜4 体がちょうど収まる' },
@@ -37,6 +40,8 @@ export const KNOBS: Knob[] = [
   { key: 'wave.gap', label: '群れと群れの間', value: 3.4, min: 0.5, max: 8, step: 0.1, unit: '秒', aim: '刻が進むと 0.25 秒ずつ詰まる' },
   { key: 'wave.gapMin', label: '群れの間の最短', value: 1.1, min: 0.3, max: 5, step: 0.1, unit: '秒' },
   { key: 'wave.multi', label: '同時に来る群れが増える間隔', value: 3, min: 1, max: 20, step: 1, unit: '刻ごと' },
+  { key: 'wave.ammo', label: '刻ごとに撃てる提灯', value: 0.6, min: 0.2, max: 1.5, step: 0.05, unit: '×おばけの数', aim: '撃ち放題にしない。1 つで何体巻き込むかを考えさせる' },
+  { key: 'wave.ammoBonus', label: '余った提灯 1 つの点', value: 30, min: 0, max: 300, step: 5, unit: '点×刻' },
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },
   // 演出
   { key: 'juice.shake', label: '家の灯りが消えた時の揺れ', value: 0.012, min: 0, max: 0.05, step: 0.002, unit: '画面比' },
