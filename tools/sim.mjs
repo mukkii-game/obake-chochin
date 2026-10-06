@@ -19,12 +19,12 @@ export function run(seed: number, skill: number) {
   while (!g.over && g.t < 900) {
     g.step(bot.decide(g));
     for (const e of g.drainEvents()) {
-      if (e.type === 'break') { breaks++; caught += e.inside; if (e.inside >= 3) multi++; }
-      if (e.type === 'eaten') eaten++;
+      if (e.type === 'break') breaks++;
+      if (e.type === 'chainEnd') { caught += e.n; if (e.n >= 3) multi++; }
     }
   }
   return { seed, sec: Math.round(g.t), score: g.score, bestChain: g.bestChain, purified: g.purified, wave: g.wave,
-    perBreak: breaks ? caught / breaks : 0, multiRate: breaks ? multi / breaks : 0, eaten };
+    perBreak: breaks ? caught / breaks : 0, multiRate: breaks ? multi / breaks : 0, eaten: breaks };
 }
 /** bot の入力を記録 → 文字列 → 再生して、同じ結果になるか(?replay= の仕組みと同じ道) */
 export function replayCheck(seed: number) {
@@ -49,7 +49,7 @@ try {
   const med = (k) => rows.map((r) => r[k]).sort((a, b) => a - b)[Math.floor(rows.length / 2)];
   console.log(JSON.stringify({ ok: deterministic, deterministic, skill: SKILL, runs: N,
     medianWave: med('wave'), perBreak: +(rows.reduce((s, r) => s + r.perBreak, 0) / rows.length).toFixed(2),
-    multi3Rate: +(rows.reduce((s, r) => s + r.multiRate, 0) / rows.length).toFixed(2), medianEaten: med('eaten'),
+    multi3Rate: +(rows.reduce((s, r) => s + r.multiRate, 0) / rows.length).toFixed(2), medianBreaks: med('eaten'),
     medianSec: med('sec'), medianScore: med('score'), medianBestChain: med('bestChain'),
     minSec: Math.min(...rows.map((r) => r.sec)), maxSec: Math.max(...rows.map((r) => r.sec)) }, null, 1));
   process.exitCode = deterministic ? 0 : 1;

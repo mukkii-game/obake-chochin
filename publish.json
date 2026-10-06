@@ -15,27 +15,27 @@
     {
       "id": "catch",
       "label": "キャッチコピー(1行)",
-      "body": "先を読んで提灯を飛ばし、おばけが着く直前に割って、まとめて成仏させろ。"
+      "body": "先を読んで提灯を飛ばし、群れが重なる一瞬に割れ。"
     },
     {
       "id": "short",
       "label": "短い紹介(100字・概要欄向け)",
-      "body": "夜の村に群れで寄ってくるおばけ。先を読んで提灯を飛ばし、灯りで呼び寄せ、先頭が着く直前に割ってまとめて成仏させる和風スコアアタック。ブラウザですぐ遊べます。"
+      "body": "夜の村に群れで寄ってくるおばけ。先を読んで提灯を飛ばし、灯りで吸い寄せ、群れが重なった一瞬に割ってまとめて成仏させる和風スコアアタック。ブラウザですぐ遊べます。"
     },
     {
       "id": "long",
       "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
-      "body": "夜が更けるほど、村におばけが群れで寄ってくる。家に入られると、その家の灯りが消えてしまう。\nあなたは家から提灯を飛ばして、おばけを迎え撃つ。\n\n■ 遊び方(スマホ)\n・タップした所へ、近くの家から提灯が飛んでいく(同時に 3 つまで)。着くまでの間におばけは進むので、先を読んで狙う\n・灯った提灯はおばけを呼び寄せる。提灯の周りの輪が「今割ったら巻き込む範囲」。待つほど大きくなる\n・でも、最初の 1 体が提灯に着いたら提灯は食われて消える。輪が赤くなったら割りどき。もう一度タップして割れ!\n・飛んでいる提灯の行き先の印をタップすると、着いた瞬間に割れる(撃ち落とし)\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 波打ちながら近づく\n・ジグザグ鬼火 … 一定のリズムで折れながら迫る\n・跳ねる唐傘 … 溜めてから跳ぶ。着地点に輪が出る\n・光嫌いの影法師 … 提灯には寄ってこない。撃ち落とすか、成仏した仲間の灯りで仕留める\n\n■ コツ\n・群れの進む先に置き、まとめて呼び寄せてから、先頭が着く直前に割る\n・成仏したおばけからも成仏の光が出て連鎖する。しばらく味方の灯りにもなる\n・12 連鎖以上で、消えた家の灯りがひとつ戻る\n\n刻を越えるごとに、残った家の数だけボーナス。全部の家の灯りが消えたら終わり。"
+      "body": "夜が更けるほど、村におばけが群れで寄ってくる。家に入られると、その家の灯りが消えてしまう。\nあなたは家から提灯を飛ばして、おばけを迎え撃つ。\n\n■ 遊び方(スマホ)\n・タップした所へ、近くの家から提灯が飛んでいく(同時に 3 つまで)。着くまでの間におばけは進むので、先を読んで狙う\n・灯った提灯の近くを通るおばけは、提灯へ吸い寄せられて通り抜けていく\n・もう一度タップすると提灯が割れて、成仏の光が広がる。群れが重なった瞬間に割れば、まとめて成仏\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 波打ちながら近づく\n・ジグザグ鬼火 … 一定のリズムで折れながら迫る\n・跳ねる唐傘 … しゃがんでから跳ぶ\n・光嫌いの影法師 … 灯りを避けて回り込む\n\n■ コツ\n・成仏したおばけからも光が出て、人魂になってもう一度弾ける。固まった群れは連鎖する\n・12 連鎖以上で、消えた家の灯りがひとつ戻る\n\n刻を越えるごとに、残った家の数だけボーナス。全部の家の灯りが消えたら終わり。"
     },
     {
       "id": "short-en",
       "label": "Short description (English)",
-      "body": "Ghosts swarm a night village. Launch paper lanterns ahead of them, lure the swarm in, and break the lantern just before the first ghost reaches it to free them all in a chain."
+      "body": "Ghosts swarm a night village. Launch paper lanterns ahead of them, draw the swarm through the light, and break the lantern the instant they overlap to free them all in a chain."
     },
     {
       "id": "controls-en",
       "label": "Controls (English)",
-      "body": "Tap / click a spot to launch a lantern there (up to 3). Tap a lit lantern to break it — the ring shows what you will catch. The first ghost to reach a lantern eats it. Tap a flying lantern’s mark to burst on arrival. M toggles sound."
+      "body": "Tap / click a spot to launch a lantern there (up to 3). Tap / click a lantern again to break it. M toggles sound. Landscape recommended on phones."
     },
     {
       "id": "x-a",
@@ -45,7 +45,7 @@
     {
       "id": "x-b",
       "label": "X: 仕掛けで引く",
-      "body": "群れの先に提灯を飛ばし、呼び寄せて、先頭が着く直前に割る。\n輪の中の「×7」が一気に成仏する瞬間のためのゲームです。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
+      "body": "群れの先に提灯を飛ばし、吸い寄せて、重なった一瞬に割る。\nタイマーも目印も無し。見て、読んで、割る。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
     }
   ],
   "sites": [
