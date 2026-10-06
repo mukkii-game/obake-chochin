@@ -34,6 +34,7 @@ export class Play extends Phaser.Scene {
   private wSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
   private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }> = [];
   private fx!: Phaser.GameObjects.Graphics;
+  private glowFx!: Phaser.GameObjects.Graphics;
   private moon!: Phaser.GameObjects.Image;
   private scoreText!: Phaser.GameObjects.Text;
   private watchText!: Phaser.GameObjects.Text;
@@ -42,13 +43,14 @@ export class Play extends Phaser.Scene {
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   private tipShown = new Set<string>();
+  private trails = new Map<number, Array<[number, number]>>();
 
   constructor() { super('Play'); }
 
   create() {
     expose('scene', 'Play');
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0;
-    this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.lanternIcons = [];
+    this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.lanternIcons = []; this.trails.clear();
     this.tipShown.clear();
 
     const replay = replayFromUrl();
@@ -67,6 +69,7 @@ export class Play extends Phaser.Scene {
       this.houseImgs.push({ img, glow });
     }
     this.fx = this.add.graphics().setDepth(5);
+    this.glowFx = this.add.graphics().setDepth(19).setBlendMode(Phaser.BlendModes.ADD);
 
     this.sparks = this.add.particles(0, 0, 'dot', {
       lifespan: 900, speed: { min: 20, max: 110 }, angle: { min: 200, max: 340 }, gravityY: -40,
@@ -140,9 +143,19 @@ export class Play extends Phaser.Scene {
 
   private onEvent(e: GameEvent) {
     switch (e.type) {
-      case 'place':
+      case 'launch':
+        snd.launch();
+        this.sparks.explode(4, e.sx, e.sy);
+        break;
+      case 'arm':
+        snd.arm();
+        break;
+      case 'light':
         snd.place();
-        this.sparks.explode(6, e.x, e.y);
+        this.sparks.explode(8, e.x, e.y);
+        break;
+      case 'catch':
+        snd.catch();
         break;
       case 'deny': {
         snd.deny();
@@ -156,11 +169,14 @@ export class Play extends Phaser.Scene {
         this.shards.explode(14, e.x, e.y);
         this.sparks.explode(10 + e.held * 2, e.x, e.y);
         this.cameras.main.flash(80, 255, 220, 160, false);
-        this.ring(e.x, e.y, e.r, 0xffe9a8, 4);
         break;
-      case 'burnout':
+      case 'fizzle':
         snd.burnout();
         this.puff(e.x, e.y);
+        if (e.held > 0) {
+          const s = this.add.text(e.x, e.y - 20, t('escaped'), txt(15, '#c8b8ff')).setOrigin(0.5).setDepth(40);
+          this.tweens.add({ targets: s, y: e.y - 44, alpha: 0, duration: 900, onComplete: () => s.destroy() });
+        }
         break;
       case 'purify': {
         snd.purify(e.n);
@@ -223,16 +239,6 @@ export class Play extends Phaser.Scene {
     this.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 400 });
   }
 
-  private ring(x: number, y: number, r: number, color: number, width: number) {
-    const gr = this.add.graphics().setDepth(20).setBlendMode(Phaser.BlendModes.ADD);
-    const o = { k: 0 };
-    this.tweens.add({
-      targets: o, k: 1, duration: 420, ease: 'Cubic.Out',
-      onUpdate: () => { gr.clear(); gr.lineStyle(width * (1 - o.k) + 1, color, 1 - o.k); gr.strokeCircle(x, y, r * (0.4 + 0.8 * o.k)); },
-      onComplete: () => gr.destroy(),
-    });
-  }
-
   private puff(x: number, y: number) {
     const p = this.add.image(x, y, 'glow').setTint(0x404060).setAlpha(0.8).setDepth(25);
     this.tweens.add({ targets: p, scale: 1.6, alpha: 0, duration: 600, onComplete: () => p.destroy() });
@@ -262,25 +268,30 @@ export class Play extends Phaser.Scene {
       o.img.setScale(1 + h.flash * 0.25);
     });
 
-    // 提灯
+    // 提灯: 飛んでいる間は軌跡と行き先の印、灯ったら縮んでいく灯り
     const seenL = new Set<number>();
     for (const l of g.lanterns) {
       seenL.add(l.id);
       let s = this.lSprites.get(l.id);
       if (!s) {
-        const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8);
-        const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.2);
-        this.tweens.add({ targets: body, scale: 1, duration: 220, ease: 'Back.Out' });
-        const label = this.add.text(l.x, l.y + 30, '', txt(14, '#ffe8b0')).setOrigin(0.5, 0).setDepth(13);
+        const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8).setAlpha(0);
+        const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.55);
+        const label = this.add.text(l.x, l.y + 26, '', txt(14, '#ffe8b0')).setOrigin(0.5, 0).setDepth(13);
         s = { body, glow, label };
         this.lSprites.set(l.id, s);
       }
-      const remain = P.lanternLife - l.age;
-      const lit = Math.min(1, l.age / 0.25);
-      const flick = remain < 2 ? (Math.sin(time * 30) > 0 ? 0.35 : 1) : 0.9 + 0.1 * Math.sin(time * 9 + l.id);
-      s.glow.setScale((P.attractR * 2 / 128) * 1.25 * lit).setAlpha(0.42 * flick);
-      s.body.setAlpha(remain < 2 ? 0.6 + 0.4 * flick : 1).setAngle(Math.sin(time * 2 + l.id) * 4);
-      s.label.setText(l.held > 0 ? `${l.held}` : '');
+      s.body.setPosition(l.x, l.y);
+      if (l.flying) {
+        s.body.setScale(0.55).setAngle(Math.sin(time * 20 + l.id) * 10);
+        s.glow.setPosition(l.x, l.y).setScale(0.5).setAlpha(0.6);
+        s.label.setText('');
+      } else {
+        const fade = l.r / P.lightMax;
+        if (s.body.scale < 1) s.body.setScale(Math.min(1, s.body.scale + 0.12));
+        s.body.setAngle(Math.sin(time * 2 + l.id) * 4).setAlpha(0.55 + 0.45 * Math.min(1, fade * 2));
+        s.glow.setPosition(l.x, l.y).setScale(Math.max(0.01, (l.r * 2 / 128) * 1.35)).setAlpha(0.5 * (0.85 + 0.15 * Math.sin(time * 9 + l.id)));
+        s.label.setPosition(l.x, l.y + 26).setText(l.held > 0 ? `${l.held}` : '');
+      }
     }
     for (const [id, s] of this.lSprites) if (!seenL.has(id)) { s.body.destroy(); s.glow.destroy(); s.label.destroy(); this.lSprites.delete(id); }
 
@@ -312,7 +323,12 @@ export class Play extends Phaser.Scene {
         this.gSprites.set(gh.id, s);
       }
       this.drawGhost(s, gh, time);
+      let tr = this.trails.get(gh.id);
+      if (!tr) { tr = []; this.trails.set(gh.id, tr); }
+      const last = tr[tr.length - 1];
+      if (!last || Math.hypot(last[0] - gh.x, last[1] - gh.y) > 4) { tr.push([gh.x, gh.y]); if (tr.length > 22) tr.shift(); }
     }
+    for (const id of this.trails.keys()) if (!seenG.has(id)) this.trails.delete(id);
     for (const [id, s] of this.gSprites) {
       if (seenG.has(id)) continue;
       this.gSprites.delete(id);
@@ -320,34 +336,65 @@ export class Play extends Phaser.Scene {
       this.tweens.add({ targets: s, y: s.y - 30, alpha: 0, scale: 0.6, duration: 450, onComplete: () => s.destroy() });
     }
 
-    // 成仏の波
     this.fx.clear();
-    for (const w of g.waves) {
-      if (w.delay > 0 || w.r <= 0) continue;
-      const a = 1 - w.r / w.maxR;
-      this.fx.fillStyle(0xfff0c0, 0.08 + 0.12 * a); this.fx.fillCircle(w.x, w.y, w.r);
-      this.fx.lineStyle(w.big ? 3 : 2, 0xfff0c0, 0.4 + 0.5 * a); this.fx.strokeCircle(w.x, w.y, w.r);
-    }
-    // 提灯の寄せ範囲(点線の輪)
+    // 飛んでいる提灯: 家からの軌跡(火の粉の線)と、行き先の印
     for (const l of g.lanterns) {
-      const lit = Math.min(1, l.age / 0.25);
-      const n = 72;
-      this.fx.lineStyle(1.2, 0xffc080, 0.22);
-      const R = P.attractR * lit;
-      for (let i = 0; i < n; i += 2) {
-        const a0 = (i / n) * Math.PI * 2 + time * 0.3, a1 = ((i + 1) / n) * Math.PI * 2 + time * 0.3;
-        this.fx.lineBetween(l.x + Math.cos(a0) * R, l.y + Math.sin(a0) * R, l.x + Math.cos(a1) * R, l.y + Math.sin(a1) * R);
-      }
-      // 燃え残りの弧
-      const remain = Math.max(0, 1 - l.age / P.lanternLife);
-      this.fx.lineStyle(3, 0xffe0a0, 0.7);
-      const steps = Math.max(1, Math.ceil(remain * 24));
-      for (let i = 0; i < steps; i++) {
-        const a0 = -Math.PI / 2 + (i / steps) * remain * Math.PI * 2, a1 = -Math.PI / 2 + ((i + 1) / steps) * remain * Math.PI * 2;
-        this.fx.lineBetween(l.x + Math.cos(a0) * 26, l.y + Math.sin(a0) * 26, l.x + Math.cos(a1) * 26, l.y + Math.sin(a1) * 26);
+      if (!l.flying) continue;
+      this.fx.lineStyle(2, 0xffb060, 0.75);
+      this.fx.lineBetween(l.sx, l.sy, l.x, l.y);
+      this.fx.lineStyle(5, 0xff8030, 0.18);
+      this.fx.lineBetween(l.sx, l.sy, l.x, l.y);
+      this.drawMark(l.tx, l.ty, l.armed, time);
+    }
+    // 灯った提灯: 灯りの縁(これに触れたおばけが捕まる。縮みきったら消える)
+    for (const l of g.lanterns) {
+      if (l.flying || l.r <= 0) continue;
+      const low = l.r < P.lightMax * 0.3;
+      this.fx.lineStyle(2, low ? 0xff7050 : 0xffd090, low ? 0.5 + 0.4 * Math.sin(time * 25) : 0.55);
+      this.fx.strokeCircle(l.x, l.y, l.r);
+    }
+    // 成仏の光: 広がって、留まって、縮む
+    this.glowFx.clear();
+    for (const b of g.blasts) {
+      if (b.delay > 0 || b.r <= 0) continue;
+      this.glowFx.fillStyle(0xffb050, b.big ? 0.35 : 0.28); this.glowFx.fillCircle(b.x, b.y, b.r);
+      this.glowFx.fillStyle(0xfff0c0, 0.35); this.glowFx.fillCircle(b.x, b.y, b.r * 0.7);
+      this.glowFx.fillStyle(0xffffff, 0.3); this.glowFx.fillCircle(b.x, b.y, b.r * 0.35);
+      this.glowFx.lineStyle(2, 0xffe08a, 0.7); this.glowFx.strokeCircle(b.x, b.y, b.r);
+    }
+    // 唐傘の着地点の予告
+    for (const gh of g.ghosts) {
+      if (gh.kind !== 'hop' || gh.held !== 0 || gh.crouch <= 0) continue;
+      const [lx, ly] = g.hopLanding(gh);
+      this.fx.lineStyle(1.5, 0xc9a0ff, 0.3 + gh.crouch * 0.5);
+      this.fx.strokeEllipse(lx, ly + 10, 26 * gh.crouch + 6, 10 * gh.crouch + 3);
+      this.fx.lineStyle(1, 0xc9a0ff, 0.25 * gh.crouch);
+      this.fx.lineBetween(gh.x, gh.y, lx, ly);
+    }
+    // おばけの通った跡(どちらへ向かっているか読めるように)
+    for (const gh of g.ghosts) {
+      const tr = this.trails.get(gh.id);
+      if (!tr || tr.length < 2) continue;
+      for (let i = 1; i < tr.length; i++) {
+        const a = (i / tr.length) * 0.35;
+        this.fx.lineStyle(3 * (i / tr.length) + 0.5, gh.kind === 'kirai' ? 0x6a3a8a : gh.kind === 'zig' ? 0x60e0b0 : gh.kind === 'hop' ? 0xb080ff : 0xc8d8ff, a);
+        this.fx.lineBetween(tr[i - 1][0], tr[i - 1][1], tr[i][0], tr[i][1]);
       }
     }
     void dt;
+  }
+
+  /** 行き先の印(朱の丸に十字)。即割りの予約が入ると塗りつぶして脈打つ */
+  private drawMark(x: number, y: number, armed: boolean, time: number) {
+    const r = 9;
+    if (armed) {
+      const k = 1 + 0.2 * Math.sin(time * 20);
+      this.fx.fillStyle(0xff4a30, 0.85); this.fx.fillCircle(x, y, r * k);
+      this.fx.lineStyle(2, 0xffe0c0, 1); this.fx.lineBetween(x - r, y - r, x + r, y + r); this.fx.lineBetween(x - r, y + r, x + r, y - r);
+    } else {
+      this.fx.lineStyle(2, 0xff6040, 0.95); this.fx.strokeCircle(x, y, r);
+      this.fx.lineBetween(x - r - 4, y, x + r + 4, y); this.fx.lineBetween(x, y - r - 4, x, y + r + 4);
+    }
   }
 
   private drawGhost(s: Phaser.GameObjects.Image, gh: Ghost, time: number) {

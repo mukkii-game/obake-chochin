@@ -20,22 +20,22 @@
     {
       "id": "short",
       "label": "短い紹介(100字・概要欄向け)",
-      "body": "夜の村に寄ってくるおばけを、提灯の灯りでおびき寄せて集め、割ってまとめて成仏させる和風スコアアタック。溜めて割るほど連鎖が伸び、成仏したおばけは味方の灯りになる。ブラウザですぐ遊べます。"
+      "body": "夜の村に寄ってくるおばけの先を読んで提灯を飛ばし、灯りに吸い寄せて、割ってまとめて成仏させる和風スコアアタック。広がって縮む灯り、溜めて割るほど伸びる連鎖。ブラウザですぐ遊べます。"
     },
     {
       "id": "long",
       "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
-      "body": "夜が更けるほど、村におばけが寄ってくる。家に入られると、その家の灯りが消えてしまう。\nあなたは提灯を置いて、おばけをおびき寄せる。集まったところで提灯を割れば、まとめて成仏。\n\n■ 遊び方(スマホ)\n・画面をタップすると提灯を置く(同時に 3 つまで)。灯りの輪に入ったおばけは提灯に寄ってくる\n・置いた提灯をもう一度タップすると割れる。周りのおばけが成仏し、近くのおばけへ次々と連鎖する\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで置く / もう一度クリックで割る。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 漂いながら近づく\n・ジグザグ鬼火 … 左右に振れながら迫る\n・跳ねる唐傘 … 溜めてから急に跳ぶ\n・光嫌いの影法師 … 提灯の光を避けて回り込む。でも成仏した仲間の灯りには寄ってくる\n\n■ コツ\n・成仏したおばけは、しばらく味方の灯りになって近くのおばけを引き寄せ、消える時にまた成仏させる\n・8 連鎖以上で、消えた家の灯りがひとつ戻る\n・提灯は燃え尽きると、集めたおばけを放してしまう。割りどきを見極めよう\n\n全部の家の灯りが消えたら夜明けを待たずに終わり。スコアを競おう。"
+      "body": "夜が更けるほど、村におばけが寄ってくる。家に入られると、その家の灯りが消えてしまう。\nあなたは家から提灯を飛ばして、おばけを迎え撃つ。\n\n■ 遊び方(スマホ)\n・タップした所へ、近くの家から提灯が飛んでいく(同時に 3 つまで)。着くまでの間におばけは進むので、先を読んで狙う\n・着いた提灯の灯りがパッと広がり、だんだん縮んで消える。灯りに触れたおばけは提灯に吸い寄せられる\n・灯りが消える前に提灯をもう一度タップすると割れて、周りのおばけが成仏。固まっていれば次々と連鎖する\n・飛んでいる提灯の行き先の印をタップすると、着いた瞬間に割れる(撃ち落とし)\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 波打ちながら近づく\n・ジグザグ鬼火 … 一定のリズムで折れながら迫る\n・跳ねる唐傘 … 溜めてから跳ぶ。着地点に輪が出る\n・光嫌いの影法師 … 提灯の灯りを避けて回り込む。撃ち落とすか、成仏した仲間の灯りで捕まえる\n\n■ コツ\n・早く割るほど成仏の光は大きい。溜めるほど連鎖は伸びる。その綱引き\n・成仏したおばけは、しばらく味方の灯りになって近くのおばけを引き寄せる\n・12 連鎖以上で、消えた家の灯りがひとつ戻る\n\n全部の家の灯りが消えたら終わり。スコアを競おう。"
     },
     {
       "id": "short-en",
       "label": "Short description (English)",
-      "body": "Lure the ghosts haunting a night village with paper lanterns, then break the lantern to send them all to rest at once. Gather more before breaking for bigger chains — freed ghosts become friendly lights that lure even more."
+      "body": "Launch paper lanterns from village houses to intercept ghosts drifting toward them. Lead your shots, lure ghosts into the shrinking light, then break the lantern to free them all in a chain."
     },
     {
       "id": "controls-en",
       "label": "Controls (English)",
-      "body": "Tap / click to place a lantern (up to 3). Tap / click a lantern again to break it and free nearby ghosts in a chain. M toggles sound. Landscape recommended on phones."
+      "body": "Tap / click a spot to launch a lantern there (up to 3). Tap a lit lantern to break it. Tap the target mark of a flying lantern to burst on arrival. M toggles sound. Landscape recommended on phones."
     },
     {
       "id": "x-a",
@@ -45,7 +45,7 @@
     {
       "id": "x-b",
       "label": "X: 仕掛けで引く",
-      "body": "溜めて、溜めて、割る。\nおばけが 20 連鎖で成仏していく気持ちよさを作りました。成仏したおばけは味方の灯りになって、次のおばけを呼び寄せます。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
+      "body": "先を読んで提灯を飛ばし、灯りにおばけを吸い寄せて、縮みきる前に割る。\n溜めるほど連鎖、早く割るほど大きな光。その一瞬を狙うゲームです。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
     }
   ],
   "sites": [

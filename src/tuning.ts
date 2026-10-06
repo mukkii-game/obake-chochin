@@ -9,28 +9,35 @@ export type Knob =
   | { key: string; label: string; value: boolean; aim?: string };
 
 export const KNOBS: Knob[] = [
-  // 提灯
-  { key: 'lantern.max', label: '同時に置ける提灯', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: 'SPEC では 3。置き場所を選ばせる' },
-  { key: 'lantern.attract', label: '提灯の寄せ範囲', value: 120, min: 50, max: 250, step: 5, unit: 'px', aim: '画面幅の 1/8 ほど。先読みして置けば届く' },
-  { key: 'lantern.life', label: '提灯の燃える時間', value: 9, min: 3, max: 30, step: 0.5, unit: '秒', aim: '溜めたい欲と、燃え尽きて逃げられる怖さの綱引き' },
-  { key: 'lantern.burst', label: '割った時の成仏範囲', value: 70, min: 30, max: 200, step: 5, unit: 'px', aim: '集まった輪がちょうど収まる' },
-  { key: 'lantern.burstPer', label: '溜めた数ごとの範囲増', value: 4, min: 0, max: 20, step: 1, unit: 'px/体', aim: '溜めるほど大きく割れる' },
-  { key: 'lantern.tapR', label: '提灯を割るタップの当たり', value: 42, min: 20, max: 80, step: 2, unit: 'px', aim: 'スマホの指でも外さない' },
-  { key: 'lantern.orbit', label: '寄ったおばけの輪の半径', value: 30, min: 12, max: 70, step: 2, unit: 'px' },
+  // 提灯(飛ばす → 灯る → 縮む)
+  { key: 'lantern.max', label: '同時に出せる提灯', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: 'SPEC では 3。飛んでいるものも数える' },
+  { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 300, min: 100, max: 1200, step: 10, unit: 'px/秒', aim: '先読みが要るが、読めば当たる。遠い所は約1秒' },
+  { key: 'light.max', label: '灯りの最大半径', value: 78, min: 30, max: 200, step: 2, unit: 'px', aim: '道 1 本をふさぐくらい' },
+  { key: 'light.bloom', label: '灯りが広がりきる時間', value: 0.22, min: 0.05, max: 1, step: 0.01, unit: '秒' },
+  { key: 'light.life', label: '灯りが消えるまで', value: 3.2, min: 1, max: 12, step: 0.1, unit: '秒', aim: '縮んでいく灯り自体が残り時間。消えると集めたおばけが逃げる' },
+  { key: 'lantern.tapR', label: '提灯・印を押す当たり', value: 40, min: 20, max: 80, step: 2, unit: 'px', aim: 'スマホの指でも外さない' },
+  { key: 'lantern.orbit', label: '寄ったおばけの輪の半径', value: 26, min: 8, max: 60, step: 2, unit: 'px' },
+  // 割った時の成仏の光(広がって縮む)
+  { key: 'burst.base', label: '成仏の光の基本半径', value: 44, min: 20, max: 150, step: 2, unit: 'px', aim: '着いたら即割りでも 1〜2 体は落とせる' },
+  { key: 'burst.light', label: '灯りの大きさの上乗せ', value: 0.5, min: 0, max: 1.5, step: 0.05, unit: '倍', aim: '早く割るほど大きい。溜めるほど小さくなる、の綱引き' },
+  { key: 'burst.per', label: '溜めた数ごとの上乗せ', value: 3, min: 0, max: 15, step: 1, unit: 'px/体' },
+  { key: 'burst.dur', label: '成仏の光の長さ', value: 1.0, min: 0.3, max: 3, step: 0.05, unit: '秒', aim: '広がって、留まって、縮む。この間に触れたら成仏' },
   // 連鎖
-  { key: 'chain.radius', label: '成仏の波の半径', value: 52, min: 20, max: 120, step: 2, unit: 'px', aim: '固まっていれば次々つながる' },
-  { key: 'chain.delay', label: '連鎖の間', value: 0.11, min: 0.02, max: 0.4, step: 0.01, unit: '秒', aim: 'ポポポポと数えられる速さ' },
-  { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 8, min: 3, max: 30, step: 1, unit: '連', aim: '大連鎖のごほうび' },
+  { key: 'chain.radius', label: '成仏の波の半径', value: 36, min: 10, max: 120, step: 2, unit: 'px', aim: '固まっていれば次々つながる' },
+  { key: 'chain.delay', label: '連鎖の間', value: 0.08, min: 0.0, max: 0.4, step: 0.01, unit: '秒', aim: 'ポポポポと数えられる速さ' },
+  { key: 'chain.dur', label: '連鎖の光の長さ', value: 0.55, min: 0.2, max: 2, step: 0.05, unit: '秒' },
+  { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 12, min: 3, max: 30, step: 1, unit: '連', aim: '大連鎖のごほうび' },
   { key: 'score.base', label: '1体の基本点', value: 10, min: 1, max: 100, step: 1, unit: '点', aim: 'n 連目は基本点 × n' },
   // 味方の灯り(成仏したおばけ)
-  { key: 'wisp.life', label: '味方の灯りの時間', value: 3.5, min: 0.5, max: 10, step: 0.5, unit: '秒' },
-  { key: 'wisp.attract', label: '味方の灯りの寄せ範囲', value: 66, min: 0, max: 160, step: 2, unit: 'px', aim: '光を嫌うおばけも、これには寄る' },
-  { key: 'wisp.pop', label: '味方の灯りが弾ける範囲', value: 46, min: 0, max: 120, step: 2, unit: 'px' },
+  { key: 'wisp.life', label: '味方の灯りの時間', value: 2.2, min: 0.5, max: 10, step: 0.5, unit: '秒' },
+  { key: 'wisp.attract', label: '味方の灯りの寄せ範囲', value: 44, min: 0, max: 160, step: 2, unit: 'px', aim: '光を嫌うおばけも、これには寄る' },
+  { key: 'wisp.pop', label: '味方の灯りが弾ける範囲', value: 36, min: 0, max: 120, step: 2, unit: 'px' },
   // おばけ
   { key: 'ghost.speed', label: 'おばけの基本の速さ', value: 30, min: 10, max: 100, step: 1, unit: 'px/秒', aim: '端から家まで 8〜10 秒' },
-  { key: 'ghost.speedRamp', label: '夜更けの速さ増', value: 0.25, min: 0, max: 1, step: 0.05, unit: '倍/分' },
+  { key: 'ghost.speedRamp', label: '夜更けの速さ増', value: 0.35, min: 0, max: 1, step: 0.05, unit: '倍/分' },
   { key: 'spawn.rate0', label: '最初の出現数', value: 0.45, min: 0.1, max: 3, step: 0.05, unit: '体/秒' },
-  { key: 'spawn.rateGrow', label: '夜更けの出現増', value: 0.55, min: 0, max: 3, step: 0.05, unit: '体/秒/分', aim: '3 分ほどで手が回らなくなる' },
+  { key: 'spawn.rateGrow', label: '夜更けの出現増', value: 0.6, min: 0, max: 3, step: 0.05, unit: '体/秒/分', aim: '3 分ほどで手が回らなくなる' },
+  { key: 'ghost.hopDist', label: '唐傘のひと跳び', value: 70, min: 20, max: 200, step: 5, unit: 'px', aim: '着地点が予告されるので、そこへ置ける' },
   { key: 'spawn.zigAt', label: 'ジグザグが出始める', value: 20, min: 0, max: 300, step: 5, unit: '秒' },
   { key: 'spawn.hopAt', label: '跳ねるのが出始める', value: 40, min: 0, max: 300, step: 5, unit: '秒' },
   { key: 'spawn.kiraiAt', label: '光嫌いが出始める', value: 65, min: 0, max: 300, step: 5, unit: '秒' },

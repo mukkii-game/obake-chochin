@@ -14,6 +14,9 @@ function bell(freq: number, gain = 0.06, delay = 0, dur = 0.9) {
 
 export const snd = {
   place: () => { tone({ freq: 520, slide: 300, dur: 0.12, type: 'triangle', gain: 0.09 }); bell(note(7), 0.025, 0.03, 0.4); },
+  launch: () => { noise({ dur: 0.18, gain: 0.07, freq: 900, q: 1.2 }); tone({ freq: 300, slide: 700, dur: 0.16, type: 'triangle', gain: 0.05 }); },
+  arm: () => { tone({ freq: 1400, dur: 0.05, type: 'square', gain: 0.03 }); tone({ freq: 1800, dur: 0.05, type: 'square', gain: 0.03, delay: 0.06 }); },
+  catch: () => tone({ freq: 700, slide: 1000, dur: 0.07, type: 'sine', gain: 0.025 }),
   deny: () => tone({ freq: 160, dur: 0.12, type: 'square', gain: 0.04 }),
   break: (held: number) => {
     noise({ dur: 0.22, gain: 0.16, freq: 2400, q: 0.6 });
