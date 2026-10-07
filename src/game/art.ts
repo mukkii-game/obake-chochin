@@ -40,22 +40,25 @@ export function makeArt(scene: Phaser.Scene) {
   });
   make(scene, 'house_lit', 72, 64, (c) => drawHouse(c, true));
   make(scene, 'house_dark', 72, 64, (c) => drawHouse(c, false));
+  // 家の形 = 光の形。上 = 火の見櫓(上へ高い)/ 下 = 軒の長い提灯屋(下へ垂れる)/ 周り = 丸い蔵 / 横 = 長屋 / 縦 = 二階の楼 / 十字 = 辻の祠
+  for (const p of ['up', 'down', 'area', 'hline', 'vline', 'cross'] as const) {
+    make(scene, `house_${p}_lit`, 72, 72, (c) => drawShapedHouse(c, p, true));
+    make(scene, `house_${p}_dark`, 72, 72, (c) => drawShapedHouse(c, p, false));
+  }
   make(scene, 'g_fuwa', 48, 56, drawFuwa);
-  make(scene, 'g_zig', 48, 56, drawOnibi);
-  make(scene, 'g_hop', 52, 60, drawKarakasa);
+  make(scene, 'g_oni', 48, 56, drawOnibi);
+  make(scene, 'g_kasa', 52, 60, drawKarakasa);
   make(scene, 'g_kirai', 50, 56, drawKage);
   make(scene, 'wisp', 32, 40, drawWisp);
   make(scene, 'portal', 72, 72, drawPortal);
   make(scene, 'person', 12, 18, drawPerson);
   // 提灯の模様 = 光の形(キャンディのしま模様のように、見ればどう弾けるか分かる)。上向きを「前」として描く
-  make(scene, 'mark_hisha', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 3); c2.lineTo(14, 25); c2.moveTo(3, 14); c2.lineTo(25, 14); }));
-  make(scene, 'mark_kaku', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(5, 5); c2.lineTo(23, 23); c2.moveTo(23, 5); c2.lineTo(5, 23); }));
-  make(scene, 'mark_kyo', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 26); c2.lineTo(14, 4); c2.moveTo(7, 11); c2.lineTo(14, 3); c2.lineTo(21, 11); }));
-  make(scene, 'mark_kei', 28, 28, (c) => {
-    // 桂: 前の左右 2 か所へ跳ぶ。根元から 2 つの点へ
-    ink(c, (c2) => { c2.moveTo(14, 25); c2.lineTo(14, 16); c2.lineTo(7, 8); c2.moveTo(14, 16); c2.lineTo(21, 8); });
-    for (const x of [6, 22]) { c.fillStyle = '#ffd9a0'; c.beginPath(); c.arc(x, 6, 4.5, 0, 7); c.fill(); c.fillStyle = '#2a0806'; c.beginPath(); c.arc(x, 6, 3.2, 0, 7); c.fill(); }
-  });
+  make(scene, 'mark_up', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 26); c2.lineTo(14, 4); c2.moveTo(7, 11); c2.lineTo(14, 3); c2.lineTo(21, 11); }));
+  make(scene, 'mark_down', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 2); c2.lineTo(14, 24); c2.moveTo(7, 17); c2.lineTo(14, 25); c2.lineTo(21, 17); }));
+  make(scene, 'mark_area', 28, 28, (c) => ink(c, (c2) => { c2.rect(5, 5, 18, 18); c2.moveTo(14, 12); c2.lineTo(14, 16); }));
+  make(scene, 'mark_hline', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(3, 14); c2.lineTo(25, 14); }));
+  make(scene, 'mark_vline', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 3); c2.lineTo(14, 25); }));
+  make(scene, 'mark_cross', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 5); c2.lineTo(14, 23); c2.moveTo(5, 14); c2.lineTo(23, 14); }));
   make(scene, 'tree', 40, 44, (c) => {
     c.fillStyle = 'rgba(12,14,22,0.9)';
     c.fillRect(18, 28, 4, 16);
@@ -108,29 +111,29 @@ function drawBackground(c: Ctx) {
     g.addColorStop(0, 'rgba(200,210,255,0)'); g.addColorStop(0.5, `rgba(200,210,255,${a})`); g.addColorStop(1, 'rgba(200,210,255,0)');
     c.fillStyle = g; c.fillRect(x0, y - 16, x1 - x0, 32);
   }
-  // 碁盤の目の都(平安京のような通り)。町家の屋根が並ぶ区画と、白っぽい土の通り
-  const gx = (c: number) => GRID.x0 + c * GRID.dx, gy = (r: number) => GRID.y0 + r * GRID.dy;
-  c.fillStyle = 'rgba(14,16,26,0.55)';
-  c.fillRect(gx(0) - 18, gy(0) - 18, gx(GRID.cols - 1) - gx(0) + 36, gy(GRID.rows - 1) - gy(0) + 36);
-  for (let r = 0; r < GRID.rows - 1; r++) {
-    for (let col = 0; col < GRID.cols - 1; col++) {
-      // 区画の中の町家(当てる家ではない、ただの町並み)
-      const bx = gx(col) + 10, by = gy(r) + 10, bw = GRID.dx - 20, bh = GRID.dy - 20;
-      c.fillStyle = 'rgba(24,26,40,0.9)'; c.fillRect(bx, by, bw, bh);
-      const n = 2 + (rng.int(0, 2));
-      for (let k = 0; k < n; k++) {
-        const rx = bx + 4 + rng.next() * (bw - 26), ry = by + 4 + rng.next() * (bh - 22);
-        c.fillStyle = 'rgba(46,44,60,0.95)';
-        c.beginPath(); c.moveTo(rx, ry + 12); c.lineTo(rx + 5, ry); c.lineTo(rx + 17, ry); c.lineTo(rx + 22, ry + 12); c.closePath(); c.fill();
-        c.fillStyle = 'rgba(30,28,40,0.95)'; c.fillRect(rx + 3, ry + 12, 16, 7);
+  // マス目の都。土の道のマスと、町家の屋根が載った柱のマス(ボンバーマンの柱)。板塀は毎回変わるので Play で描く
+  const gx = (col: number) => GRID.x0 + col * GRID.cell, gy = (r: number) => GRID.y0 + r * GRID.cell;
+  c.fillStyle = 'rgba(14,16,26,0.6)';
+  c.fillRect(gx(0) - 6, gy(0) - 6, GRID.cols * GRID.cell + 12, GRID.rows * GRID.cell + 12);
+  for (let r = 0; r < GRID.rows; r++) {
+    for (let col = 0; col < GRID.cols; col++) {
+      const bx = gx(col), by = gy(r), s = GRID.cell;
+      if (col % 2 === 1 && r % 2 === 1) {
+        // 柱のマス: 町家の塊(通れない、光も通さない)
+        c.fillStyle = 'rgba(20,20,32,0.98)'; c.fillRect(bx + 2, by + 2, s - 4, s - 4);
+        c.fillStyle = 'rgba(52,48,66,1)';
+        c.beginPath(); c.moveTo(bx + 4, by + 30); c.lineTo(bx + 14, by + 8); c.lineTo(bx + s - 14, by + 8); c.lineTo(bx + s - 4, by + 30); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(32,30,44,1)'; c.fillRect(bx + 8, by + 30, s - 16, s - 36);
+        c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 1;
+        for (let i = 0; i < 6; i++) { c.beginPath(); c.moveTo(bx + 8 + i * 9, by + 29); c.lineTo(bx + 16 + i * 6, by + 9); c.stroke(); }
+        c.fillStyle = 'rgba(255,200,120,0.18)'; c.fillRect(bx + 14, by + 38, 10, 8); c.fillRect(bx + s - 24, by + 38, 10, 8);
+      } else {
+        // 道のマス: 白っぽい土。目地が少し見える
+        c.fillStyle = (col + r) % 2 ? 'rgba(200,180,140,0.13)' : 'rgba(200,180,140,0.10)';
+        c.fillRect(bx + 1, by + 1, s - 2, s - 2);
+        for (let k = 0; k < 4; k++) { c.fillStyle = 'rgba(255,240,200,0.05)'; c.fillRect(bx + 6 + rng.next() * (s - 12), by + 6 + rng.next() * (s - 12), 2, 2); }
       }
     }
-  }
-  c.lineCap = 'round';
-  for (const [w, col] of [[11, 'rgba(190,170,130,0.16)'], [5, 'rgba(225,205,160,0.14)']] as const) {
-    c.strokeStyle = col; c.lineWidth = w;
-    for (let r = 0; r < GRID.rows; r++) { c.beginPath(); c.moveTo(gx(0), gy(r)); c.lineTo(gx(GRID.cols - 1), gy(r)); c.stroke(); }
-    for (let col = 0; col < GRID.cols; col++) { c.beginPath(); c.moveTo(gx(col), gy(0)); c.lineTo(gx(col), gy(GRID.rows - 1)); c.stroke(); }
   }
   // 紙の端のかすれ
   const vg = c.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 560);
@@ -195,6 +198,75 @@ function drawHouse(c: Ctx, lit: boolean) {
   for (const x of [26, 32]) { c.beginPath(); c.moveTo(x, 37); c.lineTo(x, 51); c.stroke(); }
   c.beginPath(); c.moveTo(20, 44); c.lineTo(38, 44); c.stroke();
   c.beginPath(); c.moveTo(47, 37); c.lineTo(47, 58); c.stroke();
+}
+
+/** 形のある家(家の形 = この家から投げる提灯の光の形)。72×72、地面は y=64 */
+function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' | 'cross', lit: boolean) {
+  const wall = lit ? '#3d2f25' : '#25201c', roof = lit ? '#5b4630' : '#332a22', win = lit ? '#ffc864' : '#1a1a22';
+  const shoji = (x: number, y: number, w: number, h: number) => {
+    c.fillStyle = win; c.fillRect(x, y, w, h);
+    c.strokeStyle = lit ? 'rgba(90,50,10,0.8)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x + w / 2, y); c.lineTo(x + w / 2, y + h); c.moveTo(x, y + h / 2); c.lineTo(x + w, y + h / 2); c.stroke();
+  };
+  const gable = (x0: number, x1: number, yb: number, yt: number) => {
+    c.fillStyle = roof; c.beginPath(); c.moveTo(x0, yb); c.lineTo(x0 + 10, yt); c.lineTo(x1 - 10, yt); c.lineTo(x1, yb); c.closePath(); c.fill();
+    c.fillStyle = '#1b1410'; c.fillRect(x0 + 10, yt - 3, x1 - x0 - 20, 4);
+  };
+  switch (p) {
+    case 'up': {
+      // 火の見櫓: 細く高い。てっぺんに半鐘と、上を向いた屋根
+      c.strokeStyle = wall; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(22, 66); c.lineTo(30, 14); c.moveTo(50, 66); c.lineTo(42, 14); c.stroke();
+      c.lineWidth = 2;
+      for (let y = 22; y < 64; y += 9) { c.beginPath(); c.moveTo(30 - (y - 14) * 0.15, y); c.lineTo(42 + (y - 14) * 0.15, y); c.stroke(); }
+      c.fillStyle = roof; c.beginPath(); c.moveTo(20, 16); c.lineTo(36, 0); c.lineTo(52, 16); c.closePath(); c.fill();
+      c.fillStyle = lit ? '#ffd27a' : '#3a3530'; c.beginPath(); c.arc(36, 22, 5, 0, 7); c.fill();
+      shoji(28, 42, 16, 12);
+      break;
+    }
+    case 'down': {
+      // 提灯屋: 低い屋根の下に、大きな提灯が地面近くまで垂れる
+      c.fillStyle = wall; c.fillRect(12, 22, 48, 30);
+      gable(4, 68, 24, 6);
+      shoji(16, 28, 14, 14);
+      c.strokeStyle = '#111'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(46, 24); c.lineTo(46, 40); c.stroke();
+      const g = c.createRadialGradient(46, 52, 2, 46, 52, 12);
+      g.addColorStop(0, lit ? '#ffe08a' : '#5a3a30'); g.addColorStop(1, lit ? '#c0301e' : '#3a1a14');
+      c.fillStyle = g; c.beginPath(); c.ellipse(46, 53, 9, 13, 0, 0, 7); c.fill();
+      c.fillStyle = '#222'; c.fillRect(41, 39, 10, 3); c.fillRect(41, 65, 10, 3);
+      break;
+    }
+    case 'area': {
+      // 丸い蔵: どっしり四角い白壁に、丸く低い屋根(周りを照らす)
+      c.fillStyle = lit ? '#cfc6b0' : '#5a5650'; c.fillRect(10, 28, 52, 38);
+      c.fillStyle = roof; c.beginPath(); c.ellipse(36, 28, 32, 16, 0, Math.PI, 0); c.fill();
+      c.fillRect(4, 26, 64, 5);
+      c.fillStyle = lit ? '#2a2a2a' : '#1a1a1a'; c.fillRect(10, 54, 52, 4);
+      shoji(28, 36, 16, 14);
+      break;
+    }
+    case 'hline': {
+      // 長屋: 横に長い
+      c.fillStyle = wall; c.fillRect(2, 34, 68, 30);
+      gable(0, 72, 36, 18);
+      shoji(8, 42, 14, 12); shoji(29, 42, 14, 12); shoji(50, 42, 14, 12);
+      break;
+    }
+    case 'vline': {
+      // 二階の楼: 縦に高い
+      c.fillStyle = wall; c.fillRect(20, 12, 32, 54);
+      gable(14, 58, 14, 0); gable(12, 60, 40, 30);
+      shoji(28, 18, 16, 10); shoji(28, 46, 16, 14);
+      break;
+    }
+    case 'cross': {
+      // 辻の祠: 十字の屋根
+      c.fillStyle = wall; c.fillRect(22, 30, 28, 34);
+      c.fillStyle = roof; c.fillRect(6, 24, 60, 8); c.fillRect(30, 4, 12, 26);
+      shoji(28, 40, 16, 14);
+      break;
+    }
+  }
 }
 
 /** ふらふら漂う: 白い幽霊(額に三角の天冠) */

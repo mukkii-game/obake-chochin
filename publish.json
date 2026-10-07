@@ -1,7 +1,7 @@
 {
   "slug": "obake-chochin",
   "title": "おばけ提灯",
-  "tagline": "提灯でおばけを集めて、割って、まとめて成仏。",
+  "tagline": "提灯でおばけを集めて、並べて、まとめて成仏。",
   "author": "MUKKII",
   "playUrl": "https://mukkii-game.github.io/obake-chochin/",
   "zipName": "obake-chochin-html5.zip",
@@ -15,37 +15,37 @@
     {
       "id": "catch",
       "label": "キャッチコピー(1行)",
-      "body": "通りに提灯の罠を仕掛け、かかったおばけを十字の光でまとめて成仏。"
+      "body": "迷路の都に提灯の罠を仕掛け、おばけを並べて、光の連鎖で遠くまでまとめて成仏。"
     },
     {
       "id": "short",
       "label": "短い紹介(100字・概要欄向け)",
-      "body": "碁盤の目の都に、墓場からおばけが歩いてくる。曲がり方を読んで辻に提灯の罠を仕掛け、かかったら弾けさせる。光は将棋の駒の動き(飛・角・香・桂)で走り、他の提灯も誘爆する和風パズルアクション。"
+      "body": "マス目の迷路の都に、墓場からおばけがやってくる。決まった動きを読んでマスに提灯の罠を仕掛け、弾けさせる。光は家の形(櫓 = 上、提灯屋 = 下、蔵 = 周り)どおりに走り、他の提灯も誘爆する和風パズルアクション。"
     },
     {
       "id": "long",
       "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
-      "body": "夜の都に、墓場からおばけが歩いてくる。通りを歩き、辻で曲がって、灯りのついた家を目指す。\n家に入られると中の人が逃げ出して、灯りが消えてしまう。\n\n■ 遊び方(スマホ)\n・辻をタップすると、近くの家から提灯がゆっくり飛んでいく。着くまでの間にもおばけは進む\n・下がった提灯は罠。近くの通りのおばけを呼び、着いたおばけは見とれて動けなくなる\n・提灯の模様が光の形(十 = 十字、× = 斜め、矢 = 投げた向きにまっすぐ遠く、2 つの点 = 前の 2 か所へ跳ぶ)。模様は投げた家ののれんと同じで、遊ぶたびに変わる\n・提灯をもう一度タップすると弾けて、模様の形に光が走る。光に触れたおばけは成仏し、他の提灯も弾ける\n・成仏したおばけも小さく弾けて、連鎖する\n・提灯は家の軒先に下がっている分だけ。同時に下げられるのは 3 つまで\n・縦持ちのままでも、画面が横向きに表示されます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち(曲がり方を読もう)\n・幽霊 … 縦と横を交互に選んで、階段のように寄ってくる\n・鬼火 … 速い。まっすぐ行けるうちは曲がらない\n・唐傘 … 辻で止まり、辻を 1 つ飛ばして跳ぶ。跳び越した罠にはかからない\n・影法師 … 灯った提灯の近くを避けて回り込む。光で直接ねらう\n\n刻が変わるたびに墓場の場所が変わり、家並みも遊ぶたびに変わる。"
+      "body": "夜の都に、墓場からおばけがやってくる。都はマス目の迷路。柱の町家と細い板塀が道をふさぐ。\nおばけは灯りのついた家を目指し、家に入られると中の人が逃げ出して、灯りが消えてしまう。\n\n■ 遊び方(スマホ)\n・マスをタップすると、近くの家から提灯がゆっくり飛んでいく。着くまでの間にもおばけは進む\n・先に家をタップすると、その家の提灯をどこへでも投げられる\n・家の形が光の形: 火の見櫓 = 上へまっすぐ、提灯屋 = 下へまっすぐ、蔵 = 周り\n・下がった提灯は罠。近くのおばけを呼び、着いたおばけは見とれて動けなくなる\n・提灯をもう一度タップすると弾けて、家の形に光が走る。光は柱と板塀で止まる。光に触れたおばけは成仏し、他の提灯も弾ける\n・成仏したおばけも小さく弾けて、連鎖する。縦に並べれば遠くまで届く\n・提灯は家の軒先に下がっている分だけ。同時に下げられるのは 3 つまで\n・縦持ちのままでも、画面が横向きに表示されます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち(動きを読もう)\n・幽霊 … 迷路のいちばん近い道を歩く\n・影法師 … 灯った提灯の近くを避けて歩く。光で直接ねらう\n・鬼火 … 壁を越えて、家へ一直線に飛ぶ\n・唐傘 … 壁を越えて、ジグザグに飛ぶ\n\n刻が変わるたびに墓場の場所が変わり、迷路と家並みも遊ぶたびに変わる。"
     },
     {
       "id": "short-en",
       "label": "Short description (English)",
-      "body": "Ghosts walk the grid streets of an old capital toward lit houses. Read how each kind turns, hang lantern traps at the crossings, and burst them: the light moves like a shogi piece (rook, bishop, lance, knight) and sets off the other lanterns."
+      "body": "Ghosts cross a maze of an old capital toward lit houses, each moving in its own fixed way. Hang lantern traps on the squares and burst them: light takes the shape of the house it came from (tower = up, lantern shop = down, storehouse = around), stops at walls, and sets off other lanterns."
     },
     {
       "id": "controls-en",
       "label": "Controls (English)",
-      "body": "Tap / click a crossing to throw a lantern there. It hangs as a trap that calls nearby ghosts. Tap it again to burst it: light runs down the streets and chains to other lanterns. M toggles sound."
+      "body": "Tap / click a square to throw a lantern there from the nearest house, or tap a house first to throw from it. A hung lantern calls nearby ghosts. Tap it again to burst it. M toggles sound."
     },
     {
       "id": "x-a",
       "label": "X: 公開告知",
-      "body": "和風パズルアクション『おばけ提灯』を公開しました。\n辻に提灯の罠を仕掛けて、かかったおばけを十字の光でまとめて成仏。ブラウザですぐ遊べます。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #個人開発 #ブラウザゲーム"
+      "body": "和風パズルアクション『おばけ提灯』を公開しました。\n迷路の都に提灯の罠を仕掛けて、おばけを並べて光の連鎖でまとめて成仏。ブラウザですぐ遊べます。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #個人開発 #ブラウザゲーム"
     },
     {
       "id": "x-b",
       "label": "X: 仕掛けで引く",
-      "body": "ミサイルコマンド × 平安京エイリアン × ボンバーマン × 将棋。\nおばけの曲がり方を読んで辻に罠を仕掛け、飛・角・香・桂の光で誘爆させる。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #インディーゲーム"
+      "body": "ミサイルコマンド × 平安京エイリアン × ボンバーマン × ドルアーガ。\nおばけの動きを読んで迷路に罠を仕掛け、家の形の光で誘爆させる。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #インディーゲーム"
     }
   ],
   "sites": [
