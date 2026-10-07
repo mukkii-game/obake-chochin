@@ -1,6 +1,8 @@
 name: Build and Deploy (Pages)
 
-# main に push → ビルド → 起動確認(tools/check.mjs)→ 公開キット(/kit/)→ GitHub Pages。
+# main に push → ビルド → 記録再生と bot の確認(数秒)→ 公開キット(/kit/)→ GitHub Pages。
+# ブラウザでの起動確認(tools/check.mjs)は CI では回さない(約 45 秒かかる)。push する前に手元で、
+# 描画・入力・シーンを変えた時だけ回す(AGENTS.md の「確認の軽重」)。
 # 事前に repo の Settings → Pages → Source を「GitHub Actions」にする。
 
 on:
@@ -31,19 +33,8 @@ jobs:
       - run: npm run test:replay
       - name: Bot simulation (determinism + balance, no rendering)
         run: node tools/sim.mjs 8
-      - name: Install Chromium for check
-        run: npx playwright install --with-deps chromium
-      - name: Smoke check (auto play, no console errors)
-        run: node tools/check.mjs
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: tools/out/*.png
-          if-no-files-found: ignore
       # 公開キット: 配布用 ZIP・スクショ・日英の文面・投稿ページへのリンクを /kit/ の 1 ページに。
-      # 文面は publish.json、画像は kit/assets/ と起動確認のスクショから。
+      # 文面は publish.json、画像は kit/assets/(手元の check.mjs のスクショを置く)から。
       - name: Build publish kit
         run: |
           SLUG=$(node -p "require('./publish.json').zipName || 'game-html5.zip'")

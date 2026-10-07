@@ -62,5 +62,13 @@
 ```
 npm ci && npm run dev      # 開発
 npm run build              # dist/
-node tools/check.mjs       # 起動確認 + スクショ
+node tools/check.mjs       # 起動確認 + スクショ(約 1 分。下の「確認の軽重」を見て必要な時だけ)
+node tools/sim.mjs 8       # 中身を bot で回す(数秒)
 ```
+
+## 確認の軽重(速さのため。必要のない確認は普段はしない)
+- **毎回**(数秒): `npx tsc --noEmit -p .` → `npm run build` → `node tools/sim.mjs 8`。
+- **描画・入力・シーン・index.html を変えた時だけ**(約 1 分): `node tools/check.mjs`。見た目を変えたら `tools/out/*.png` を `kit/assets/` へ。
+- **文書や数値の微調整だけの時**: build だけでよい。
+- CI(push 後、約 30 秒)は build と記録再生・bot の確認だけ。ブラウザ確認は CI で回さない。
+- CI を待つ時は、決め打ちで長く待たず、終わり次第すぐ結果を見る。
