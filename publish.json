@@ -15,37 +15,37 @@
     {
       "id": "catch",
       "label": "キャッチコピー(1行)",
-      "body": "おばけは灯りに寄る。だから提灯を投げて、呼んで、まとめて弾けさせろ。"
+      "body": "通りに提灯の罠を仕掛け、かかったおばけを十字の光でまとめて成仏。"
     },
     {
       "id": "short",
       "label": "短い紹介(100字・概要欄向け)",
-      "body": "夜の村に、墓場からおばけが寄ってくる。おばけは灯りに寄る。家から提灯を投げて呼び寄せ、弾ける光でまとめて成仏させる和風スコアアタック。先を読み、限られた提灯の使い道を選ぶ。"
+      "body": "碁盤の目の都に、墓場からおばけが歩いてくる。曲がり方を読んで辻に提灯の罠を仕掛け、かかったら弾けさせる。光は十字に通りを走り、他の提灯も誘爆する和風パズルアクション。"
     },
     {
       "id": "long",
       "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
-      "body": "おばけは灯りに寄ってくる。夜の村の家々の灯りを目指して、墓場からまっすぐに。\n家に入られると中の人が騒ぎ出し、やがて逃げ出して灯りが消える。\n\n■ 遊び方(スマホ)\n・タップした所へ、近くの家から提灯が飛んでいく。着くまでの間にもおばけは進むので、先を読んで投げる\n・灯った提灯は近くのおばけを呼び寄せ、少しして弾ける。弾ける光に触れたおばけは成仏する\n・提灯を押すと、その場で弾ける(飛んでいる間なら着いた所で)\n・提灯は家の軒先に下がっている分だけ。家の灯りが消えると、その家の提灯も消える\n・家の人が騒いでいる間に、入り込んだおばけを成仏させれば家は助かる\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 小さく揺れながらまっすぐ\n・跳ねる唐傘 … 止まっては、同じ距離を跳ぶ\n・ジグザグ鬼火 … 一定の間で折れながら\n・光嫌いの影法師 … 灯った提灯を避ける。飛んでいる提灯を押して、着いた所で弾けさせよう\n\n刻が変わるたびに、墓場の場所が変わる。刻を越えると、残った家と余った提灯の分だけボーナス。"
+      "body": "夜の都に、墓場からおばけが歩いてくる。通りを歩き、辻で曲がって、灯りのついた家を目指す。\n家に入られると中の人が逃げ出して、灯りが消えてしまう。\n\n■ 遊び方(スマホ)\n・辻をタップすると、近くの家から提灯がゆっくり飛んでいく。着くまでの間にもおばけは進む\n・下がった提灯は罠。近くの通りのおばけを呼び、着いたおばけは見とれて動けなくなる\n・提灯をもう一度タップすると弾けて、光が十字に通りを走る。光に触れたおばけは成仏し、他の提灯も弾ける\n・成仏したおばけも小さく弾けて、連鎖する\n・提灯は家の軒先に下がっている分だけ。同時に下げられるのは 3 つまで\n・縦持ちのままでも、画面が横向きに表示されます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち(曲がり方を読もう)\n・幽霊 … 縦と横を交互に選んで、階段のように寄ってくる\n・鬼火 … 速い。まっすぐ行けるうちは曲がらない\n・唐傘 … 辻で止まり、辻を 1 つ飛ばして跳ぶ。跳び越した罠にはかからない\n・影法師 … 灯った提灯の近くを避けて回り込む。光で直接ねらう\n\n刻が変わるたびに墓場の場所が変わり、家並みも遊ぶたびに変わる。"
     },
     {
       "id": "short-en",
       "label": "Short description (English)",
-      "body": "Ghosts are drawn to light. They drift from the graves toward the village lights. Throw lanterns from the houses to lure them in, and burst them all in one glow. Read their paths and spend your few lanterns wisely."
+      "body": "Ghosts walk the grid streets of an old capital toward lit houses. Read how each kind turns, hang lantern traps at the crossings, and burst them: light runs down the streets in a cross and sets off the other lanterns."
     },
     {
       "id": "controls-en",
       "label": "Controls (English)",
-      "body": "Tap / click to throw a lantern there from the nearest house. Lit lanterns lure ghosts, then burst. Tap a lantern to burst it now (or on landing). Each house only has the lanterns hanging from its eaves. M toggles sound."
+      "body": "Tap / click a crossing to throw a lantern there. It hangs as a trap that calls nearby ghosts. Tap it again to burst it: light runs down the streets and chains to other lanterns. M toggles sound."
     },
     {
       "id": "x-a",
       "label": "X: 公開告知",
-      "body": "和風スコアアタック『おばけ提灯』を公開しました。\nおばけは灯りに寄る。家から提灯を投げて呼び寄せ、まとめて成仏。ブラウザですぐ遊べます。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #個人開発 #ブラウザゲーム"
+      "body": "和風パズルアクション『おばけ提灯』を公開しました。\n辻に提灯の罠を仕掛けて、かかったおばけを十字の光でまとめて成仏。ブラウザですぐ遊べます。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #個人開発 #ブラウザゲーム"
     },
     {
       "id": "x-b",
       "label": "X: 仕掛けで引く",
-      "body": "おばけは灯りに寄る。\nだから提灯を投げて、呼んで、まとめて弾けさせる。ミサイルコマンドの読み合いを、夜の村に。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #インディーゲーム"
+      "body": "ミサイルコマンド × 平安京エイリアン × ボンバーマン。\nおばけの曲がり方を読んで辻に罠を仕掛け、十字の光で誘爆させる。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #インディーゲーム"
     }
   ],
   "sites": [

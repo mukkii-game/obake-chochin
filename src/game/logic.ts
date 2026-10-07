@@ -2,16 +2,14 @@
 // Play シーンはこれを 1/60 秒刻みで step() し、state を絵にするだけ。
 // bot(tools/sim.mjs)も同じものを描画なしで回す。
 //
-// 設計の芯(ミサイルコマンドの「直感・予測・選択」を移す。サインは足さない):
-//   ルールは 1 つ「おばけは灯りに寄る」。家の灯りに寄って来るし、もっと明るい提灯があればそちらへ曲がる。
-//   - 予測: おばけは「あの世の口」(毎刻、場所が変わる。刻の前から見えている)から出て、一番近い灯りへまっすぐ来る。
-//           種類の違いは道の形ではなく速さの癖(止まっては跳ぶ、折れ線で来る、灯りを避ける)。通った跡が残る。
-//   - 直感: タップした所へ家から提灯が飛ぶ。着くと灯り、近くのおばけを呼び寄せ、いつも同じ間をおいて弾ける。
-//           弾ける光の大きさと長さもいつも同じ。提灯を押せばその場で(飛行中なら着いた所で)弾ける。
-//   - 選択: 提灯は家の軒先に下がっている分だけ(1 軒 3 つ、刻ごとに補充)。家が消えると、その家の提灯も消える。
-//           おばけが家に入ると、家の人が騒いでしばらく灯りが揺れ、やがて逃げ出して灯りが消える。
-//           揺れている間にそのおばけを成仏させれば家は助かる。助けに行くか、群れを狙うか。
-//   - 家の並びは毎回変わる(seed で決まる)。
+// ミサイルコマンド × 平安京エイリアン × ボンバーマン(サインは足さない。見て頭で読む):
+//   舞台は碁盤の目の都。おばけは「あの世の口」から、通りを歩いて一番近い灯りの家へ向かう。曲がるのは辻だけ。
+//   曲がり方は種類ごとに決まっている(読めるが読み切れない)。
+//   - 投げる(ミサイルコマンド): タップした辻へ、近くの家から提灯がゆっくり飛ぶ。着くまでにおばけは進む。
+//   - 仕掛ける(平安京エイリアン): 着いた提灯は辻に下がる罠。近くの通りのおばけを呼び、来たおばけはしばらく見とれて動けない。
+//   - 弾けさせる(ボンバーマン): 提灯を押すと、光が十字に通りをゆっくり走る。光に触れた提灯も弾ける(誘爆)。
+//     成仏したおばけも小さく十字に弾ける。並べて仕込めば、普段届かない所まで届く。
+//   - 守る: おばけが家に入ると中の人が騒ぎ、間に合わなければ逃げ出して灯りが消える。弾(提灯)は家の軒先にある分だけ。
 import { Rng } from '../core/rng';
 import type { Params } from './params';
 
@@ -24,52 +22,72 @@ export const DT = 1 / 60;
 export const GHOST_R = 10;
 export const HOUSE_COUNT = 6;
 
+/** 碁盤の目。辻(交差点)は cols × rows */
+export const GRID = { cols: 12, rows: 6, x0: 104, y0: 84, dx: 68, dy: 74 };
+export const nodeCol = (n: number) => n % GRID.cols;
+export const nodeRow = (n: number) => Math.floor(n / GRID.cols);
+export const nodeX = (n: number) => GRID.x0 + nodeCol(n) * GRID.dx;
+export const nodeY = (n: number) => GRID.y0 + nodeRow(n) * GRID.dy;
+export const nodeAt = (c: number, r: number) => r * GRID.cols + c;
+/** 辻どうしの道のり(通りを歩いた時の辻の数) */
+export const gridDist = (a: number, b: number) => Math.abs(nodeCol(a) - nodeCol(b)) + Math.abs(nodeRow(a) - nodeRow(b));
+/** 画面の座標に一番近い辻 */
+export function nearestNode(x: number, y: number) {
+  const c = clamp(Math.round((x - GRID.x0) / GRID.dx), 0, GRID.cols - 1);
+  const r = clamp(Math.round((y - GRID.y0) / GRID.dy), 0, GRID.rows - 1);
+  return nodeAt(c, r);
+}
+const DIRS: ReadonlyArray<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
 export type GhostKind = 'fuwa' | 'zig' | 'hop' | 'kirai';
 
 export interface Ghost {
   id: number; kind: GhostKind;
-  /** 当たり判定と表示の位置 */
+  /** 通りの上の位置(いつも通りの線の上) */
   x: number; y: number;
-  /** 進路の芯。ふらふらの揺れは芯からの小さな横ずれ */
-  bx: number; by: number;
-  face: number;
-  speed: number; target: number; age: number; phase: number;
-  /** 呼び寄せている提灯の id。0 = 家の灯りへ向かう */
+  /** いま歩いている通り: from の辻から to の辻へ、prog px 進んだ所。from === to なら辻に立っている */
+  from: number; to: number; prog: number;
+  /** 最後に進んだ向き(DIRS の番号) */
+  dir: number;
+  /** ふらふら: 次に縦横どちらを優先するか(辻ごとに入れ替わる = 階段のような道) */
+  prefH: boolean;
+  speed: number; target: number; age: number; face: number;
+  /** 呼ばれている提灯の id。0 = 家へ向かう */
   lure: number;
+  /** 提灯に見とれている残り秒(罠にかかっている) */
+  caught: number;
   /** 家に入り込んでいる(家の人が騒いでいる) */
   haunt: boolean;
-  /** 唐傘: 次に跳ぶまで / 跳んでいる残り */
-  hopT: number; dashT: number;
-  /** 跳ぶ前の溜め 0..1(見た目用) */
-  crouch: number;
-  /** 鬼火: 折れ線の今の向き(±1)と、折れるまでの残り */
-  legSign: number; legT: number;
+  /** もう見とれ終わった提灯(同じ提灯には二度かからない) */
+  passed: number[];
+  /** 唐傘: 辻で止まっている残り秒 */
+  pause: number;
   dead: boolean;
 }
 export interface Lantern {
   id: number;
-  /** 飛び立った家の位置と、行き先 */
-  sx: number; sy: number; tx: number; ty: number;
+  /** 下がる辻 */
+  node: number;
+  /** 飛び立った家の位置 */
+  sx: number; sy: number;
   x: number; y: number;
   flying: boolean; flyT: number; flyDur: number;
-  /** 飛んでいる最中に押された = 着いたらすぐ弾ける */
+  /** 飛んでいる最中に同じ辻を押された = 着いたらすぐ弾ける */
   armed: boolean;
-  /** 灯ってから弾けるまでの残り秒(いつも同じ長さで始まる) */
-  fuse: number;
+  /** 灯ってからの秒 */
+  age: number;
 }
-export interface Wisp { id: number; x: number; y: number; age: number; chain: number; vx: number; vy: number }
-export interface House {
-  x: number; y: number; lit: boolean;
-  /** 軒先に下がっている提灯の数 */
-  ammo: number;
-  /** おばけが入り込んでからの残り秒(0 = 平穏) */
-  haunt: number;
-  flash: number;
+export interface House { x: number; y: number; node: number; lit: boolean; ammo: number; haunt: number; flash: number }
+/** あの世の口(おばけの出てくる辻)。刻ごとに場所が変わり、刻の前から見えている */
+export interface Portal { x: number; y: number; node: number }
+/** 十字の光。通りに沿って ext(辻いくつ分)まで広がり、留まって、縮む */
+export interface Blast {
+  x: number; y: number; h: boolean; v: boolean;
+  range: number; ext: number; hold: number; shrinking: boolean;
+  chain: number; big: boolean;
 }
-/** あの世の口(おばけの出てくる所)。刻ごとに場所が変わり、刻の前から見えている */
-export interface Portal { x: number; y: number }
-/** 成仏の光。広がって、少し留まり、縮む(ミサイルコマンドの爆発と同じ形) */
-export interface Blast { x: number; y: number; maxR: number; age: number; dur: number; delay: number; chain: number; big: boolean; r: number }
+/** 成仏したおばけ。少しして小さく十字に弾ける(敵を利用する連鎖) */
+export interface Wisp { id: number; x: number; y: number; h: boolean; v: boolean; age: number; chain: number }
 export interface Chain { id: number; count: number; pts: number; lx: number; ly: number }
 
 export type GameEvent =
@@ -77,7 +95,8 @@ export type GameEvent =
   | { type: 'arm'; x: number; y: number }
   | { type: 'light'; x: number; y: number }
   | { type: 'deny'; x: number; y: number }
-  | { type: 'break'; x: number; y: number }
+  | { type: 'break'; x: number; y: number; chained: boolean }
+  | { type: 'caught'; x: number; y: number }
   | { type: 'purify'; x: number; y: number; n: number; pts: number; kind: GhostKind }
   | { type: 'wispPop'; x: number; y: number }
   | { type: 'chainEnd'; x: number; y: number; n: number; pts: number }
@@ -93,16 +112,6 @@ export type GameEvent =
 
 /** 刻の前の一息(この間に、次のあの世の口が見えている) */
 export const WAVE_PAUSE = 3.0;
-
-/** 成仏の光の半径(age 秒目)。dur の 25% で広がりきり、40% 留まり、残りで縮む */
-export function blastRadius(maxR: number, age: number, dur: number) {
-  const k = age / dur;
-  if (k <= 0) return 0;
-  if (k < 0.25) return maxR * (1 - (1 - k / 0.25) ** 2);
-  if (k < 0.65) return maxR;
-  if (k < 1) return maxR * (1 - (k - 0.65) / 0.35);
-  return 0;
-}
 
 export class Game {
   readonly rng: Rng;
@@ -131,6 +140,8 @@ export class Game {
   private salvoT = 0;
   private portalTurn = 0;
   private begun = false;
+  /** 群れは同じ口から少しずつ間をあけて出る(通りに列を作る) */
+  private queue: Array<{ at: number; kind: GhostKind; node: number }> = [];
 
   constructor(seed: number, readonly P: Params) {
     this.rng = new Rng(seed);
@@ -140,40 +151,51 @@ export class Game {
     for (const h of this.houses) h.ammo = P.ammoPerHouse;
   }
 
-  /** 村の家並み。毎回変わる(巻物の中ほどの帯に、間をあけて点在) */
+  /** 家並み。毎回変わる(中ほどの辻に、間をあけて) */
   private layVillage(): House[] {
-    const out: House[] = [];
-    for (let tries = 0; out.length < HOUSE_COUNT && tries < 2000; tries++) {
-      const x = lerp(170, 790, this.rng.next()), y = lerp(205, 345, this.rng.next());
-      if (out.every((h) => Math.hypot(h.x - x, (h.y - y) * 1.3) > 105)) out.push({ x, y, lit: true, ammo: 0, haunt: 0, flash: 0 });
+    const nodes: number[] = [];
+    for (let tries = 0; nodes.length < HOUSE_COUNT && tries < 3000; tries++) {
+      const n = nodeAt(this.rng.int(1, GRID.cols - 2), this.rng.int(1, GRID.rows - 2));
+      if (nodes.every((m) => gridDist(m, n) >= 3)) nodes.push(n);
     }
-    out.sort((a, b) => a.x - b.x);
-    return out.map((h) => ({ ...h, x: Math.round(h.x), y: Math.round(h.y) }));
+    nodes.sort((a, b) => nodeCol(a) - nodeCol(b));
+    return nodes.map((n) => ({ x: nodeX(n), y: nodeY(n), node: n, lit: true, ammo: 0, haunt: 0, flash: 0 }));
   }
 
   waveSize(n: number) { return Math.round(this.P.waveBase + this.P.waveGrow * n); }
 
-  /** 刻ごとのあの世の口。巻物の縁のどこか。刻が進むと口が増える */
+  /** 刻ごとのあの世の口。町の縁の辻。刻が進むと口が増える */
   private choosePortals(n: number) {
     const count = Math.min(3, 1 + Math.floor(n / this.P.portalEvery));
-    const ps: Portal[] = [];
-    for (let tries = 0; ps.length < count && tries < 200; tries++) {
-      const [x, y] = this.edgePoint();
-      if (ps.every((p) => Math.hypot(p.x - x, p.y - y) > 260)) ps.push({ x: Math.round(x), y: Math.round(y) });
+    const edge: number[] = [];
+    for (let i = 0; i < GRID.cols * GRID.rows; i++) {
+      const c = nodeCol(i), r = nodeRow(i);
+      if (c === 0 || r === 0 || c === GRID.cols - 1 || r === GRID.rows - 1) edge.push(i);
     }
-    this.portals = ps;
+    const ps: number[] = [];
+    for (let tries = 0; ps.length < count && tries < 300; tries++) {
+      const n = this.rng.pick(edge);
+      if (this.houses.every((h) => gridDist(h.node, n) >= 4) && ps.every((p) => gridDist(p, n) >= 6)) ps.push(n);
+    }
+    if (!ps.length) {
+      // 置ける所が無ければ、家から一番遠い縁の辻
+      const far = (n: number) => Math.min(...this.houses.map((h) => gridDist(h.node, n)));
+      ps.push(edge.reduce((a, b) => (far(b) > far(a) ? b : a)));
+    }
+    this.portals = ps.map((n) => ({ x: nodeX(n), y: nodeY(n), node: n }));
     this.portalTurn = 0;
     this.events.push({ type: 'portals' });
   }
 
   get litCount() { return this.houses.filter((h) => h.lit).length; }
+  get ammo() { return this.houses.reduce((s, h) => s + (h.lit ? h.ammo : 0), 0); }
 
-  /** 一番近い、灯りのついた家 */
-  nearestLit(x: number, y: number): number {
+  /** 通りを歩いて一番近い、灯りのついた家 */
+  nearestLit(node: number): number {
     let best = -1, bd = Infinity;
     this.houses.forEach((h, i) => {
       if (!h.lit) return;
-      const d = Math.hypot(h.x - x, h.y - y);
+      const d = gridDist(h.node, node) + i * 1e-3;
       if (d < bd) { bd = d; best = i; }
     });
     return best;
@@ -183,61 +205,51 @@ export class Game {
   launchHouse(x: number, y: number): number {
     let best = -1, bd = Infinity;
     this.houses.forEach((h, i) => {
-      if (!h.lit || h.ammo <= 0) return;
+      if (!h.lit || h.ammo <= 0 || h.haunt > 0) return; // 騒いでいる家は投げられない
       const d = Math.hypot(h.x - x, h.y - y);
       if (d < bd) { bd = d; best = i; }
     });
     return best;
   }
 
-  /** 提灯が着くまでの秒(bot の先読み用にも公開) */
-  flightTime(x: number, y: number): number {
-    const i = this.launchHouse(x, y);
+  /** 提灯がその辻に着くまでの秒(bot の先読み用にも公開) */
+  flightTime(node: number): number {
+    const i = this.launchHouse(nodeX(node), nodeY(node));
     if (i < 0) return Infinity;
     const h = this.houses[i];
-    return Math.hypot(x - h.x, y - (h.y - 18)) / this.P.flySpeed;
+    return Math.max(0.25, Math.hypot(nodeX(node) - h.x, nodeY(node) - (h.y - 18)) / this.P.flySpeed);
   }
 
-  get ammo() { return this.houses.reduce((s, h) => s + (h.lit ? h.ammo : 0), 0); }
-
-  /** 1 タップ。提灯(か飛んでいる提灯の行き先)の近く → 弾けさせる / それ以外 → 飛ばす */
+  /** 1 タップ。押した所に一番近い辻に提灯があれば → 弾けさせる(飛行中なら着いたら)/ 無ければ → 投げる */
   tap(x: number, y: number) {
     if (this.over) return;
     x = Math.round(x); y = Math.round(y); // 記録(整数)と同じ値で動かす
-    const P = this.P;
-    let best: Lantern | null = null, bd = P.tapR;
-    for (const l of this.lanterns) {
-      const d = Math.min(Math.hypot(l.x - x, l.y - y), l.flying ? Math.hypot(l.tx - x, l.ty - y) : Infinity);
-      if (d <= bd) { bd = d; best = l; }
-    }
-    if (best) {
-      if (!best.flying) this.burst(best);
-      else if (!best.armed) { best.armed = true; this.events.push({ type: 'arm', x: best.tx, y: best.ty }); }
+    const node = nearestNode(x, y);
+    const l = this.lanterns.find((q) => q.node === node);
+    if (l) {
+      if (!l.flying) this.burst(l, null);
+      else if (!l.armed) { l.armed = true; this.events.push({ type: 'arm', x: nodeX(node), y: nodeY(node) }); }
       return;
     }
-    x = clamp(x, FIELD.x0 + 8, FIELD.x1 - 8);
-    y = clamp(y, FIELD.y0 + 8, FIELD.y1 - 8);
-    const hi = this.launchHouse(x, y);
-    if (hi < 0 || this.lanterns.length >= P.maxLanterns) { this.events.push({ type: 'deny', x, y }); return; }
+    const tx = nodeX(node), ty = nodeY(node);
+    // 家のある辻には下げられない(家の前で待ち受けるのではなく、通りで仕留める)
+    if (this.houses.some((h) => h.node === node)) { this.events.push({ type: 'deny', x: tx, y: ty }); return; }
+    const hi = this.launchHouse(tx, ty);
+    if (hi < 0 || this.lanterns.length >= this.P.maxLanterns) { this.events.push({ type: 'deny', x: tx, y: ty }); return; }
     const h = this.houses[hi];
     h.ammo--;
     const sy = h.y - 18;
-    const flyDur = Math.max(0.08, Math.hypot(x - h.x, y - sy) / P.flySpeed);
-    this.lanterns.push({ id: this.nextId++, sx: h.x, sy, tx: x, ty: y, x: h.x, y: sy, flying: true, flyT: 0, flyDur, armed: false, fuse: 0 });
-    this.events.push({ type: 'launch', sx: h.x, sy, x, y, house: hi });
+    this.lanterns.push({ id: this.nextId++, node, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(node), armed: false, age: 0 });
+    this.events.push({ type: 'launch', sx: h.x, sy, x: tx, y: ty, house: hi });
   }
 
-  private burst(l: Lantern) {
-    const chain = this.newChain(l.x, l.y);
-    this.addBlast(l.x, l.y, this.P.blastR, this.P.blastDur, 0, chain, true);
+  /** 提灯が弾ける。chain があれば誘爆(同じ連鎖として数える) */
+  private burst(l: Lantern, chain: Chain | null) {
+    const c = chain ?? this.newChain(l.x, l.y);
+    this.blasts.push({ x: nodeX(l.node), y: nodeY(l.node), h: true, v: true, range: this.P.range, ext: 0, hold: this.P.lightHold, shrinking: false, chain: c.id, big: true });
     this.lanterns = this.lanterns.filter((q) => q !== l);
     for (const g of this.ghosts) if (g.lure === l.id) this.release(g);
-    this.events.push({ type: 'break', x: l.x, y: l.y });
-  }
-
-  private addBlast(x: number, y: number, maxR: number, dur: number, delay: number, chain: Chain, big = false) {
-    if (maxR <= 0) return;
-    this.blasts.push({ x, y, maxR, age: 0, dur, delay, chain: chain.id, big, r: 0 });
+    this.events.push({ type: 'break', x: l.x, y: l.y, chained: !!chain });
   }
 
   /** 1/60 秒進める */
@@ -249,36 +261,28 @@ export class Game {
 
     this.spawn(dt);
 
-    // 提灯: 飛ぶ → 灯る(呼び寄せる) → いつも同じ間で弾ける
+    // 提灯: ゆっくり飛ぶ → 辻に下がる(罠)
     for (const l of [...this.lanterns]) {
-      if (l.flying) {
-        l.flyT += dt;
-        const k = Math.min(1, l.flyT / l.flyDur);
-        l.x = lerp(l.sx, l.tx, k); l.y = lerp(l.sy, l.ty, k);
-        if (k >= 1) {
-          l.flying = false; l.x = l.tx; l.y = l.ty;
-          if (l.armed) { this.burst(l); continue; }
-          l.fuse = P.fuse;
-          this.events.push({ type: 'light', x: l.x, y: l.y });
-        }
-        continue;
+      if (!l.flying) { l.age += dt; continue; }
+      l.flyT += dt;
+      const k = Math.min(1, l.flyT / l.flyDur);
+      l.x = lerp(l.sx, nodeX(l.node), k); l.y = lerp(l.sy, nodeY(l.node), k);
+      if (k >= 1) {
+        l.flying = false; l.x = nodeX(l.node); l.y = nodeY(l.node);
+        if (l.armed) { this.burst(l, null); continue; }
+        this.events.push({ type: 'light', x: l.x, y: l.y });
       }
-      l.fuse -= dt;
-      if (l.fuse <= 0) this.burst(l);
     }
 
-    // 人魂(成仏したおばけ): ふわりと昇って、弾ける
-    for (const s of this.wisps) {
+    // 成仏したおばけ: 少しして小さく十字に弾ける
+    for (const s of [...this.wisps]) {
       s.age += dt;
-      s.x += s.vx * dt; s.y += s.vy * dt;
-      s.vx *= 0.95; s.vy *= 0.95;
-      if (s.age >= P.wispLife) {
-        const c = this.chains.get(s.chain) ?? this.newChain(s.x, s.y);
-        this.addBlast(s.x, s.y, P.wispPop, P.chainDur, 0, c);
-        this.events.push({ type: 'wispPop', x: s.x, y: s.y });
-      }
+      if (s.age < P.wispDelay) continue;
+      const c = this.chains.get(s.chain) ?? this.newChain(s.x, s.y);
+      this.blasts.push({ x: s.x, y: s.y, h: s.h, v: s.v, range: P.wispRange, ext: 0, hold: P.lightHold * 0.5, shrinking: false, chain: c.id, big: false });
+      this.wisps = this.wisps.filter((q) => q !== s);
+      this.events.push({ type: 'wispPop', x: s.x, y: s.y });
     }
-    this.wisps = this.wisps.filter((s) => s.age < P.wispLife);
 
     this.moveGhosts(dt);
     this.runBlasts(dt);
@@ -313,9 +317,8 @@ export class Game {
   }
 
   private release(g: Ghost) {
-    g.lure = 0; g.bx = g.x; g.by = g.y;
-    const t = this.nearestLit(g.x, g.y);
-    if (t >= 0) g.target = t;
+    if (g.lure) g.passed.push(g.lure);
+    g.lure = 0; g.caught = 0;
   }
 
   private newChain(x: number, y: number): Chain {
@@ -324,9 +327,14 @@ export class Game {
     return c;
   }
 
-  /** 刻ごとの波。あの世の口から、数体ずつの群れを放つ */
+  /** 刻ごとの波。あの世の口から、数体ずつの群れを列にして放つ */
   private spawn(dt: number) {
     const P = this.P;
+    for (const q of [...this.queue]) {
+      if (q.at > this.t) continue;
+      this.addGhost(q.kind, q.node);
+      this.queue = this.queue.filter((o) => o !== q);
+    }
     if (this.pause > 0) {
       this.pause -= dt;
       if (this.pause <= 0) {
@@ -341,7 +349,7 @@ export class Game {
       return;
     }
     if (this.waveLeft <= 0) {
-      if (this.ghosts.length === 0 && this.lanterns.length === 0 && this.houses.every((h) => h.haunt <= 0)) {
+      if (!this.queue.length && !this.ghosts.length && !this.blasts.length && !this.wisps.length && this.houses.every((h) => h.haunt <= 0)) {
         const bonus = (this.litCount * P.waveBonus + this.ammo * P.ammoBonus) * (this.wave + 1);
         this.score += bonus;
         this.pause = WAVE_PAUSE;
@@ -355,63 +363,123 @@ export class Game {
     const n = this.wave;
     this.salvoT = Math.max(P.salvoGapMin, P.salvoGap - 0.2 * n) * (0.85 + this.rng.next() * 0.3);
     const kinds: GhostKind[] = ['fuwa'];
-    if (n >= 1) kinds.push('hop');
-    if (n >= 2) kinds.push('zig');
+    if (n >= 1) kinds.push('zig');
+    if (n >= 2) kinds.push('hop');
     if (n >= 3) kinds.push('kirai');
     const kind = this.rng.chance(0.35) ? 'fuwa' : this.rng.pick(kinds);
     const size = Math.min(this.waveLeft, this.rng.int(2, Math.min(5, 2 + Math.floor(n / 2))));
     const p = this.portals[this.portalTurn++ % this.portals.length];
-    for (let i = 0; i < size; i++) {
-      const gx = clamp(p.x + (this.rng.next() - 0.5) * 50, FIELD.x0, FIELD.x1);
-      const gy = clamp(p.y + (this.rng.next() - 0.5) * 50, FIELD.y0, FIELD.y1);
-      this.addGhost(kind === 'kirai' && i > 0 ? 'fuwa' : kind, gx, gy);
-    }
+    for (let i = 0; i < size; i++) this.queue.push({ at: this.t + i * P.convoyGap, kind: kind === 'kirai' && i > 0 ? 'fuwa' : kind, node: p.node });
     this.waveLeft -= size;
   }
 
-  /** 巻物の四辺のどこか(家から十分に遠い所) */
-  private edgePoint(): [number, number] {
-    const side = this.rng.int(0, 3);
-    const r = lerp(0.08, 0.92, this.rng.next());
-    if (side === 0) return [lerp(FIELD.x0, FIELD.x1, r), FIELD.y0 + 22];
-    if (side === 1) return [lerp(FIELD.x0, FIELD.x1, r), FIELD.y1 - 24];
-    if (side === 2) return [FIELD.x0 + 22, lerp(FIELD.y0, FIELD.y1, r)];
-    return [FIELD.x1 - 22, lerp(FIELD.y0, FIELD.y1, r)];
-  }
-
-  addGhost(kind: GhostKind, x: number, y: number) {
-    const mult = { fuwa: 1, zig: 1.25, hop: 0.9, kirai: 0.85 }[kind];
+  addGhost(kind: GhostKind, node: number) {
+    const mult = { fuwa: 1, zig: 1.45, hop: 1, kirai: 0.85 }[kind];
     const g: Ghost = {
-      id: this.nextId++, kind, x, y, bx: x, by: y, face: 1,
-      speed: this.P.ghostSpeed * mult,
-      target: Math.max(0, this.nearestLit(x, y)), age: 0, phase: this.rng.next() * Math.PI * 2,
-      lure: 0, haunt: false,
-      hopT: 1.0, dashT: 0, crouch: 0,
-      legSign: this.rng.chance(0.5) ? 1 : -1, legT: this.P.zigLeg * 0.5,
-      dead: false,
+      id: this.nextId++, kind, x: nodeX(node), y: nodeY(node), from: node, to: node, prog: 0, dir: -1,
+      prefH: this.rng.chance(0.5), speed: this.P.ghostSpeed * mult, target: Math.max(0, this.nearestLit(node)),
+      age: 0, face: 1, lure: 0, caught: 0, haunt: false, passed: [], pause: 0, dead: false,
     };
     this.ghosts.push(g);
-    this.events.push({ type: 'spawn', x, y, kind });
+    this.events.push({ type: 'spawn', x: g.x, y: g.y, kind });
     return g;
   }
 
-  /** おばけの今の行き先(呼び寄せている提灯、なければ家) */
-  goal(g: Ghost): [number, number] {
-    if (g.lure) { const l = this.lanterns.find((q) => q.id === g.lure); if (l) return [l.x, l.y]; }
-    const h = this.houses[g.target];
-    return [h.x, h.y];
+  /** おばけの今の行き先の辻(呼ばれている提灯、なければ家) */
+  goalNode(g: Ghost): number {
+    if (g.lure) { const l = this.lanterns.find((q) => q.id === g.lure); if (l) return l.node; }
+    return this.houses[g.target].node;
   }
 
-  /** 灯った提灯の近くを通ると、そちらへ曲がる(光嫌いは寄らない) */
-  private tryLure(g: Ghost) {
-    if (g.kind === 'kirai') return;
-    let best = 0, bd = this.P.lureR;
-    for (const l of this.lanterns) {
-      if (l.flying) continue;
-      const d = Math.hypot(l.x - g.x, l.y - g.y);
-      if (d < bd) { bd = d; best = l.id; }
+  /** 光嫌いが避ける辻(灯った提灯とその隣) */
+  private shunned(n: number) {
+    return this.lanterns.some((l) => !l.flying && gridDist(l.node, n) <= 1);
+  }
+
+  /** 辻で次の辻を決める。種類ごとに決まった曲がり方(読めるが、読み切るには頭を使う) */
+  chooseNext(g: Ghost, n: number): { next: number; dir: number } | null {
+    const goal = this.goalNode(g);
+    const c = nodeCol(n), r = nodeRow(n), gc = nodeCol(goal), gr = nodeRow(goal);
+    const dc = Math.sign(gc - c), dr = Math.sign(gr - r);
+    const opts: number[] = [];
+    if (dc) opts.push(dc > 0 ? 0 : 1);
+    if (dr) opts.push(dr > 0 ? 2 : 3);
+    const step = (d: number, k = 1) => {
+      const nc = c + DIRS[d][0] * k, nr = r + DIRS[d][1] * k;
+      return nc < 0 || nr < 0 || nc >= GRID.cols || nr >= GRID.rows ? -1 : nodeAt(nc, nr);
+    };
+    let d = -1;
+    switch (g.kind) {
+      case 'fuwa':
+        // ふらふら: 縦横どちらも近づけるなら、辻ごとに交互(階段のように斜めに寄ってくる)
+        if (opts.length === 2) { d = g.prefH ? opts[0] : opts[1]; g.prefH = !g.prefH; } else d = opts[0] ?? -1;
+        break;
+      case 'zig':
+        // 鬼火: 速い。まっすぐ行けるうちは曲がらない(L 字に来る)
+        d = opts.includes(g.dir) ? g.dir : (opts[0] ?? -1);
+        break;
+      case 'hop': {
+        // 唐傘: 階段のように寄りつつ、辻を 1 つ飛ばして跳ぶ(跳び越した辻の罠にはかからない)
+        if (opts.length === 2) { d = g.prefH ? opts[0] : opts[1]; g.prefH = !g.prefH; } else d = opts[0] ?? -1;
+        if (d < 0) return null;
+        const left = d < 2 ? Math.abs(gc - c) : Math.abs(gr - r);
+        const two = step(d, 2);
+        if (left >= 2 && two >= 0) return { next: two, dir: d };
+        break;
+      }
+      case 'kirai': {
+        // 影法師: 灯った提灯の近くの辻を避けて回り込む
+        const ok = opts.filter((o) => { const m = step(o); return m >= 0 && !this.shunned(m); });
+        if (ok.length) d = ok.length === 2 ? (g.prefH ? ok[0] : ok[1]) : ok[0];
+        else {
+          const back = g.dir < 0 ? -1 : g.dir ^ 1;
+          const side = [0, 1, 2, 3].filter((o) => o !== back && !opts.includes(o)).filter((o) => { const m = step(o); return m >= 0 && !this.shunned(m); });
+          d = side[0] ?? -1;
+          if (d < 0) return null; // 囲まれた: その場で待つ
+        }
+        g.prefH = !g.prefH;
+        break;
+      }
     }
-    if (best) { g.lure = best; g.bx = g.x; g.by = g.y; }
+    if (d < 0) return null;
+    const m = step(d);
+    return m < 0 ? null : { next: m, dir: d };
+  }
+
+  /** 辻に着いた時: 罠・家・呼ばれる提灯を見て、次の辻を決める */
+  private atNode(g: Ghost, n: number) {
+    const P = this.P;
+    g.from = n; g.to = n; g.prog = 0; g.x = nodeX(n); g.y = nodeY(n);
+    // 罠: 呼ばれていた提灯の辻に着いたら、見とれて動けなくなる
+    if (g.lure) {
+      const l = this.lanterns.find((q) => q.id === g.lure);
+      if (l && l.node === n && !l.flying) { g.caught = P.capture; this.events.push({ type: 'caught', x: g.x, y: g.y }); return; }
+    }
+    // 提灯がちょうどこの辻にあれば、呼ばれていなくてもかかる(唐傘が跳んで着いた時など)
+    const here = this.lanterns.find((q) => q.node === n && !q.flying && !g.passed.includes(q.id));
+    if (here && g.kind !== 'kirai') { g.lure = here.id; g.caught = P.capture; this.events.push({ type: 'caught', x: g.x, y: g.y }); return; }
+    // 家
+    const h = this.houses[g.target];
+    if (!g.lure && h.lit && h.node === n) {
+      g.haunt = true;
+      if (h.haunt <= 0) { h.haunt = P.hauntTime; this.events.push({ type: 'haunt', x: h.x, y: h.y, house: g.target }); }
+      return;
+    }
+    if (!g.lure && !h.lit) { const t = this.nearestLit(n); if (t >= 0) g.target = t; }
+    // 呼ばれる: 灯った提灯が通りで近ければ、そちらへ向かう
+    if (!g.lure && g.kind !== 'kirai') {
+      let best = 0, bd = P.lureN + 0.5;
+      for (const l of this.lanterns) {
+        if (l.flying || g.passed.includes(l.id)) continue;
+        const d = gridDist(l.node, n);
+        if (d < bd) { bd = d; best = l.id; }
+      }
+      if (best) g.lure = best;
+    }
+    const nx = this.chooseNext(g, n);
+    if (!nx) { g.pause = Math.max(g.pause, 0.3); return; }
+    g.to = nx.next; g.dir = nx.dir;
+    if (g.kind === 'hop') g.pause = P.hopPause;
   }
 
   private moveGhosts(dt: number) {
@@ -420,112 +488,61 @@ export class Game {
     for (const g of this.ghosts) {
       if (g.dead) continue;
       g.age += dt;
-      if (g.haunt) continue; // 家の中で騒ぎを起こしている
+      if (g.haunt) continue;
       if (g.lure && !this.lanterns.some((l) => l.id === g.lure)) this.release(g);
-      if (!g.lure && !this.houses[g.target].lit) {
-        const t = this.nearestLit(g.x, g.y);
-        if (t >= 0) g.target = t;
+      if (g.caught > 0) {
+        g.caught -= dt;
+        if (g.caught <= 0) { this.release(g); this.atNode(g, g.from); }
+        continue;
       }
-      if (!g.lure) this.tryLure(g);
-      const sp = g.speed * ramp;
-
-      const [hx, hy] = this.goal(g);
-      let dx = hx - g.bx, dy = hy - g.by;
-      const dist = Math.hypot(dx, dy) || 1;
-      dx /= dist; dy /= dist;
-      let vx = dx, vy = dy, bsp = sp, off = 0;
-      switch (g.kind) {
-        case 'fuwa':
-          // ふらふら: まっすぐ来るが、ゆっくり小さく揺れる
-          off = Math.sin(g.age * 2 + g.phase) * 7 * clamp(dist / 60, 0, 1);
-          break;
-        case 'zig': {
-          // 鬼火: 一定の間で折れる折れ線。行き先の近くではまっすぐ
-          g.legT -= dt;
-          if (g.legT <= 0) { g.legT = P.zigLeg; g.legSign *= -1; }
-          if (dist > 70 && !g.lure) {
-            const a = 0.6 * g.legSign, c = Math.cos(a), s = Math.sin(a);
-            vx = dx * c - dy * s; vy = dx * s + dy * c;
-          }
-          break;
-        }
-        case 'hop':
-          // 唐傘: 止まって溜めては、同じ距離だけ跳ぶ
-          if (g.dashT > 0) {
-            g.dashT -= dt;
-            bsp = P.hopDist / 0.22;
-          } else {
-            g.hopT -= dt;
-            g.crouch = clamp(1 - g.hopT / 0.5, 0, 1);
-            bsp = 0;
-            if (g.hopT <= 0) { g.dashT = 0.22; g.hopT = P.hopDist / sp - 0.22; g.crouch = 0; }
-          }
-          break;
-        case 'kirai': {
-          // 光嫌い: 灯った提灯を避けて回り込む
-          for (const l of this.lanterns) {
-            if (l.flying) continue;
-            const lx = g.bx - l.x, ly = g.by - l.y, ld = Math.hypot(lx, ly) || 1;
-            if (ld < P.repelR) {
-              const push = (P.repelR - ld) / 25;
-              const tx = -ly / ld, ty = lx / ld;
-              const side = tx * dx + ty * dy >= 0 ? 1 : -1;
-              vx += (lx / ld) * push * 1.4 + tx * side * push;
-              vy += (ly / ld) * push * 1.4 + ty * side * push;
-            }
-          }
-          const n = Math.hypot(vx, vy) || 1;
-          vx /= n; vy /= n;
-          break;
-        }
-      }
-      const stp = Math.min(dist, bsp * dt);
-      g.bx += vx * stp; g.by += vy * stp;
-      g.bx = clamp(g.bx, FIELD.x0 - 10, FIELD.x1 + 10);
-      g.by = clamp(g.by, FIELD.y0 - 10, FIELD.y1 + 10);
-      const nx = g.bx - dy * off, ny = g.by + dx * off;
-      if (Math.abs(nx - g.x) > 0.3) g.face = nx < g.x ? -1 : 1;
-      g.x = nx; g.y = ny;
-
-      if (g.lure) continue; // 提灯のそばで待つ(弾ければ成仏)
-      const h = this.houses[g.target];
-      if (h.lit && Math.hypot(h.x - g.x, h.y - g.y) < 14) {
-        g.haunt = true; g.x = h.x; g.y = h.y; g.bx = h.x; g.by = h.y;
-        if (h.haunt <= 0) {
-          h.haunt = P.hauntTime;
-          this.events.push({ type: 'haunt', x: h.x, y: h.y, house: g.target });
-        }
-      }
+      if (g.pause > 0) { g.pause -= dt; continue; }
+      if (g.from === g.to) { this.atNode(g, g.from); if (g.from === g.to || g.pause > 0) continue; }
+      const len = Math.hypot(nodeX(g.to) - nodeX(g.from), nodeY(g.to) - nodeY(g.from));
+      const sp = g.speed * ramp * (g.kind === 'hop' ? 2 : 1);
+      g.prog += sp * dt;
+      if (g.prog >= len) { this.atNode(g, g.to); continue; }
+      const k = g.prog / len;
+      const ox = g.x;
+      g.x = lerp(nodeX(g.from), nodeX(g.to), k); g.y = lerp(nodeY(g.from), nodeY(g.to), k);
+      if (Math.abs(g.x - ox) > 0.01) g.face = g.x < ox ? -1 : 1;
     }
+  }
+
+  /** 光が届いている所か(十字の線の上、中心から ext 辻ぶん以内) */
+  covers(b: Blast, x: number, y: number, r = 0) {
+    if (Math.hypot(x - b.x, y - b.y) <= 16 + r) return true;
+    if (b.h && Math.abs(y - b.y) < 1 && Math.abs(x - b.x) <= b.ext * GRID.dx + r) return true;
+    if (b.v && Math.abs(x - b.x) < 1 && Math.abs(y - b.y) <= b.ext * GRID.dy + r) return true;
+    return false;
   }
 
   private runBlasts(dt: number) {
     const P = this.P;
-    const added: Blast[] = [];
-    for (const b of this.blasts) {
-      if (b.delay > 0) { b.delay -= dt; continue; }
-      b.age += dt;
-      b.r = blastRadius(b.maxR, b.age, b.dur);
-      if (b.r <= 0) continue;
+    for (const b of [...this.blasts]) {
+      if (!b.shrinking) {
+        b.ext = Math.min(b.range, b.ext + P.lightSpeed * dt);
+        if (b.ext >= b.range) { b.hold -= dt; if (b.hold <= 0) b.shrinking = true; }
+      } else b.ext -= P.lightSpeed * 2 * dt;
+      if (b.ext <= 0 && b.shrinking) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
       const chain = this.chains.get(b.chain)!;
+      // 誘爆: 光に触れた提灯も弾ける
+      for (const l of [...this.lanterns]) {
+        if (!l.flying && this.covers(b, l.x, l.y)) this.burst(l, chain);
+      }
       for (const g of this.ghosts) {
-        if (g.dead) continue;
-        if (Math.hypot(g.x - b.x, g.y - b.y) > b.r + GHOST_R) continue;
+        if (g.dead || !this.covers(b, g.x, g.y, GHOST_R)) continue;
         g.dead = true;
         chain.count++;
         const pts = P.basePts * chain.count;
         chain.pts += pts; this.score += pts; this.purified++;
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });
-        // 小さな成仏の光(連鎖)と、人魂
-        added.push({ x: g.x, y: g.y, maxR: P.chainR, age: 0, dur: P.chainDur, delay: P.chainDelay, chain: chain.id, big: false, r: 0 });
-        if (this.wisps.length < 40) {
-          const a = this.rng.next() * Math.PI * 2;
-          this.wisps.push({ id: this.nextId++, x: g.x, y: g.y, age: 0, chain: chain.id, vx: Math.cos(a) * 30, vy: Math.sin(a) * 30 - 30 });
-        }
+        // 成仏したおばけは、自分のいる通りに沿って小さく弾ける(辻にいれば十字)
+        const atNode = g.from === g.to || g.caught > 0 || g.haunt;
+        const horiz = nodeRow(g.from) === nodeRow(g.to);
+        if (this.wisps.length < 50) this.wisps.push({ id: this.nextId++, x: g.x, y: g.y, h: atNode || horiz, v: atNode || !horiz, age: 0, chain: chain.id });
       }
     }
-    this.blasts = this.blasts.filter((b) => b.delay > 0 || b.age < b.dur).concat(added);
   }
 
   /** 光も人魂も残っていない連鎖を締め、大連鎖なら家の灯りを戻す */

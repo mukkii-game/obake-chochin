@@ -2,7 +2,7 @@
 // 見た目を差し替える時は、同じキーで assets/mine/ の画像を load すればよい。
 import Phaser from 'phaser';
 import { Rng } from '../core/rng';
-import { W, H, FIELD } from './logic';
+import { W, H, FIELD, GRID } from './logic';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -99,20 +99,29 @@ function drawBackground(c: Ctx) {
     g.addColorStop(0, 'rgba(200,210,255,0)'); g.addColorStop(0.5, `rgba(200,210,255,${a})`); g.addColorStop(1, 'rgba(200,210,255,0)');
     c.fillStyle = g; c.fillRect(x0, y - 16, x1 - x0, 32);
   }
-  // 里の地面(家々のある中ほどの帯)
-  c.fillStyle = 'rgba(22,24,30,0.55)';
-  c.beginPath(); c.moveTo(x0, 300);
-  for (let x = x0; x <= x1; x += 10) c.lineTo(x, 262 + Math.sin(x / 70) * 14 + Math.sin(x / 23) * 4);
-  c.lineTo(x1, 360);
-  for (let x = x1; x >= x0; x -= 10) c.lineTo(x, 352 + Math.sin(x / 60 + 1) * 12);
-  c.closePath(); c.fill();
-  // 道と木は家並みに合わせて Play で描く(家並みが毎回変わるため)
-  // 田んぼの畦(下半分にうっすら)
-  c.strokeStyle = 'rgba(160,170,220,0.06)'; c.lineWidth = 1;
-  for (let i = 0; i < 6; i++) {
-    c.beginPath();
-    const y = 395 + i * 18;
-    c.moveTo(x0, y); c.bezierCurveTo(300, y - 10, 600, y + 12, x1, y - 4); c.stroke();
+  // 碁盤の目の都(平安京のような通り)。町家の屋根が並ぶ区画と、白っぽい土の通り
+  const gx = (c: number) => GRID.x0 + c * GRID.dx, gy = (r: number) => GRID.y0 + r * GRID.dy;
+  c.fillStyle = 'rgba(14,16,26,0.55)';
+  c.fillRect(gx(0) - 18, gy(0) - 18, gx(GRID.cols - 1) - gx(0) + 36, gy(GRID.rows - 1) - gy(0) + 36);
+  for (let r = 0; r < GRID.rows - 1; r++) {
+    for (let col = 0; col < GRID.cols - 1; col++) {
+      // 区画の中の町家(当てる家ではない、ただの町並み)
+      const bx = gx(col) + 10, by = gy(r) + 10, bw = GRID.dx - 20, bh = GRID.dy - 20;
+      c.fillStyle = 'rgba(24,26,40,0.9)'; c.fillRect(bx, by, bw, bh);
+      const n = 2 + (rng.int(0, 2));
+      for (let k = 0; k < n; k++) {
+        const rx = bx + 4 + rng.next() * (bw - 26), ry = by + 4 + rng.next() * (bh - 22);
+        c.fillStyle = 'rgba(46,44,60,0.95)';
+        c.beginPath(); c.moveTo(rx, ry + 12); c.lineTo(rx + 5, ry); c.lineTo(rx + 17, ry); c.lineTo(rx + 22, ry + 12); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(30,28,40,0.95)'; c.fillRect(rx + 3, ry + 12, 16, 7);
+      }
+    }
+  }
+  c.lineCap = 'round';
+  for (const [w, col] of [[11, 'rgba(190,170,130,0.16)'], [5, 'rgba(225,205,160,0.14)']] as const) {
+    c.strokeStyle = col; c.lineWidth = w;
+    for (let r = 0; r < GRID.rows; r++) { c.beginPath(); c.moveTo(gx(0), gy(r)); c.lineTo(gx(GRID.cols - 1), gy(r)); c.stroke(); }
+    for (let col = 0; col < GRID.cols; col++) { c.beginPath(); c.moveTo(gx(col), gy(0)); c.lineTo(gx(col), gy(GRID.rows - 1)); c.stroke(); }
   }
   // 紙の端のかすれ
   const vg = c.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 560);

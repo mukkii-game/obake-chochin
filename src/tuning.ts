@@ -9,37 +9,32 @@ export type Knob =
   | { key: string; label: string; value: boolean; aim?: string };
 
 export const KNOBS: Knob[] = [
-  // 提灯(飛ばす → 灯って呼び寄せる → いつも同じ間で弾ける)。サインは出さない。速さ・間・大きさを一定にして読ませる
-  { key: 'lantern.max', label: '同時に出せる提灯', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: 'SPEC では 3。飛んでいるものも数える' },
-  { key: 'lantern.perHouse', label: '1 軒の軒先の提灯', value: 3, min: 1, max: 10, step: 1, unit: '個/刻', aim: 'ミサイルコマンドの基地の弾。家が消えるとその家の分も消える' },
-  { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 300, min: 100, max: 1200, step: 10, unit: 'px/秒', aim: '先読みが要るが、読めば当たる' },
-  { key: 'lantern.fuse', label: '灯ってから弾けるまで', value: 1.2, min: 0.3, max: 5, step: 0.1, unit: '秒', aim: 'いつも同じ。呼び寄せたおばけが寄り切る長さ' },
-  { key: 'lantern.tapR', label: '提灯を押す当たり', value: 40, min: 20, max: 80, step: 2, unit: 'px', aim: 'スマホの指でも外さない' },
-  { key: 'lure.r', label: '灯りが呼ぶ範囲', value: 60, min: 40, max: 250, step: 5, unit: 'px', aim: '明るい所がそのまま範囲' },
-  { key: 'kirai.r', label: '光嫌いが避ける距離', value: 70, min: 20, max: 200, step: 2, unit: 'px', aim: '灯った提灯には捕まらない。飛んでいる提灯を押して、着いた所で弾けさせる' },
-  // 成仏の光(広がって・留まって・縮む。いつも同じ)
-  { key: 'blast.r', label: '成仏の光の半径', value: 48, min: 20, max: 160, step: 2, unit: 'px' },
-  { key: 'blast.dur', label: '成仏の光の長さ', value: 1.0, min: 0.3, max: 3, step: 0.05, unit: '秒' },
-  // 連鎖
-  { key: 'chain.radius', label: '連鎖の光の半径', value: 34, min: 10, max: 120, step: 2, unit: 'px', aim: '固まっていれば次々つながる' },
-  { key: 'chain.delay', label: '連鎖の間', value: 0.08, min: 0, max: 0.4, step: 0.01, unit: '秒' },
-  { key: 'chain.dur', label: '連鎖の光の長さ', value: 0.55, min: 0.2, max: 2, step: 0.05, unit: '秒' },
+  // 提灯(投げる → 辻に下がる罠 → 押すと十字に弾ける)。サインは出さない。速さ・広がり方を一定にして読ませる
+  { key: 'lantern.max', label: '同時に下げられる提灯', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: 'SPEC では 3。飛んでいるものも数える' },
+  { key: 'lantern.perHouse', label: '1 軒の軒先の提灯', value: 3, min: 1, max: 10, step: 1, unit: '個/刻', aim: '家が消えるとその家の分も消える' },
+  { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 170, min: 60, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり。着くまでの間を読む' },
+  { key: 'lure.n', label: '提灯が呼ぶ距離', value: 3, min: 0, max: 8, step: 1, unit: '辻', aim: '通りを歩いてこの数の辻以内のおばけが寄ってくる' },
+  { key: 'lure.capture', label: '提灯に見とれる時間', value: 3.5, min: 0.5, max: 10, step: 0.1, unit: '秒', aim: '罠にかかっている間。ここで弾けさせる' },
+  // 十字の光(ボンバーマン)
+  { key: 'light.range', label: '光の届く辻の数', value: 2, min: 1, max: 6, step: 0.5, unit: '辻', aim: '他の提灯に届けば誘爆する' },
+  { key: 'light.speed', label: '光の広がる速さ', value: 1.8, min: 0.5, max: 10, step: 0.1, unit: '辻/秒', aim: 'ゆっくり広がる。歩いてくるおばけと出会う時を読む' },
+  { key: 'light.hold', label: '光が留まる時間', value: 0.5, min: 0, max: 3, step: 0.1, unit: '秒' },
+  { key: 'wisp.delay', label: '成仏したおばけが弾けるまで', value: 0.35, min: 0, max: 2, step: 0.05, unit: '秒' },
+  { key: 'wisp.range', label: '成仏したおばけの光の届く辻', value: 1, min: 0, max: 3, step: 0.5, unit: '辻', aim: '群れで来れば、つながって連鎖する' },
   { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 10, min: 3, max: 30, step: 1, unit: '連' },
   { key: 'score.base', label: '1体の基本点', value: 10, min: 1, max: 100, step: 1, unit: '点', aim: 'n 連目は基本点 × n' },
-  { key: 'wisp.life', label: '人魂が弾けるまで', value: 0.8, min: 0.2, max: 5, step: 0.1, unit: '秒' },
-  { key: 'wisp.pop', label: '人魂が弾ける範囲', value: 30, min: 0, max: 120, step: 2, unit: 'px' },
   // 家
-  { key: 'house.haunt', label: '家の人が騒いでから逃げ出すまで', value: 2.2, min: 0, max: 8, step: 0.1, unit: '秒', aim: 'この間に入ったおばけを成仏させれば家は助かる' },
+  { key: 'house.haunt', label: '家の人が騒いでから逃げ出すまで', value: 1.2, min: 0, max: 8, step: 0.1, unit: '秒', aim: '短い。家の前で待ち受けるのではなく、手前で仕留めるため。騒いでいる家は提灯を投げられない' },
   // おばけ
-  { key: 'ghost.speed', label: 'おばけの基本の速さ', value: 38, min: 10, max: 100, step: 1, unit: 'px/秒' },
-  { key: 'ghost.speedRamp', label: '刻ごとの速さ増', value: 0.07, min: 0, max: 0.5, step: 0.01, unit: '倍/刻' },
-  { key: 'ghost.hopDist', label: '唐傘のひと跳び', value: 60, min: 20, max: 200, step: 5, unit: 'px', aim: 'いつも同じ距離・同じ間' },
-  { key: 'ghost.zigLeg', label: '鬼火が折れる間', value: 1.1, min: 0.3, max: 4, step: 0.1, unit: '秒' },
+  { key: 'ghost.speed', label: 'おばけの基本の速さ', value: 34, min: 10, max: 100, step: 1, unit: 'px/秒', aim: '辻 1 つを約 2 秒' },
+  { key: 'ghost.speedRamp', label: '刻ごとの速さ増', value: 0.06, min: 0, max: 0.5, step: 0.01, unit: '倍/刻' },
+  { key: 'ghost.hopPause', label: '唐傘が辻で止まる時間', value: 1.6, min: 0, max: 5, step: 0.1, unit: '秒' },
   // 刻(攻撃の波)
   { key: 'wave.base', label: '最初の刻のおばけの数', value: 8, min: 2, max: 40, step: 1, unit: '体' },
   { key: 'wave.grow', label: '刻ごとの増え方', value: 3, min: 0, max: 15, step: 1, unit: '体/刻' },
-  { key: 'wave.gap', label: '群れと群れの間', value: 3.2, min: 0.5, max: 8, step: 0.1, unit: '秒', aim: '刻が進むと 0.2 秒ずつ詰まる' },
-  { key: 'wave.gapMin', label: '群れの間の最短', value: 1.2, min: 0.3, max: 5, step: 0.1, unit: '秒' },
+  { key: 'wave.gap', label: '群れと群れの間', value: 5, min: 0.5, max: 12, step: 0.1, unit: '秒', aim: '刻が進むと 0.2 秒ずつ詰まる' },
+  { key: 'wave.gapMin', label: '群れの間の最短', value: 2, min: 0.3, max: 8, step: 0.1, unit: '秒' },
+  { key: 'wave.convoy', label: '群れの中の間', value: 0.8, min: 0.1, max: 3, step: 0.05, unit: '秒', aim: '同じ通りに列を作る' },
   { key: 'wave.portalEvery', label: 'あの世の口が増える間隔', value: 3, min: 1, max: 20, step: 1, unit: '刻ごと', aim: '口は 1 → 2 → 3 つ' },
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },
   { key: 'wave.ammoBonus', label: '余った提灯 1 つの点', value: 20, min: 0, max: 300, step: 5, unit: '点×刻' },

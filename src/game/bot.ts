@@ -1,23 +1,23 @@
 // 自動プレイの bot。ゲームの中身だけを見て「どこをタップするか」を返す(描画なし)。
-// ?auto=1 のデモ、CI の起動確認、tools/sim.mjs のバランス確認で共有する。
-// 人間と同じく「提灯が着いて弾ける頃に、群れがどこにいるか」を先読みして投げる。
-// 光嫌いは飛んでいる提灯を押して「着いたら弾ける」で落とし、騒いでいる家は間に合えば助けに行く。
-// lag: 決めてから指が動くまでの遅れ(秒)。成績が lag で大きく落ちない = 反射神経のゲームではない、の確認用。
+// ?auto=1 のデモ、CI の確認、tools/sim.mjs のバランス確認で共有する。
+// 人間と同じく、おばけが辻でどう曲がるかを読んで道筋を先読みし、提灯が着く頃に多くの道筋が通る辻へ罠を仕掛ける。
+// かかったら(見とれている間に)弾けさせる。影法師には着いたら弾ける提灯を投げる。騒いでいる家は間に合えば助ける。
+// lag: 決めてから指が動くまでの遅れ(秒)。noLead: 先読みせず、今いる辻へ投げる(比較用)。
 import type { Game, Ghost } from './logic';
-import { clamp, FIELD } from './logic';
+import { gridDist, nodeX, nodeY, GRID } from './logic';
 import { Rng } from '../core/rng';
+
+interface Step { n: number; t: number }
 
 export class Bot {
   private cool = 0;
   private tapGap = 0;
   private frame = 0;
   private rng: Rng;
-  /** 投げた直後に押して「着いたら弾ける」にする行き先 */
   private arms: Array<[number, number]> = [];
   private queue: Array<{ due: number; x: number; y: number }> = [];
-  /** 比較用: 先読みせず、今いる所へ投げる */
   noLead = false;
-  /** skill 0..1: 低いほど狙いが雑で、迷う時間が長い。乱数はゲームと別にする(記録の再生がずれないように) */
+  /** skill 0..1: 低いほど迷う時間が長く、読み違えが多い。乱数はゲームと別にする(記録の再生がずれないように) */
   constructor(private skill = 0.8, seed = 1, private lag = 0, private lagOn: 'all' | 'break' | 'launch' = 'all') { this.rng = new Rng(seed ^ 0x5bd1e995); }
 
   decide(g: Game): Array<[number, number]> {
@@ -28,7 +28,7 @@ export class Bot {
     if (g.over || this.tapGap > 0) return out;
     const r = this.think(g);
     if (r.length) {
-      this.tapGap = 0.12;
+      this.tapGap = 0.15;
       for (const [x, y] of r) {
         if (this.lag > 0 && this.lagOn !== 'break') this.queue.push({ due: this.frame + Math.round(this.lag * 60), x, y });
         else out.push([x, y]);
@@ -40,59 +40,94 @@ export class Bot {
   private think(g: Game): Array<[number, number]> {
     const P = g.P;
     if (this.arms.length) return [this.arms.shift()!];
+    const pending = (n: number) => this.queue.some((q) => Math.hypot(q.x - nodeX(n), q.y - nodeY(n)) < 5);
+
+    // 1) 弾けさせる: 罠にかかったおばけが離れそう / 十分かかった / もう誰も来ない
+    for (const l of g.lanterns) {
+      if (l.flying || pending(l.node)) continue;
+      const caught = g.ghosts.filter((q) => q.lure === l.id && q.caught > 0);
+      const coming = g.ghosts.filter((q) => q.lure === l.id && q.caught <= 0).length;
+      const minLeft = caught.length ? Math.min(...caught.map((q) => q.caught)) : Infinity;
+      const houseNear = g.houses.some((h) => h.haunt > 0 && gridDist(h.node, l.node) <= P.range && (nodeX(h.node) === l.x || nodeY(h.node) === l.y));
+      if (houseNear || (caught.length && (minLeft < 0.7 || caught.length >= 4 || coming === 0))) return [[l.x, l.y]];
+      // 誰も寄らないまま枠を塞いでいる提灯は片付ける
+      if (!caught.length && !coming && l.age > 8 && g.lanterns.length >= P.maxLanterns) return [[l.x, l.y]];
+    }
     if (this.cool > 0 || g.lanterns.length >= P.maxLanterns || g.ammo <= 0) return [];
     const think = 0.9 - this.skill * 0.6;
-    const miss = (1 - this.skill) * 50;
-    const busy = (x: number, y: number) => g.lanterns.some((l) => Math.hypot(l.tx - x, l.ty - y) < P.lureR * 0.8);
+    const used = (n: number) => g.lanterns.some((l) => gridDist(l.node, n) <= 1) || pending(n) || g.houses.some((h) => h.node === n);
 
-    // 1) 騒いでいる家: 間に合うなら、その家へ「着いたら弾ける」提灯
+    // 2) 騒いでいる家: 間に合うなら、着いたら弾ける提灯をその家の辻へ
     for (const h of g.houses) {
-      if (h.haunt <= 0 || busy(h.x, h.y)) continue;
-      if (g.flightTime(h.x, h.y) + this.lag + 0.15 < h.haunt) return this.fire(h.x, h.y, true, think, 0);
+      if (h.haunt <= 0) continue;
+      // 家の辻には下げられないので、隣の辻から光を通す
+      for (const m of [1, -1, GRID.cols, -GRID.cols].map((d) => h.node + d)) {
+        if (m < 0 || m >= GRID.cols * GRID.rows || gridDist(m, h.node) !== 1 || used(m)) continue;
+        if (g.flightTime(m) + this.lag + 0.2 + 1 / P.lightSpeed < h.haunt) return this.fire(g, m, true, think);
+      }
     }
 
-    // 2) 群れ: 弾ける頃の位置を先読みし、一番多く巻き込める所へ
-    const free = g.ghosts.filter((q) => !q.lure && !q.haunt);
-    let best: { x: number; y: number; n: number; urgent: boolean; snipe: boolean } | null = null;
-    for (const q of free) {
-      const snipe = q.kind === 'kirai';
-      let [x, y] = [q.x, q.y];
-      let t = 0;
-      for (let i = 0; i < 3; i++) { t = g.flightTime(x, y) + (snipe ? P.blastDur * 0.2 : P.fuse * 0.5) + this.lag; [x, y] = this.predict(g, q, t); }
-      if (busy(x, y)) continue;
-      const n = snipe ? 1 : free.filter((o) => o.kind !== 'kirai' && Math.hypot(this.predict(g, o, t)[0] - x, this.predict(g, o, t)[1] - y) < P.lureR * 0.85).length;
-      const toHouse = this.toHouse(g, q);
-      const urgent = toHouse < q.speed * (t + P.fuse + 1.5);
-      const score = n * 3 + (urgent ? 4 : 0) - toHouse / 200;
-      const bestScore = best ? best.n * 3 + (best.urgent ? 4 : 0) : -Infinity;
-      if (score > bestScore) best = { x, y, n, urgent, snipe };
+    // 3) 罠を仕掛ける: 提灯が灯った後に、多くの道筋が近くを通る辻
+    const free = g.ghosts.filter((q) => !q.lure && !q.haunt && q.caught <= 0);
+    const paths = free.map((q) => ({ q, path: this.path(g, q, 14) }));
+    let best: { n: number; score: number; arm: boolean } | null = null;
+    for (const { q, path } of paths) {
+      const sniper = q.kind === 'kirai';
+      for (const s of path) {
+        if (used(s.n)) continue;
+        const ft = g.flightTime(s.n) + this.lag;
+        let score = 0;
+        if (sniper) {
+          // 影法師: 着いた瞬間に弾けて、光が広がる頃にそこを通る辻
+          if (Math.abs(s.t - (ft + 0.3)) > 0.5) continue;
+          score = 2.5;
+        } else {
+          if (!this.noLead && s.t < ft + 0.3) continue; // 先に灯っていないと呼べない
+          for (const o of paths) {
+            if (o.q.kind === 'kirai') continue;
+            if (o.path.some((m) => m.t > ft && gridDist(m.n, s.n) <= Math.min(P.lureN, 2))) score++;
+          }
+        }
+        const urgency = 1 / (1 + this.toHouse(g, q));
+        score += urgency * 3 - (this.rng.next() * (1 - this.skill));
+        if (!best || score > best.score) best = { n: s.n, score, arm: sniper };
+      }
     }
     if (!best) return [];
-    // 弾は限られているので、1 体だけには(急ぎでなければ)使わない
-    if (best.n < 2 && !best.urgent && !best.snipe) return [];
-    return this.fire(best.x, best.y, best.snipe, think, miss);
+    if (best.score < 1.6 && g.ammo < 6) return []; // 弾は限られている。1 体だけ、急ぎでもないなら待つ
+    return this.fire(g, best.n, best.arm, think);
   }
 
-  private fire(x: number, y: number, arm: boolean, think: number, miss: number): Array<[number, number]> {
-    x = Math.round(clamp(x + (this.rng.next() - 0.5) * miss, FIELD.x0 + 10, FIELD.x1 - 10));
-    y = Math.round(clamp(y + (this.rng.next() - 0.5) * miss, FIELD.y0 + 10, FIELD.y1 - 10));
+  private fire(g: Game, n: number, arm: boolean, think: number): Array<[number, number]> {
     this.cool = think + this.lag;
+    const x = nodeX(n), y = nodeY(n);
     if (arm) this.arms.push([x, y]);
+    void g;
     return [[x, y]];
   }
 
-  /** t 秒後の位置(芯がまっすぐ進むとして。横揺れ・折れは無視 = 人間の読みと同じ程度) */
-  private predict(g: Game, q: Ghost, t: number): [number, number] {
-    if (this.noLead) t = 0;
-    const [hx, hy] = g.goal(q);
-    const dx = hx - q.bx, dy = hy - q.by, d = Math.hypot(dx, dy) || 1;
-    const sp = q.speed * (1 + g.P.speedRamp * g.wave) * (q.kind === 'zig' ? 0.83 : 1);
-    const s = Math.min(d, sp * t);
-    return [q.bx + (dx / d) * s, q.by + (dy / d) * s];
+  /** おばけの道筋の先読み(辻とそこに着く時刻)。ゲームと同じ曲がり方の決まりで歩かせる */
+  private path(g: Game, q: Ghost, horizon: number): Step[] {
+    const P = g.P;
+    const c: Ghost = { ...q, passed: [...q.passed], lure: 0 };
+    const sp = q.speed * (1 + P.speedRamp * g.wave) * (q.kind === 'hop' ? 2 : 1);
+    const len = (a: number, b: number) => Math.hypot(nodeX(b) - nodeX(a), nodeY(b) - nodeY(a));
+    let n = q.to, t = q.pause + (q.from === q.to ? 0 : (len(q.from, q.to) - q.prog) / sp);
+    const out: Step[] = [{ n, t }];
+    if (this.noLead) return [{ n: q.from === q.to ? q.from : (q.prog > len(q.from, q.to) / 2 ? q.to : q.from), t: 0 }];
+    const houseNode = () => g.houses[c.target].node;
+    while (t < horizon && out.length < 24 && n !== houseNode()) {
+      const nx = g.chooseNext(c, n);
+      if (!nx) break;
+      c.dir = nx.dir;
+      t += len(n, nx.next) / sp + (q.kind === 'hop' ? P.hopPause : 0);
+      n = nx.next;
+      out.push({ n, t });
+    }
+    return out;
   }
 
   private toHouse(g: Game, q: Ghost) {
-    const h = g.houses[q.target];
-    return Math.hypot(h.x - q.x, h.y - q.y);
+    return gridDist(q.to, g.houses[q.target].node);
   }
 }
