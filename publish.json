@@ -15,27 +15,27 @@
     {
       "id": "catch",
       "label": "キャッチコピー(1行)",
-      "body": "先を読んで提灯を飛ばし、群れが重なる一瞬に割れ。"
+      "body": "おばけは灯りに寄る。だから提灯を投げて、呼んで、まとめて弾けさせろ。"
     },
     {
       "id": "short",
       "label": "短い紹介(100字・概要欄向け)",
-      "body": "夜の村に群れで寄ってくるおばけ。先を読んで提灯を飛ばし、まわりを回る群れをまとめて割って成仏させる和風スコアアタック。使える提灯は刻ごとに限り。ブラウザですぐ遊べます。"
+      "body": "夜の村に、墓場からおばけが寄ってくる。おばけは灯りに寄る。家から提灯を投げて呼び寄せ、弾ける光でまとめて成仏させる和風スコアアタック。先を読み、限られた提灯の使い道を選ぶ。"
     },
     {
       "id": "long",
       "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
-      "body": "夜が更けるほど、村におばけが群れで寄ってくる。家に入られると、その家の灯りが消えてしまう。\nあなたは家から提灯を飛ばして、おばけを迎え撃つ。\n\n■ 遊び方(スマホ)\n・タップした所へ、近くの家から提灯が飛んでいく(同時に 3 つまで)。着くまでの間におばけは進むので、先を読んで狙う\n・刻ごとに使える提灯の数は決まっている(右上の「残り」)\n・灯った提灯の近くを通るおばけは、提灯のまわりをしばらく回ってから離れていく\n・もう一度タップすると提灯が割れて、成仏の光が広がる。回っている群れをまとめて成仏させよう\n・飛んでいる提灯を押すと、着いたら割れる(提灯に寄らない影法師向け)\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 波打ちながら近づく\n・ジグザグ鬼火 … 一定のリズムで折れながら迫る\n・跳ねる唐傘 … しゃがんでから跳ぶ\n・光嫌いの影法師 … 灯りを避けて回り込む\n\n■ コツ\n・成仏したおばけからも光が出て、人魂になってもう一度弾ける。固まった群れは連鎖する\n・12 連鎖以上で、消えた家の灯りがひとつ戻る\n\n刻を越えるごとに、残った家の数だけボーナス。全部の家の灯りが消えたら終わり。"
+      "body": "おばけは灯りに寄ってくる。夜の村の家々の灯りを目指して、墓場からまっすぐに。\n家に入られると中の人が騒ぎ出し、やがて逃げ出して灯りが消える。\n\n■ 遊び方(スマホ)\n・タップした所へ、近くの家から提灯が飛んでいく。着くまでの間にもおばけは進むので、先を読んで投げる\n・灯った提灯は近くのおばけを呼び寄せ、少しして弾ける。弾ける光に触れたおばけは成仏する\n・提灯を押すと、その場で弾ける(飛んでいる間なら着いた所で)\n・提灯は家の軒先に下がっている分だけ。家の灯りが消えると、その家の提灯も消える\n・家の人が騒いでいる間に、入り込んだおばけを成仏させれば家は助かる\n・横向きにすると大きく遊べます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち\n・ふらふら幽霊 … 小さく揺れながらまっすぐ\n・跳ねる唐傘 … 止まっては、同じ距離を跳ぶ\n・ジグザグ鬼火 … 一定の間で折れながら\n・光嫌いの影法師 … 灯った提灯を避ける。飛んでいる提灯を押して、着いた所で弾けさせよう\n\n刻が変わるたびに、墓場の場所が変わる。刻を越えると、残った家と余った提灯の分だけボーナス。"
     },
     {
       "id": "short-en",
       "label": "Short description (English)",
-      "body": "Ghosts swarm a night village. Launch a limited number of paper lanterns ahead of them, let the swarm circle the light, and break the lantern to free them all in a chain."
+      "body": "Ghosts are drawn to light. They drift from the graves toward the village lights. Throw lanterns from the houses to lure them in, and burst them all in one glow. Read their paths and spend your few lanterns wisely."
     },
     {
       "id": "controls-en",
       "label": "Controls (English)",
-      "body": "Tap / click a spot to launch a lantern there (up to 3). Tap / click a lantern again to break it. M toggles sound. Landscape recommended on phones."
+      "body": "Tap / click to throw a lantern there from the nearest house. Lit lanterns lure ghosts, then burst. Tap a lantern to burst it now (or on landing). Each house only has the lanterns hanging from its eaves. M toggles sound."
     },
     {
       "id": "x-a",
@@ -45,7 +45,7 @@
     {
       "id": "x-b",
       "label": "X: 仕掛けで引く",
-      "body": "群れの先に提灯を飛ばし、まわりを回らせて、まとめて割る。\n提灯は刻ごとに限りあり。1 つで何体巻き込むかを考えるゲームです。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
+      "body": "おばけは灯りに寄る。\nだから提灯を投げて、呼んで、まとめて弾けさせる。ミサイルコマンドの読み合いを、夜の村に。\nhttps://mukkii-game.github.io/obake-chochin/\n#おばけ提灯 #インディーゲーム"
     }
   ],
   "sites": [

@@ -17,6 +17,9 @@ export const snd = {
   launch: () => { noise({ dur: 0.18, gain: 0.07, freq: 900, q: 1.2 }); tone({ freq: 300, slide: 700, dur: 0.16, type: 'triangle', gain: 0.05 }); },
   arm: () => { tone({ freq: 1400, dur: 0.05, type: 'square', gain: 0.03 }); tone({ freq: 1800, dur: 0.05, type: 'square', gain: 0.03, delay: 0.06 }); },
   catch: () => tone({ freq: 700, slide: 1000, dur: 0.07, type: 'sine', gain: 0.025 }),
+  /** おばけが家に入った: 中の人の悲鳴(上ずる短い音の繰り返し) */
+  haunt: () => { for (let i = 0; i < 3; i++) tone({ freq: 700 + i * 90, slide: 1100 + i * 60, dur: 0.12, type: 'triangle', gain: 0.035, delay: i * 0.16 }); },
+  saved: () => [0, 2, 4].forEach((k, i) => bell(note(7 + k), 0.04, i * 0.06, 0.8)),
   deny: () => tone({ freq: 160, dur: 0.12, type: 'square', gain: 0.04 }),
   break: (held: number) => {
     noise({ dur: 0.22, gain: 0.16, freq: 2400, q: 0.6 });

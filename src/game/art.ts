@@ -2,7 +2,7 @@
 // 見た目を差し替える時は、同じキーで assets/mine/ の画像を load すればよい。
 import Phaser from 'phaser';
 import { Rng } from '../core/rng';
-import { W, H, FIELD, HOUSE_POS } from './logic';
+import { W, H, FIELD } from './logic';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -45,6 +45,13 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_hop', 52, 60, drawKarakasa);
   make(scene, 'g_kirai', 50, 56, drawKage);
   make(scene, 'wisp', 32, 40, drawWisp);
+  make(scene, 'portal', 72, 72, drawPortal);
+  make(scene, 'person', 12, 18, drawPerson);
+  make(scene, 'tree', 40, 44, (c) => {
+    c.fillStyle = 'rgba(12,14,22,0.9)';
+    c.fillRect(18, 28, 4, 16);
+    for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(20 + (k - 1) * 6, 24 - k * 7, 16 - k * 3, 6, 0, 0, 7); c.fill(); }
+  });
 }
 
 function drawBackground(c: Ctx) {
@@ -99,25 +106,7 @@ function drawBackground(c: Ctx) {
   c.lineTo(x1, 360);
   for (let x = x1; x >= x0; x -= 10) c.lineTo(x, 352 + Math.sin(x / 60 + 1) * 12);
   c.closePath(); c.fill();
-  // 家々をつなぐ、うねる道
-  c.strokeStyle = 'rgba(210,190,150,0.16)'; c.lineWidth = 7; c.lineCap = 'round';
-  c.beginPath();
-  c.moveTo(x0 + 10, 280);
-  for (const [hx, hy] of HOUSE_POS) c.lineTo(hx, hy + 22);
-  c.lineTo(x1 - 10, 300);
-  c.stroke();
-  c.strokeStyle = 'rgba(210,190,150,0.08)'; c.lineWidth = 2; c.stroke();
-  // 松と杉の影
-  const tree = (x: number, y: number, s: number) => {
-    c.fillStyle = 'rgba(12,14,22,0.85)';
-    c.fillRect(x - 1.5 * s, y - 10 * s, 3 * s, 10 * s);
-    for (let k = 0; k < 3; k++) {
-      c.beginPath();
-      c.ellipse(x + (k - 1) * 5 * s, y - 14 * s - k * 6 * s, 11 * s - k * 2 * s, 4 * s, 0, 0, 7);
-      c.fill();
-    }
-  };
-  for (const [x, y, s] of [[120, 300, 1.2], [380, 270, 0.9], [610, 350, 1.1], [850, 280, 1.3], [260, 360, 0.8], [720, 205, 0.8]]) tree(x, y, s);
+  // 道と木は家並みに合わせて Play で描く(家並みが毎回変わるため)
   // 田んぼの畦(下半分にうっすら)
   c.strokeStyle = 'rgba(160,170,220,0.06)'; c.lineWidth = 1;
   for (let i = 0; i < 6; i++) {
@@ -271,4 +260,30 @@ function drawWisp(c: Ctx) {
   c.beginPath();
   c.moveTo(16, 2); c.bezierCurveTo(20, 10, 30, 16, 28, 26);
   c.bezierCurveTo(27, 36, 5, 36, 4, 26); c.bezierCurveTo(4, 16, 14, 14, 16, 2); c.fill();
+}
+
+/** あの世の口: 墓石と卒塔婆、まわりに紫の靄 */
+function drawPortal(c: Ctx) {
+  const g = c.createRadialGradient(36, 40, 4, 36, 40, 36);
+  g.addColorStop(0, 'rgba(120,60,170,0.55)'); g.addColorStop(0.6, 'rgba(70,30,110,0.25)'); g.addColorStop(1, 'rgba(40,20,70,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 72, 72);
+  // 卒塔婆
+  c.fillStyle = '#b8b0a0';
+  for (const [x, h] of [[18, 30], [52, 26], [58, 20]]) {
+    c.beginPath(); c.moveTo(x - 2, 52); c.lineTo(x - 2, 52 - h); c.lineTo(x, 52 - h - 3); c.lineTo(x + 2, 52 - h); c.lineTo(x + 2, 52); c.fill();
+  }
+  // 墓石
+  c.fillStyle = '#4a4656';
+  c.fillRect(27, 30, 18, 24);
+  c.fillStyle = '#5c586a'; c.fillRect(24, 52, 24, 5);
+  c.fillStyle = 'rgba(20,16,30,0.8)'; c.fillRect(33, 34, 6, 14);
+}
+
+/** 家の人(逃げ出す時に描く小さな影) */
+function drawPerson(c: Ctx) {
+  c.fillStyle = '#1a1420';
+  c.beginPath(); c.arc(6, 4, 3.2, 0, 7); c.fill();
+  c.beginPath(); c.moveTo(2, 18); c.lineTo(4, 8); c.lineTo(8, 8); c.lineTo(10, 18); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(255,210,140,0.6)'; c.lineWidth = 1;
+  c.beginPath(); c.arc(6, 4, 3.2, 0, 7); c.stroke();
 }

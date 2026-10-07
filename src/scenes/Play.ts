@@ -12,11 +12,13 @@ import { DemoDriver, expose } from '../core/demo';
 import { t } from '../core/i18n';
 import { save, load } from '../core/save';
 import { tune } from '../core/tuning';
-import { startSeed } from '../core/rng';
+import { startSeed, Rng } from '../core/rng';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted } from '../core/audio';
 
 const GHOST_TEX = { fuwa: 'g_fuwa', zig: 'g_zig', hop: 'g_hop', kirai: 'g_kirai' } as const;
+/** 軒先の提灯の位置(家の中心から) */
+const HANG: ReadonlyArray<[number, number]> = [[-34, 4], [34, 4], [-24, 10]];
 
 export class Play extends Phaser.Scene {
   private game2!: Game;
@@ -32,14 +34,13 @@ export class Play extends Phaser.Scene {
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text }>();
   private wSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }> = [];
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[] }> = [];
+  private portalImgs: Phaser.GameObjects.Image[] = [];
   private fx!: Phaser.GameObjects.Graphics;
   private glowFx!: Phaser.GameObjects.Graphics;
   private moon!: Phaser.GameObjects.Image;
   private scoreText!: Phaser.GameObjects.Text;
   private watchText!: Phaser.GameObjects.Text;
-  private lanternIcons: Phaser.GameObjects.Image[] = [];
-  private ammoText!: Phaser.GameObjects.Text;
   private chainText!: Phaser.GameObjects.Text;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -51,7 +52,7 @@ export class Play extends Phaser.Scene {
   create() {
     expose('scene', 'Play');
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0;
-    this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.lanternIcons = []; this.trails.clear();
+    this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
     this.tipShown.clear();
 
     const replay = replayFromUrl();
@@ -64,10 +65,13 @@ export class Play extends Phaser.Scene {
 
     this.add.image(0, 0, 'bg').setOrigin(0);
     this.moon = this.add.image(0, 0, 'moon').setAlpha(0.95);
+    this.drawVillage(seed);
     for (const h of this.game2.houses) {
       const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.3).setAlpha(0.55);
       const img = this.add.image(h.x, h.y, 'house_lit').setOrigin(0.5, 0.6);
-      this.houseImgs.push({ img, glow });
+      // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
+      const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, 'lantern').setScale(0.3).setDepth(2));
+      this.houseImgs.push({ img, glow, hang });
     }
     this.fx = this.add.graphics().setDepth(5);
     this.glowFx = this.add.graphics().setDepth(19).setBlendMode(Phaser.BlendModes.ADD);
@@ -85,10 +89,6 @@ export class Play extends Phaser.Scene {
     // HUD(巻物の上の縁に)
     this.scoreText = this.add.text(PAPER.x0 + 14, 6, '', txt(20)).setDepth(50);
     this.watchText = this.add.text(W / 2, 6, '', txt(18, '#e8d6ff')).setOrigin(0.5, 0).setDepth(50);
-    for (let i = 0; i < this.game2.P.maxLanterns; i++) {
-      this.lanternIcons.push(this.add.image(PAPER.x1 - 110 - i * 22, 16, 'lantern').setScale(0.42).setDepth(50));
-    }
-    this.ammoText = this.add.text(PAPER.x1 - 176, 6, '', txt(18, '#ffd9a0')).setOrigin(1, 0).setDepth(50);
     const mute = this.add.text(PAPER.x1 - 14, 6, isMuted() ? '♪×' : '♪', txt(18, '#cfe')).setOrigin(1, 0).setDepth(50);
     this.chainText = this.add.text(W / 2, H / 2, '', txt(44, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
@@ -103,6 +103,7 @@ export class Play extends Phaser.Scene {
     this.input.keyboard?.on('keydown-M', () => { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); });
     this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; bgmStop(); });
 
+    this.showPortals();
     bgmStart();
     this.updateHud();
   }
@@ -158,9 +159,6 @@ export class Play extends Phaser.Scene {
         break;
       case 'deny': {
         snd.deny();
-        for (const ic of this.lanternIcons) this.tweens.add({ targets: ic, scale: 0.55, yoyo: true, duration: 90 });
-        const x = this.add.text(e.x, e.y, '×', txt(26, '#ff8a80')).setOrigin(0.5).setDepth(40);
-        this.tweens.add({ targets: x, alpha: 0, y: e.y - 14, duration: 500, onComplete: () => x.destroy() });
         break;
       }
       case 'break':
@@ -183,10 +181,21 @@ export class Play extends Phaser.Scene {
         snd.chainEnd(e.n);
         if (e.n >= 8) { this.hitstop = tune<number>('juice.hitstop'); this.cameras.main.shake(180, 0.006); }
         break;
+      case 'haunt':
+        snd.haunt();
+        break;
+      case 'saved':
+        snd.saved();
+        this.sparks.explode(10, e.x, e.y - 10);
+        break;
       case 'houseOut':
         snd.houseOut();
         this.cameras.main.shake(260, tune<number>('juice.shake'));
         this.puff(e.x, e.y);
+        this.flee(e.x, e.y);
+        break;
+      case 'portals':
+        this.showPortals();
         break;
       case 'relight': {
         snd.relight();
@@ -223,6 +232,51 @@ export class Play extends Phaser.Scene {
     this.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 400 });
   }
 
+  /** 家並みに合わせて道と木を描く(家並みは毎回変わる) */
+  private drawVillage(seed: number) {
+    const hs = this.game2.houses;
+    const gr = this.add.graphics().setDepth(1);
+    const pts: Array<[number, number]> = [[PAPER.x0 + 10, hs[0].y + 30], ...hs.map((h) => [h.x, h.y + 22] as [number, number]), [PAPER.x1 - 10, hs[hs.length - 1].y + 30]];
+    for (const [w, a] of [[7, 0.16], [2, 0.08]] as const) {
+      gr.lineStyle(w, 0xd2be96, a);
+      gr.beginPath(); gr.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+        for (let k = 1; k <= 8; k++) { const u = k / 8; gr.lineTo(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u + Math.sin(u * Math.PI) * 10); }
+      }
+      gr.strokePath();
+    }
+    // 木: 家から離れた所に
+    const r = new Rng(seed ^ 0x2545f491);
+    let placed = 0;
+    for (let tries = 0; placed < 7 && tries < 200; tries++) {
+      const x = PAPER.x0 + 40 + r.next() * (PAPER.x1 - PAPER.x0 - 80), y = 215 + r.next() * 150;
+      if (hs.some((h) => Math.hypot(h.x - x, h.y - y) < 70)) continue;
+      this.add.image(x, y, 'tree').setOrigin(0.5, 1).setScale(0.7 + r.next() * 0.6).setDepth(1);
+      placed++;
+    }
+  }
+
+  /** あの世の口(次の刻のおばけの出所)。刻の前から見えている */
+  private showPortals() {
+    for (const p of this.portalImgs) this.tweens.add({ targets: p, alpha: 0, duration: 500, onComplete: () => p.destroy() });
+    this.portalImgs = this.game2.portals.map((p) => {
+      const img = this.add.image(p.x, p.y, 'portal').setDepth(3).setAlpha(0).setScale(0.6);
+      this.tweens.add({ targets: img, alpha: 0.9, scale: 1, duration: 700, ease: 'Back.Out' });
+      return img;
+    });
+  }
+
+  /** 灯りが消えた家から、家の人が逃げ出す */
+  private flee(x: number, y: number) {
+    for (let i = 0; i < 3; i++) {
+      const p = this.add.image(x + (i - 1) * 6, y + 8, 'person').setDepth(26);
+      const a = Math.PI * (0.15 + 0.35 * i) + (i === 1 ? Math.PI : 0);
+      this.tweens.add({ targets: p, x: x + Math.cos(a) * 60, y: y + 14 + Math.abs(Math.sin(a)) * 18, alpha: 0, duration: 1300, delay: i * 120, ease: 'Quad.Out', onComplete: () => p.destroy() });
+      this.tweens.add({ targets: p, scaleY: 0.85, yoyo: true, repeat: 5, duration: 100 });
+    }
+  }
+
   private puff(x: number, y: number) {
     const p = this.add.image(x, y, 'glow').setTint(0x404060).setAlpha(0.8).setDepth(25);
     this.tweens.add({ targets: p, scale: 1.6, alpha: 0, duration: 600, onComplete: () => p.destroy() });
@@ -231,9 +285,7 @@ export class Play extends Phaser.Scene {
   private updateHud() {
     const g = this.game2;
     this.scoreText.setText(`${t('score')} ${g.score}`);
-    this.watchText.setText(`${watchName(g.wave)}   ${t('houses')} ${g.litCount}/${g.houses.length}`);
-    this.lanternIcons.forEach((ic, i) => ic.setAlpha(i < g.P.maxLanterns - g.lanterns.length ? 1 : 0.2));
-    this.ammoText.setText(`${t('ammo')} ${g.ammo}`);
+    this.watchText.setText(watchName(g.wave));
     expose('score', g.score); expose('lanterns', g.lanterns.length); expose('ammo', g.ammo);
   }
 
@@ -248,10 +300,16 @@ export class Play extends Phaser.Scene {
 
     g.houses.forEach((h, i) => {
       const o = this.houseImgs[i];
-      o.img.setTexture(h.lit ? 'house_lit' : 'house_dark');
-      o.glow.setVisible(h.lit).setAlpha(0.45 + 0.1 * Math.sin(time * 3 + i));
+      // おばけが入り込んだ家: 中の人が騒いで灯りが揺れ、家が震える(消えるまでの間が、そのまま助けに行ける猶予)
+      const panic = h.haunt > 0;
+      const flick = panic ? (Math.sin(time * 37 + i) + Math.sin(time * 23)) > 0.3 : true;
+      o.img.setTexture(h.lit && flick ? 'house_lit' : 'house_dark');
+      o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y);
+      o.glow.setVisible(h.lit).setAlpha(panic ? (flick ? 0.5 : 0.15) : 0.45 + 0.1 * Math.sin(time * 3 + i));
       o.img.setScale(1 + h.flash * 0.25);
+      o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setAngle(Math.sin(time * 1.5 + k + i) * 6));
     });
+    this.portalImgs.forEach((p, i) => p.setAngle(Math.sin(time * 0.8 + i) * 3).setAlpha(0.75 + 0.2 * Math.sin(time * 2 + i)));
 
     // 提灯: 飛んでいる間は軌跡と行き先の印、灯ったら縮んでいく灯り
     const seenL = new Set<number>();
@@ -271,11 +329,12 @@ export class Play extends Phaser.Scene {
         s.body.setScale(0.55).setAngle(Math.sin(time * 20 + l.id) * 10);
         s.glow.setPosition(l.x, l.y).setScale(0.5).setAlpha(0.6);
       } else {
-        // 灯り: 明るい所がそのまま、おばけを呼び寄せる範囲
-        if (s.body.scale < 1) s.body.setScale(Math.min(1, s.body.scale + 0.12));
-        s.body.setAngle(Math.sin(time * 2 + l.id) * 4);
-        const on = Math.min(1, l.age / 0.25);
-        s.glow.setPosition(l.x, l.y).setScale((P.lureR * 2 / 128) * 1.25 * on).setAlpha(0.65 * (0.9 + 0.1 * Math.sin(time * 9 + l.id)));
+        // 灯り: 明るい所が呼び寄せる範囲。弾ける間際には膨らむ(提灯そのものの様子で、印は出さない)
+        const k = 1 - l.fuse / P.fuse;
+        const swell = k > 0.75 ? (k - 0.75) * 4 : 0;
+        s.body.setScale(Math.min(1, 0.55 + k * 4) + swell * 0.2).setAngle(Math.sin(time * 2 + l.id) * 4);
+        const on = Math.min(1, k * 5);
+        s.glow.setPosition(l.x, l.y).setScale((P.lureR * 2 / 128) * 1.3 * on).setAlpha(0.45 + 0.35 * k);
       }
     }
     for (const [id, s] of this.lSprites) if (!seenL.has(id)) { s.body.destroy(); s.glow.destroy(); s.label.destroy(); this.lSprites.delete(id); }
@@ -365,7 +424,8 @@ export class Play extends Phaser.Scene {
     const appear = Math.min(1, gh.age / 0.6);
     let alpha = appear * (gh.kind === 'fuwa' ? 0.8 + 0.2 * Math.sin(time * 4 + gh.id) : 1);
     if (gh.kind === 'kirai') alpha *= 0.92;
-    s.setPosition(gh.x, gh.y + (gh.kind === 'hop' ? 0 : bob)).setScale(sx * 0.9, sy * 0.9).setAlpha(alpha).setFlipX(gh.face < 0);
+    if (gh.haunt) { alpha *= 0.55 + 0.3 * Math.sin(time * 9 + gh.id); sx *= 0.8; sy *= 0.8; }
+    s.setPosition(gh.x + (gh.haunt ? Math.sin(time * 7 + gh.id) * 8 : 0), gh.y - (gh.haunt ? 10 : 0) + (gh.kind === 'hop' ? 0 : bob)).setScale(sx * 0.9, sy * 0.9).setAlpha(alpha).setFlipX(gh.face < 0);
     s.setAngle(gh.kind === 'zig' ? Math.sin(time * 8 + gh.id) * 8 : 0);
   }
 }

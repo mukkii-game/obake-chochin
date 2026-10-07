@@ -7,7 +7,9 @@ import { onTap } from '../ui/taps';
 import { snd } from '../game/sound';
 import { txt } from '../game/view';
 import { PAPER } from '../game/art';
-import { W, H, HOUSE_POS } from '../game/logic';
+import { W, H } from '../game/logic';
+
+const TITLE_HOUSES: ReadonlyArray<[number, number]> = [[205, 246], [318, 318], [440, 228], [548, 300], [668, 238], [770, 322]];
 
 export class Title extends Phaser.Scene {
   constructor() { super('Title'); }
@@ -17,7 +19,7 @@ export class Title extends Phaser.Scene {
     this.cameras.main.fadeIn(400, 5, 3, 10);
     this.add.image(0, 0, 'bg').setOrigin(0);
     this.add.image(PAPER.x1 - 120, 92, 'moon');
-    for (const [x, y] of HOUSE_POS) {
+    for (const [x, y] of TITLE_HOUSES) {
       this.add.image(x, y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.3).setAlpha(0.35);
       this.add.image(x, y, 'house_lit').setOrigin(0.5, 0.6).setAlpha(0.55);
     }
