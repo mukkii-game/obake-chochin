@@ -16,7 +16,8 @@ export const KNOBS: Knob[] = [
   { key: 'lure.n', label: '提灯が呼ぶ距離', value: 3, min: 0, max: 8, step: 1, unit: '辻', aim: '通りを歩いてこの数の辻以内のおばけが寄ってくる' },
   { key: 'lure.capture', label: '提灯に見とれる時間', value: 3.5, min: 0.5, max: 10, step: 0.1, unit: '秒', aim: '罠にかかっている間。ここで弾けさせる' },
   // 十字の光(ボンバーマン)
-  { key: 'light.range', label: '光の届く辻の数', value: 2, min: 1, max: 6, step: 0.5, unit: '辻', aim: '他の提灯に届けば誘爆する' },
+  { key: 'light.range', label: '飛・角の光の届く辻の数', value: 2, min: 1, max: 6, step: 0.5, unit: '辻', aim: '他の提灯に届けば誘爆する' },
+  { key: 'light.lance', label: '香の光の届く辻の数', value: 5, min: 1, max: 11, step: 1, unit: '辻', aim: '投げた向きにまっすぐ遠くまで' },
   { key: 'light.speed', label: '光の広がる速さ', value: 1.8, min: 0.5, max: 10, step: 0.1, unit: '辻/秒', aim: 'ゆっくり広がる。歩いてくるおばけと出会う時を読む' },
   { key: 'light.hold', label: '光が留まる時間', value: 0.5, min: 0, max: 3, step: 0.1, unit: '秒' },
   { key: 'wisp.delay', label: '成仏したおばけが弾けるまで', value: 0.35, min: 0, max: 2, step: 0.05, unit: '秒' },

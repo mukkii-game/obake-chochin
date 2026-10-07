@@ -41,6 +41,23 @@ const DIRS: ReadonlyArray<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]]
 
 export type GhostKind = 'fuwa' | 'zig' | 'hop' | 'kirai';
 
+/** 提灯の駒(将棋の動きで光が走る)。家ごとに決まっていて、遊ぶたびに変わる */
+export type Piece = 'hisha' | 'kaku' | 'kyo' | 'kei';
+export const PIECE_CHAR: Record<Piece, string> = { hisha: '飛', kaku: '角', kyo: '香', kei: '桂' };
+/** 光の筋(dc, dr の向きに len 辻ぶん) */
+export interface Ray { dc: number; dr: number; len: number }
+
+/** 駒の光の形。fwd は投げた向き(香・桂の「前」) */
+export function pieceShape(piece: Piece, fwd: [number, number], P: { range: number; lanceRange: number }): { rays: Ray[]; jumps: Array<[number, number]> } {
+  const [fc, fr] = fwd;
+  switch (piece) {
+    case 'hisha': return { rays: [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dc, dr]) => ({ dc, dr, len: P.range })), jumps: [] };
+    case 'kaku': return { rays: [[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([dc, dr]) => ({ dc, dr, len: P.range })), jumps: [] };
+    case 'kyo': return { rays: [{ dc: fc, dr: fr, len: P.lanceRange }], jumps: [] };
+    case 'kei': return { rays: [], jumps: [[fc * 2 + fr, fr * 2 + fc], [fc * 2 - fr, fr * 2 - fc]] };
+  }
+}
+
 export interface Ghost {
   id: number; kind: GhostKind;
   /** 通りの上の位置(いつも通りの線の上) */
@@ -76,13 +93,15 @@ export interface Lantern {
   armed: boolean;
   /** 灯ってからの秒 */
   age: number;
+  /** 駒(投げた家の駒)と、投げた向き */
+  piece: Piece; fwd: [number, number];
 }
-export interface House { x: number; y: number; node: number; lit: boolean; ammo: number; haunt: number; flash: number }
+export interface House { x: number; y: number; node: number; lit: boolean; ammo: number; haunt: number; flash: number; piece: Piece }
 /** あの世の口(おばけの出てくる辻)。刻ごとに場所が変わり、刻の前から見えている */
 export interface Portal { x: number; y: number; node: number }
-/** 十字の光。通りに沿って ext(辻いくつ分)まで広がり、留まって、縮む */
+/** 光。駒の形の筋に沿って ext(辻いくつ分)まで広がり、留まって、縮む。桂は跳んだ先の辻が光る */
 export interface Blast {
-  x: number; y: number; h: boolean; v: boolean;
+  x: number; y: number; rays: Ray[]; jumps: Array<{ x: number; y: number }>;
   range: number; ext: number; hold: number; shrinking: boolean;
   chain: number; big: boolean;
 }
@@ -159,7 +178,10 @@ export class Game {
       if (nodes.every((m) => gridDist(m, n) >= 3)) nodes.push(n);
     }
     nodes.sort((a, b) => nodeCol(a) - nodeCol(b));
-    return nodes.map((n) => ({ x: nodeX(n), y: nodeY(n), node: n, lit: true, ammo: 0, haunt: 0, flash: 0 }));
+    // 家ごとの駒(遊ぶたびに変わる)。飛と角は 2 軒ずつ、香と桂は 1 軒ずつ
+    const pieces: Piece[] = ['hisha', 'hisha', 'kaku', 'kaku', 'kyo', 'kei'];
+    for (let i = pieces.length - 1; i > 0; i--) { const j = this.rng.int(0, i); [pieces[i], pieces[j]] = [pieces[j], pieces[i]]; }
+    return nodes.map((n, i) => ({ x: nodeX(n), y: nodeY(n), node: n, lit: true, ammo: 0, haunt: 0, flash: 0, piece: pieces[i % pieces.length] }));
   }
 
   waveSize(n: number) { return Math.round(this.P.waveBase + this.P.waveGrow * n); }
@@ -239,14 +261,22 @@ export class Game {
     const h = this.houses[hi];
     h.ammo--;
     const sy = h.y - 18;
-    this.lanterns.push({ id: this.nextId++, node, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(node), armed: false, age: 0 });
+    // 投げた向き(香・桂の「前」): 家から見て、縦横の大きい方
+    const dc = nodeCol(node) - nodeCol(h.node), dr = nodeRow(node) - nodeRow(h.node);
+    const fwd: [number, number] = Math.abs(dc) >= Math.abs(dr) ? [Math.sign(dc), 0] : [0, Math.sign(dr)];
+    this.lanterns.push({ id: this.nextId++, node, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(node), armed: false, age: 0, piece: h.piece, fwd });
     this.events.push({ type: 'launch', sx: h.x, sy, x: tx, y: ty, house: hi });
   }
 
   /** 提灯が弾ける。chain があれば誘爆(同じ連鎖として数える) */
   private burst(l: Lantern, chain: Chain | null) {
     const c = chain ?? this.newChain(l.x, l.y);
-    this.blasts.push({ x: nodeX(l.node), y: nodeY(l.node), h: true, v: true, range: this.P.range, ext: 0, hold: this.P.lightHold, shrinking: false, chain: c.id, big: true });
+    const shape = pieceShape(l.piece, l.fwd, this.P);
+    const c0 = nodeCol(l.node), r0 = nodeRow(l.node);
+    const jumps = shape.jumps.filter(([dc, dr]) => c0 + dc >= 0 && c0 + dc < GRID.cols && r0 + dr >= 0 && r0 + dr < GRID.rows)
+      .map(([dc, dr]) => ({ x: nodeX(nodeAt(c0 + dc, r0 + dr)), y: nodeY(nodeAt(c0 + dc, r0 + dr)) }));
+    const range = Math.max(1, ...shape.rays.map((r) => r.len));
+    this.blasts.push({ x: nodeX(l.node), y: nodeY(l.node), rays: shape.rays, jumps, range, ext: 0, hold: this.P.lightHold, shrinking: false, chain: c.id, big: true });
     this.lanterns = this.lanterns.filter((q) => q !== l);
     for (const g of this.ghosts) if (g.lure === l.id) this.release(g);
     this.events.push({ type: 'break', x: l.x, y: l.y, chained: !!chain });
@@ -279,7 +309,10 @@ export class Game {
       s.age += dt;
       if (s.age < P.wispDelay) continue;
       const c = this.chains.get(s.chain) ?? this.newChain(s.x, s.y);
-      this.blasts.push({ x: s.x, y: s.y, h: s.h, v: s.v, range: P.wispRange, ext: 0, hold: P.lightHold * 0.5, shrinking: false, chain: c.id, big: false });
+      const rays: Ray[] = [];
+      if (s.h) rays.push({ dc: 1, dr: 0, len: P.wispRange }, { dc: -1, dr: 0, len: P.wispRange });
+      if (s.v) rays.push({ dc: 0, dr: 1, len: P.wispRange }, { dc: 0, dr: -1, len: P.wispRange });
+      this.blasts.push({ x: s.x, y: s.y, rays, jumps: [], range: Math.max(0.01, P.wispRange), ext: 0, hold: P.lightHold * 0.5, shrinking: false, chain: c.id, big: false });
       this.wisps = this.wisps.filter((q) => q !== s);
       this.events.push({ type: 'wispPop', x: s.x, y: s.y });
     }
@@ -508,11 +541,15 @@ export class Game {
     }
   }
 
-  /** 光が届いている所か(十字の線の上、中心から ext 辻ぶん以内) */
+  /** 光が届いている所か(駒の筋の上、中心から ext 辻ぶん以内。桂は跳んだ先) */
   covers(b: Blast, x: number, y: number, r = 0) {
     if (Math.hypot(x - b.x, y - b.y) <= 16 + r) return true;
-    if (b.h && Math.abs(y - b.y) < 1 && Math.abs(x - b.x) <= b.ext * GRID.dx + r) return true;
-    if (b.v && Math.abs(x - b.x) < 1 && Math.abs(y - b.y) <= b.ext * GRID.dy + r) return true;
+    for (const ray of b.rays) {
+      const L = Math.min(ray.len, b.ext);
+      if (L <= 0) continue;
+      if (distToSeg(x, y, b.x, b.y, b.x + ray.dc * GRID.dx * L, b.y + ray.dr * GRID.dy * L) <= Math.max(1, r)) return true;
+    }
+    if (b.ext >= 1) for (const j of b.jumps) if (Math.hypot(x - j.x, y - j.y) <= 18 + r) return true;
     return false;
   }
 
@@ -571,6 +608,12 @@ export class Game {
 }
 
 export function clamp(v: number, a: number, b: number) { return v < a ? a : v > b ? b : v; }
+/** 点 (x, y) と線分の距離 */
+export function distToSeg(x: number, y: number, x0: number, y0: number, x1: number, y1: number) {
+  const vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy;
+  const k = l2 ? clamp(((x - x0) * vx + (y - y0) * vy) / l2, 0, 1) : 0;
+  return Math.hypot(x - (x0 + vx * k), y - (y0 + vy * k));
+}
 export function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
 /** タップの入力文字列 "x,y;x,y;" ⇔ 座標 */

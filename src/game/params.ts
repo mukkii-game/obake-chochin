@@ -9,6 +9,7 @@ export function readParams() {
     lureN: tune('lure.n'),
     capture: tune('lure.capture'),
     range: tune('light.range'),
+    lanceRange: tune('light.lance'),
     lightSpeed: tune('light.speed'),
     lightHold: tune('light.hold'),
     wispDelay: tune('wisp.delay'),

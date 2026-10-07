@@ -1,7 +1,7 @@
 // プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
 // 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { Game, DT, W, H, GRID, nodeX, nodeY, encodeTaps, decodeTaps, type Ghost, type GameEvent } from '../game/logic';
+import { Game, DT, W, H, GRID, nodeX, nodeY, pieceShape, PIECE_CHAR, encodeTaps, decodeTaps, type Ghost, type GameEvent } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity } from '../game/sound';
@@ -71,6 +71,8 @@ export class Play extends Phaser.Scene {
       const img = this.add.image(h.x, h.y, 'house_lit').setOrigin(0.5, 0.6);
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
       const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, 'lantern').setScale(0.3).setDepth(2));
+      // 家の駒は、のれんの紋で見せる(この家から投げる提灯の駒)
+      this.add.text(h.x + 11, h.y + 8, PIECE_CHAR[h.piece], txt(11, '#2a0806', { stroke: '#ffcf8a', strokeThickness: 2 })).setOrigin(0.5).setDepth(3);
       this.houseImgs.push({ img, glow, hang });
     }
     this.fx = this.add.graphics().setDepth(5);
@@ -306,21 +308,22 @@ export class Play extends Phaser.Scene {
       if (!s) {
         const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8).setAlpha(0);
         const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.55);
-        const label = this.add.text(l.x, l.y, '', txt(18, '#fff0d0')).setOrigin(0.5, 0).setDepth(45);
+        const label = this.add.text(l.x, l.y, PIECE_CHAR[l.piece], txt(13, '#3a0a06', { stroke: '#ffb070', strokeThickness: 2 })).setOrigin(0.5).setDepth(13);
         s = { body, glow, label };
         this.lSprites.set(l.id, s);
       }
-      s.label.setText('');
       if (l.flying) {
         // ゆっくり弧を描いて飛ぶ(行き先は辻)
         const k = l.flyT / l.flyDur;
         const arc = Math.sin(k * Math.PI) * Math.min(90, Math.hypot(nodeX(l.node) - l.sx, nodeY(l.node) - l.sy) * 0.35);
         s.body.setPosition(l.x, l.y - arc).setScale(0.55).setAngle(Math.sin(time * 14 + l.id) * 12);
         s.glow.setPosition(l.x, l.y - arc).setScale(0.5).setAlpha(0.6);
+        s.label.setPosition(l.x, l.y - arc + 1).setScale(0.6);
       } else {
         // 辻に下がった提灯。光は通りに沿ってこぼれる(弾けた時に光が走る道)
         if (s.body.scale < 1) s.body.setScale(Math.min(1, s.body.scale + 0.1));
         s.body.setPosition(l.x, l.y - 8).setAngle(Math.sin(time * 2 + l.id) * 5);
+        s.label.setPosition(l.x, l.y - 7).setScale(Math.min(1, s.body.scale)).setAngle(s.body.angle);
         s.glow.setPosition(l.x, l.y).setScale(1.1).setAlpha(0.55 + 0.08 * Math.sin(time * 5 + l.id));
       }
     }
@@ -387,25 +390,43 @@ export class Play extends Phaser.Scene {
       this.fx.lineBetween(tx - 6, ty + 6, tx + 6, ty - 6);
     }
     this.glowFx.clear();
-    // 下がった提灯の光が、通りに沿ってうっすらこぼれる(弾けたら光がここを走る)
+    // 下がった提灯の光が、駒の筋に沿ってうっすらこぼれる(弾けたら光がここを走る。印ではなく提灯の明かり)
     for (const l of g.lanterns) {
       if (l.flying) continue;
-      const hx = P.range * GRID.dx, vy = P.range * GRID.dy;
-      for (const [w, a] of [[12, 0.05], [4, 0.07]] as const) {
-        this.glowFx.fillStyle(0xffb060, a);
-        this.glowFx.fillRect(l.x - hx, l.y - w / 2, hx * 2, w);
-        this.glowFx.fillRect(l.x - w / 2, l.y - vy, w, vy * 2);
+      const shape = pieceShape(l.piece, l.fwd, P);
+      for (const ray of shape.rays) {
+        const ex = l.x + ray.dc * GRID.dx * ray.len, ey = l.y + ray.dr * GRID.dy * ray.len;
+        for (const [w, a] of [[12, 0.05], [4, 0.08]] as const) { this.glowFx.lineStyle(w, 0xffb060, a); this.glowFx.lineBetween(l.x, l.y, ex, ey); }
+      }
+      for (const [dc, dr] of shape.jumps) {
+        const jx = l.x + dc * GRID.dx, jy = l.y + dr * GRID.dy;
+        this.glowFx.fillStyle(0xffb060, 0.1); this.glowFx.fillCircle(jx, jy, 14);
       }
     }
-    // 十字の光: 通りに沿ってゆっくり走り、留まって、縮む
+    // 光: 駒の筋に沿ってゆっくり走り、留まって、縮む。桂は跳んだ先の辻が光る
     for (const b of g.blasts) {
       if (b.ext <= 0) continue;
-      const hx = b.ext * GRID.dx, vy = b.ext * GRID.dy;
       const layers: ReadonlyArray<[number, number, number]> = b.big ? [[22, 0xffb050, 0.3], [10, 0xfff0c0, 0.5], [4, 0xffffff, 0.6]] : [[14, 0xffc070, 0.28], [6, 0xfff0c0, 0.45]];
-      for (const [w, col, a] of layers) {
-        this.glowFx.fillStyle(col, a);
-        if (b.h) this.glowFx.fillRect(b.x - hx, b.y - w / 2, hx * 2, w);
-        if (b.v) this.glowFx.fillRect(b.x - w / 2, b.y - vy, w, vy * 2);
+      for (const ray of b.rays) {
+        const L = Math.min(ray.len, b.ext);
+        const ex = b.x + ray.dc * GRID.dx * L, ey = b.y + ray.dr * GRID.dy * L;
+        for (const [w, col, a] of layers) { this.glowFx.lineStyle(w, col, a); this.glowFx.lineBetween(b.x, b.y, ex, ey); }
+      }
+      if (b.jumps.length) {
+        const k = Math.min(1, b.ext);
+        for (const j of b.jumps) {
+          // 跳ぶ光: 弧を描いて跳んだ先で弾ける
+          const mx = (b.x + j.x) / 2, my = (b.y + j.y) / 2 - 30;
+          this.glowFx.lineStyle(3, 0xfff0c0, 0.5);
+          this.glowFx.beginPath();
+          for (let i = 0; i <= 10; i++) {
+            const u = (i / 10) * k;
+            const px = (1 - u) * (1 - u) * b.x + 2 * (1 - u) * u * mx + u * u * j.x, py = (1 - u) * (1 - u) * b.y + 2 * (1 - u) * u * my + u * u * j.y;
+            if (i === 0) this.glowFx.moveTo(px, py); else this.glowFx.lineTo(px, py);
+          }
+          this.glowFx.strokePath();
+          if (b.ext >= 1) { this.glowFx.fillStyle(0xfff0c0, 0.55); this.glowFx.fillCircle(j.x, j.y, 18); this.glowFx.fillStyle(0xffffff, 0.6); this.glowFx.fillCircle(j.x, j.y, 8); }
+        }
       }
       this.glowFx.fillStyle(0xfff6d8, b.big ? 0.55 : 0.4); this.glowFx.fillCircle(b.x, b.y, b.big ? 16 : 10);
     }
