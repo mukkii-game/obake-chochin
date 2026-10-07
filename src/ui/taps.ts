@@ -3,6 +3,7 @@
 // タッチは touchstart を正、マウスは pointerdown(touch を一度でも受けたら pointer 側のタッチは捨てる)。
 import Phaser from 'phaser';
 import { unlock } from '../core/audio';
+import { isRotated } from './orient';
 
 type Listener = (x: number, y: number) => void;
 const listeners = new Set<Listener>();
@@ -23,8 +24,15 @@ function toGame(clientX: number, clientY: number): [number, number] | null {
   const cv = game.canvas;
   let r = cv.getBoundingClientRect();
   if (!r.width || !r.height) r = new DOMRect(0, 0, window.innerWidth, window.innerHeight);
-  const x = ((clientX - r.left) / r.width) * game.scale.width;
-  const y = ((clientY - r.top) / r.height) * game.scale.height;
+  let x: number, y: number;
+  if (isRotated()) {
+    // 90 度回している: ゲームの x は画面の下向き、y は画面の左向き
+    x = ((clientY - r.top) / r.height) * game.scale.width;
+    y = ((r.right - clientX) / r.width) * game.scale.height;
+  } else {
+    x = ((clientX - r.left) / r.width) * game.scale.width;
+    y = ((clientY - r.top) / r.height) * game.scale.height;
+  }
   if (x < -20 || y < -20 || x > game.scale.width + 20 || y > game.scale.height + 20) return null;
   return [x, y];
 }

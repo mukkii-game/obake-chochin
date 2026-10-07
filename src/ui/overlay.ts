@@ -1,8 +1,7 @@
 // 画面の隅の BUILD ID、?debug=1 の生イベント表示、version.json による古いキャッシュの自動リロード、
-// 縦持ちの時の「横にすると大きい」案内。いずれもゲーム本体とは独立(失敗しても遊べる)。
+// いずれもゲーム本体とは独立(失敗しても遊べる)。縦持ちの時は src/ui/orient.ts が画面を回す。
 import { META, query } from '../core/meta';
 import { tapStats, lastTap } from './taps';
-import { t } from '../core/i18n';
 
 export function installOverlay() {
   const tag = document.createElement('div');
@@ -25,17 +24,6 @@ export function installOverlay() {
     };
     requestAnimationFrame(tick);
   }
-
-  // 縦持ち案内
-  const rot = document.createElement('div');
-  rot.style.cssText = 'position:fixed;left:0;right:0;top:8px;text-align:center;font:13px sans-serif;color:rgba(255,230,190,.75);pointer-events:none;z-index:40;display:none';
-  document.body.append(rot);
-  const checkRot = () => {
-    rot.textContent = t('rotate');
-    rot.style.display = window.innerHeight > window.innerWidth * 1.15 ? 'block' : 'none';
-  };
-  window.addEventListener('resize', checkRot);
-  checkRot();
 
   checkVersion();
 }
