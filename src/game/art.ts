@@ -47,6 +47,15 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'wisp', 32, 40, drawWisp);
   make(scene, 'portal', 72, 72, drawPortal);
   make(scene, 'person', 12, 18, drawPerson);
+  // 提灯の模様 = 光の形(キャンディのしま模様のように、見ればどう弾けるか分かる)。上向きを「前」として描く
+  make(scene, 'mark_hisha', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 3); c2.lineTo(14, 25); c2.moveTo(3, 14); c2.lineTo(25, 14); }));
+  make(scene, 'mark_kaku', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(5, 5); c2.lineTo(23, 23); c2.moveTo(23, 5); c2.lineTo(5, 23); }));
+  make(scene, 'mark_kyo', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 26); c2.lineTo(14, 4); c2.moveTo(7, 11); c2.lineTo(14, 3); c2.lineTo(21, 11); }));
+  make(scene, 'mark_kei', 28, 28, (c) => {
+    // 桂: 前の左右 2 か所へ跳ぶ。根元から 2 つの点へ
+    ink(c, (c2) => { c2.moveTo(14, 25); c2.lineTo(14, 16); c2.lineTo(7, 8); c2.moveTo(14, 16); c2.lineTo(21, 8); });
+    for (const x of [6, 22]) { c.fillStyle = '#ffd9a0'; c.beginPath(); c.arc(x, 6, 4.5, 0, 7); c.fill(); c.fillStyle = '#2a0806'; c.beginPath(); c.arc(x, 6, 3.2, 0, 7); c.fill(); }
+  });
   make(scene, 'tree', 40, 44, (c) => {
     c.fillStyle = 'rgba(12,14,22,0.9)';
     c.fillRect(18, 28, 4, 16);
@@ -295,4 +304,13 @@ function drawPerson(c: Ctx) {
   c.beginPath(); c.moveTo(2, 18); c.lineTo(4, 8); c.lineTo(8, 8); c.lineTo(10, 18); c.closePath(); c.fill();
   c.strokeStyle = 'rgba(255,210,140,0.6)'; c.lineWidth = 1;
   c.beginPath(); c.arc(6, 4, 3.2, 0, 7); c.stroke();
+}
+
+/** 墨の太い線(明るい縁取り付き)。提灯の模様に使う */
+function ink(c: Ctx, path: (c: Ctx) => void) {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  for (const [w, col] of [[7, '#ffd9a0'], [4, '#2a0806']] as const) {
+    c.strokeStyle = col; c.lineWidth = w;
+    c.beginPath(); path(c); c.stroke();
+  }
 }

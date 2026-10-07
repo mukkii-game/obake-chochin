@@ -26,7 +26,7 @@ export class Title extends Phaser.Scene {
     this.add.rectangle(W / 2, 300, 700, 160, 0x07060c, 0.45);
 
     // 飾り: 漂うおばけと提灯
-    const deco: Array<[string, number, number]> = [['g_fuwa', 170, 380], ['g_zig', 300, 430], ['g_hop', 690, 420], ['g_kirai', 810, 380], ['g_fuwa', 560, 450]];
+    const deco: Array<[string, number, number]> = [['g_fuwa', 140, 430], ['g_zig', 215, 470], ['g_hop', 760, 460], ['g_kirai', 830, 410], ['g_fuwa', 690, 480]];
     deco.forEach(([k, x, y], i) => {
       const s = this.add.image(x, y, k).setAlpha(0.85);
       this.tweens.add({ targets: s, y: y - 10, x: x + (i % 2 ? 12 : -12), yoyo: true, repeat: -1, duration: 1400 + i * 230, ease: 'Sine.InOut' });
@@ -40,6 +40,19 @@ export class Title extends Phaser.Scene {
     const lines = ['how1', 'how2', 'how3', 'how4'].map((k) => t(k));
     this.add.text(W / 2, 252, lines.join('\n'), txt(16, '#f3e6c8', { align: 'center', lineSpacing: 6 })).setOrigin(0.5, 0);
     this.add.text(W / 2, 372, t('kinds'), txt(13, '#b9b0d0')).setOrigin(0.5);
+    // 提灯の模様 = 光の形(絵で見せる)
+    (['hisha', 'kaku', 'kyo', 'kei'] as const).forEach((p, i) => {
+      const x = W / 2 - 150 + i * 100, y = 418;
+      this.add.image(x - 18, y, 'lantern').setScale(0.9);
+      this.add.image(x - 18, y + 1, `mark_${p}`).setScale(0.58);
+      const g = this.add.graphics();
+      g.lineStyle(3, 0xffe0a0, 0.85); g.fillStyle(0xffe0a0, 0.85);
+      const cx = x + 22, cy = y, d = 14;
+      if (p === 'hisha') { g.lineBetween(cx - d, cy, cx + d, cy); g.lineBetween(cx, cy - d, cx, cy + d); }
+      if (p === 'kaku') { g.lineBetween(cx - d, cy - d, cx + d, cy + d); g.lineBetween(cx + d, cy - d, cx - d, cy + d); }
+      if (p === 'kyo') { g.lineBetween(cx, cy + d, cx, cy - d - 6); g.lineBetween(cx - 5, cy - d, cx, cy - d - 6); g.lineBetween(cx + 5, cy - d, cx, cy - d - 6); }
+      if (p === 'kei') { g.fillCircle(cx - 8, cy - d, 4); g.fillCircle(cx + 8, cy - d, 4); g.fillCircle(cx, cy + 4, 3); }
+    });
 
     const start = this.add.text(W / 2, 470, t('tapToStart'), txt(22, '#ffe066')).setOrigin(0.5);
     this.tweens.add({ targets: start, alpha: 0.35, yoyo: true, repeat: -1, duration: 700 });

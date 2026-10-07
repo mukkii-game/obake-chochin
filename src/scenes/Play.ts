@@ -1,7 +1,7 @@
 // プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
 // 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { Game, DT, W, H, GRID, nodeX, nodeY, pieceShape, PIECE_CHAR, encodeTaps, decodeTaps, type Ghost, type GameEvent } from '../game/logic';
+import { Game, DT, W, H, GRID, nodeX, nodeY, pieceShape, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Piece } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity } from '../game/sound';
@@ -32,7 +32,7 @@ export class Play extends Phaser.Scene {
   private offTap: (() => void) | null = null;
 
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
-  private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text }>();
+  private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; label: Phaser.GameObjects.Image }>();
   private wSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
   private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[] }> = [];
   private portalImgs: Phaser.GameObjects.Image[] = [];
@@ -72,7 +72,7 @@ export class Play extends Phaser.Scene {
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
       const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, 'lantern').setScale(0.3).setDepth(2));
       // 家の駒は、のれんの紋で見せる(この家から投げる提灯の駒)
-      this.add.text(h.x + 11, h.y + 8, PIECE_CHAR[h.piece], txt(11, '#2a0806', { stroke: '#ffcf8a', strokeThickness: 2 })).setOrigin(0.5).setDepth(3);
+      this.add.image(h.x + 11, h.y + 8, `mark_${h.piece}`).setScale(0.42).setDepth(3);
       this.houseImgs.push({ img, glow, hang });
     }
     this.fx = this.add.graphics().setDepth(5);
@@ -308,7 +308,8 @@ export class Play extends Phaser.Scene {
       if (!s) {
         const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8).setAlpha(0);
         const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.55);
-        const label = this.add.text(l.x, l.y, PIECE_CHAR[l.piece], txt(13, '#3a0a06', { stroke: '#ffb070', strokeThickness: 2 })).setOrigin(0.5).setDepth(13);
+        // 提灯の模様 = 光の形。香・桂は投げた向きに回す(上向きが「前」)
+        const label = this.add.image(l.x, l.y, `mark_${l.piece}`).setDepth(13).setAngle(markAngle(l.piece, l.fwd));
         s = { body, glow, label };
         this.lSprites.set(l.id, s);
       }
@@ -318,12 +319,12 @@ export class Play extends Phaser.Scene {
         const arc = Math.sin(k * Math.PI) * Math.min(90, Math.hypot(nodeX(l.node) - l.sx, nodeY(l.node) - l.sy) * 0.35);
         s.body.setPosition(l.x, l.y - arc).setScale(0.55).setAngle(Math.sin(time * 14 + l.id) * 12);
         s.glow.setPosition(l.x, l.y - arc).setScale(0.5).setAlpha(0.6);
-        s.label.setPosition(l.x, l.y - arc + 1).setScale(0.6);
+        s.label.setPosition(l.x, l.y - arc + 1).setScale(0.4);
       } else {
         // 辻に下がった提灯。光は通りに沿ってこぼれる(弾けた時に光が走る道)
         if (s.body.scale < 1) s.body.setScale(Math.min(1, s.body.scale + 0.1));
         s.body.setPosition(l.x, l.y - 8).setAngle(Math.sin(time * 2 + l.id) * 5);
-        s.label.setPosition(l.x, l.y - 7).setScale(Math.min(1, s.body.scale)).setAngle(s.body.angle);
+        s.label.setPosition(l.x, l.y - 7).setScale(0.62 * Math.min(1, s.body.scale)).setAngle(markAngle(l.piece, l.fwd) + s.body.angle);
         s.glow.setPosition(l.x, l.y).setScale(1.1).setAlpha(0.55 + 0.08 * Math.sin(time * 5 + l.id));
       }
     }
@@ -467,3 +468,9 @@ export class Play extends Phaser.Scene {
   }
 }
 
+
+/** 模様の向き(香・桂だけ投げた向きに回す。上向きが前) */
+function markAngle(piece: Piece, fwd: [number, number]) {
+  if (piece !== 'kyo' && piece !== 'kei') return 0;
+  return (Math.atan2(fwd[1], fwd[0]) * 180) / Math.PI + 90;
+}
