@@ -40,6 +40,8 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   obakeComing: { ja: 'おばけが、くるぞー!', en: 'Here come the ghosts!' },
   // おばけのセリフ(| で区切って、順番に使う)
   wave: { ja: 'ウェーブ', en: 'Wave' },
+  maxOnField: { ja: '{n}こまで!', en: 'Only {n}!' },
+  maxUp: { ja: 'ちょうちん {n}こまで おけるよ!', en: 'Now {n} lanterns at once!' },
   paused: { ja: 'ポーズ', en: 'PAUSED' },
   resume: { ja: 'もどる', en: 'Resume' },
   restartDay: { ja: ' のはじめから', en: ' — restart the day' },

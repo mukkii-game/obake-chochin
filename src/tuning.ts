@@ -12,7 +12,7 @@ export const KNOBS: Knob[] = [
   // 家(= 光の形)。最初は縦と横の 2 つだけ
   { key: 'piece.set', label: '家(提灯)の種類', value: '縦・横・丸', options: ['縦・横・丸', '縦・横', '上・下・丸'], aim: '家の形 = 提灯の形 = 光の形。どの形も必ず 1 軒、どこに建つかは毎回変わる' },
   // 提灯(基本は時限: 着いたら弾ける。飛んでいる間にもう一度押すと下がって待つ)
-  { key: 'lantern.max', label: '同時に出せる提灯', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: '飛んでいるもの・下がっているものを数える' },
+  { key: 'lantern.max', label: '同時に出せる提灯(1 日目。日ごとに +1)', value: 3, min: 1, max: 6, step: 1, unit: '個', aim: '飛んでいるもの・下がっているものを数える' },
   { key: 'lantern.perHouse', label: '1 軒の軒先の提灯', value: 3, min: 1, max: 6, step: 1, unit: '個' },
   { key: 'lantern.regen', label: '軒先の提灯が 1 つ戻るまで', value: 6, min: 0.5, max: 20, step: 0.5, unit: '秒', aim: '使い切っても待てば戻る(弾切れで何もできなくならない)' },
   { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 140, min: 60, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり。着くまでの間を読む(ミサイルコマンドの弾)' },

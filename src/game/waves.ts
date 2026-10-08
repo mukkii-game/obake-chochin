@@ -27,8 +27,10 @@ export interface Group {
   to?: number;
   /** ジグザグの最初の向き・輪の回る向き(±1) */
   side?: number;
-  /** 階段: 横へ渡る高さ(0 = 上の端、1 = 家の高さ) */
+  /** 階段: 横へ渡る高さ(0 = 上の端、1 = 家の高さ)。edge の時は入ってくる高さ */
   turn?: number;
+  /** 横から入ってくる(-1 = 左の端から、1 = 右の端から)。横一列に渡ってくるので、横の提灯で一網打尽 */
+  edge?: number;
 }
 
 type Pattern = (m: boolean) => Group[];
@@ -47,6 +49,13 @@ export const PATTERNS: Record<string, Pattern> = {
   cross: (m) => [
     { t: 0, kind: 'kasa', cols: [X(0, m)], n: 3, gap: 1.3, to: T(4, m), turn: 0.35 },
     { t: 0, kind: 'kasa', cols: [X(12, m)], n: 3, gap: 1.3, to: T(1, m), turn: 0.35 },
+  ],
+  // 横から(左右の端から横一列に渡ってくる → 横の提灯を並んだ高さへ)
+  sideL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 4, gap: 1.0, to: T(3, m), edge: m ? 1 : -1, turn: 0.45 }],
+  sideK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 4, gap: 0.9, to: T(1, m), edge: m ? -1 : 1, turn: 0.3 }],
+  sides: (m) => [
+    { t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(4, m), edge: m ? 1 : -1, turn: 0.3 },
+    { t: 0.5, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(1, m), edge: m ? -1 : 1, turn: 0.6 },
   ],
   // 鬼火(輪)
   loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.9, to: T(3, m), side: m ? -1 : 1 }],
@@ -78,9 +87,16 @@ const OLD: Group[][] = [
 export const WAVES_PER_DAY = 3;
 export const DAYS = 3;
 const WAVES: Group[][] = [
-  OLD[0], OLD[1], OLD[2], // 8/13: 顔見世、サクサク
-  OLD[3], OLD[5], OLD[6], // 8/14: 型を重ねる
-  OLD[7], OLD[8], OLD[9], // 8/15: お盆の本番
+  // 上から来るのばかりだと縦の提灯ばかり効くので、左右の端から横一列に来る組を各ウェーブに混ぜる
+  [...OLD[0], ...shift(few(P.sideL(false), 3), 10)],
+  [...OLD[1], ...shift(few(P.sideK(false), 3), 7)],
+  [...OLD[2], ...shift(P.sideL(true), 8)], // 8/13: 顔見世、サクサク
+  [...OLD[3], ...shift(P.sideK(true), 10)],
+  [...OLD[5], ...shift(P.sides(false), 2)],
+  [...OLD[6], ...shift(P.sideL(false), 13)], // 8/14: 型を重ねる
+  [...OLD[7], ...shift(P.sides(true), 6)],
+  [...OLD[8], ...shift(P.sideK(false), 4)],
+  [...OLD[9], ...shift(few(P.sides(false), 2), 4)], // 8/15: お盆の本番
 ];
 export const WAVE_COUNT = WAVES.length;
 /** n ウェーブ目が何日目か(0 = 8/13)と、その日の何番目か */

@@ -21,7 +21,8 @@ const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', 
 const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff };
 const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff } as const;
 /** 軒先の提灯の位置(家の中心から) */
-const HANG: ReadonlyArray<[number, number]> = [[32, -16], [32, -1], [32, 14]];
+/** 残りの提灯: 家の右下に、少し重ねて横に並べる(数が一目でわかるように) */
+const HANG: ReadonlyArray<[number, number]> = [[0, 12], [0, 15], [0, 12]];
 
 /** 光の色(外側, 芯)。光ごとに順に変える */
 const BLAST_COLS: Array<[number, number]> = [[0xff6fa0, 0xffc0d8], [0xffb030, 0xffe08a], [0x40c8ff, 0xa8ecff], [0x70e060, 0xc8ffb0], [0xa070ff, 0xd8c0ff]];
@@ -118,7 +119,9 @@ export class Play extends Phaser.Scene {
       const key = `house_${h.piece}`;
       const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(0.8).setDepth(2);
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
-      const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, `lantern_${h.piece}`).setScale(0.26).setDepth(3));
+      // 形ごとに重なり具合を変える(横長は広め、縦長は詰める)
+      const step = h.piece === 'hline' ? 17 : h.piece === 'vline' ? 13 : 14;
+      const hang = HANG.map(([, dy], k) => this.add.image(h.x + 40 + k * step, h.y + dy, `lantern_${h.piece}`).setScale(0.56).setDepth(4 + k * 0.01));
       this.houseImgs.push({ img, glow, hang, key });
     }
     this.fx = this.add.graphics().setDepth(5);
@@ -323,6 +326,13 @@ export class Play extends Phaser.Scene {
         break;
       case 'deny': {
         snd.deny();
+        // 画面に置ける数がいっぱい: その場に「3こまで!」
+        if (e.full) {
+          const o = this.add.text(Phaser.Math.Clamp(e.x, 120, W - 120), Phaser.Math.Clamp(e.y - 30, 70, H - 80), t('maxOnField').replace('{n}', String(e.full)), pop(24, '#ffb0b0')).setOrigin(0.5).setDepth(62).setScale(0.4);
+          this.tweens.add({ targets: o, scale: 1, duration: 180, ease: 'Back.Out' });
+          this.tweens.add({ targets: o, angle: { from: -6, to: 6 }, yoyo: true, repeat: 2, duration: 90 });
+          this.tweens.add({ targets: o, y: o.y - 18, alpha: 0, delay: 700, duration: 350, onComplete: () => o.destroy() });
+        }
         break;
       }
       case 'ignite':
@@ -410,6 +420,11 @@ export class Play extends Phaser.Scene {
       case 'watch': {
         snd.watch();
         const first = waveInDay(e.n) === 0;
+        if (first && dayOf(e.n) > 0) {
+          // 日が変わると、同時に置ける提灯が 1 つ増える
+          const up = this.add.text(W / 2, H / 2 + 70, t('maxUp').replace('{n}', String(this.game2.maxOnField)), pop(22, '#9ff0ff')).setOrigin(0.5).setDepth(56).setAlpha(0);
+          this.tweens.add({ targets: up, alpha: 1, yoyo: true, hold: 1800, duration: 300, delay: 400, onComplete: () => up.destroy() });
+        }
         if (first) {
           // 始まり: かわいい声で「おばけが、くるぞー!」
           sayObake();
@@ -592,7 +607,7 @@ export class Play extends Phaser.Scene {
       o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y + 22);
       o.glow.setVisible(h.lit).setAlpha(panic ? (flick ? 0.5 : 0.15) : 0.45 + 0.1 * Math.sin(time * 3 + i));
       o.img.setScale(0.8 * (1 + h.flash * 0.25));
-      o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setAngle(Math.sin(time * 1.5 + k + i) * 4));
+      o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setY(h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2));
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
@@ -718,7 +733,7 @@ export class Play extends Phaser.Scene {
       const inField = x > PLAY.x0 && x < PLAY.x1 && y > PLAY.y0 && y < PLAY.y1 && !g.houses.some((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R);
       if (from >= 0 && inField) {
         const piece = g.houses[from].piece, me = { piece, tx: x, ty: y };
-        const ok = g.lanterns.length < P.maxLanterns;
+        const ok = g.lanterns.length < g.maxOnField;
         this.drawShape(piece, x, y, g.reach(piece), 0, ok ? 0xfff0c0 : 0x8080a0, 0.035);
         this.softEdge(piece, x, y, ok ? 0xfff0c0 : 0x8080a0, 0.07);
         // 連爆する提灯: 真っ白にはっきり光る(輪郭も白く脈打つ)。ここに置けばつながる、が一目でわかる

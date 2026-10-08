@@ -92,7 +92,7 @@ export type GameEvent =
   | { type: 'launch'; sx: number; sy: number; x: number; y: number; house: number }
   | { type: 'select'; house: number }
   | { type: 'light'; x: number; y: number }
-  | { type: 'deny'; x: number; y: number }
+  | { type: 'deny'; x: number; y: number; full?: number }
   | { type: 'break'; x: number; y: number; chained: boolean; n: number }
   | { type: 'caught'; x: number; y: number }
   | { type: 'hurt'; x: number; y: number; hp: number }
@@ -162,6 +162,8 @@ export class Game {
   get litCount() { return this.houses.filter((h) => h.lit).length; }
   get ammo() { return this.houses.reduce((s, h) => s + (h.lit ? h.ammo : 0), 0); }
   get waveCount() { return WAVE_COUNT; }
+  /** 画面に同時に置ける提灯の数: 1 日目 3・2 日目 4・3 日目 5(lantern.max + 日) */
+  get maxOnField() { return this.P.maxLanterns + Math.min(2, dayOf(this.wave)); }
   canThrow(i: number) { const h = this.houses[i]; return !!h && h.lit && h.ammo > 0 && h.haunt <= 0; }
 
   /** 一番近い灯りの家 */
@@ -207,7 +209,8 @@ export class Game {
       return;
     }
     const from = this.selected >= 0 && this.canThrow(this.selected) ? this.selected : this.launchHouse(x, y);
-    if (from < 0 || this.lanterns.length >= this.P.maxLanterns || this.lanterns.some((q) => Math.hypot(q.tx - x, q.ty - y) < this.P.grabR)) {
+    if (from >= 0 && this.lanterns.length >= this.maxOnField) { this.events.push({ type: 'deny', x, y, full: this.maxOnField }); return; }
+    if (from < 0 || this.lanterns.some((q) => Math.hypot(q.tx - x, q.ty - y) < this.P.grabR)) {
       this.events.push({ type: 'deny', x, y }); return;
     }
     const h = this.houses[from];
@@ -370,14 +373,21 @@ export class Game {
   addGhost(gr: Group, x: number, form = 0) {
     const kind = gr.kind;
     const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45 }[kind];
-    const y = SPAWN_Y;
+    // 横から来る組(edge): 左右の端から、turn の高さで横一列に入ってくる
+    let y = SPAWN_Y;
+    if (gr.edge) {
+      x = gr.edge < 0 ? PLAY.x0 - 30 : PLAY.x1 + 30;
+      y = Math.round(PLAY.y0 + (HOUSE_POS[0][1] - 40 - PLAY.y0) * (gr.turn ?? 0.4));
+    }
     let target = gr.to !== undefined && this.houses[gr.to]?.lit ? gr.to : this.nearestLit(x, y);
     if (target < 0) target = 0;
     const g: Ghost = {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
       speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
-    g.path = this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
+    g.path = gr.edge && kind !== 'oni'
+      ? [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]] // 横に渡って、家の真上で降りる
+      : this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
     this.ghosts.push(g);
     this.events.push({ type: 'spawn', x, y, kind });
     return g;

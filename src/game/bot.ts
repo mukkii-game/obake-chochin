@@ -42,7 +42,7 @@ export class Bot {
 
   private think(g: Game): Array<[number, number]> {
     const P = g.P;
-    if (this.cool > 0 || g.lanterns.length >= P.maxLanterns || g.ammo <= 0) return [];
+    if (this.cool > 0 || g.lanterns.length >= g.maxOnField || g.ammo <= 0) return [];
     const free = g.ghosts.filter((q) => !q.haunt && !q.dead && !q.caught);
     if (!free.length) return [];
     const step = 0.25;
