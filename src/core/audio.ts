@@ -159,3 +159,43 @@ export function playLoop(buf: AudioBuffer, gain: number, loopStart = 0, loopEnd 
     src.stop(t + 0.85);
   };
 }
+
+/**
+ * 合成の声(叫び声など)。のこぎり波の声帯 + 2 つの共鳴(母音)を通す。
+ * pitch / f1 / f2 は [秒, Hz] の折れ線。consonant を付けると頭に子音(息の音)を足す
+ */
+export function voice(o: {
+  pitch: Array<[number, number]>; f1: Array<[number, number]>; f2: Array<[number, number]>;
+  dur: number; gain?: number; delay?: number; vibrato?: number; consonant?: number;
+}) {
+  if (muted) return;
+  const c = ensure();
+  if (!c) return;
+  const t0 = c.currentTime + (o.delay ?? 0), gain = o.gain ?? 0.05;
+  const src = c.createOscillator();
+  src.type = 'sawtooth';
+  for (const [t, f] of o.pitch) src.frequency.linearRampToValueAtTime(f, t0 + t);
+  src.frequency.setValueAtTime(o.pitch[0][1], t0);
+  // 震え(怖がっている声)
+  const lfo = c.createOscillator(), lg = c.createGain();
+  lfo.frequency.value = 7; lg.gain.value = o.vibrato ?? 14;
+  lfo.connect(lg).connect(src.frequency);
+  const env = c.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.exponentialRampToValueAtTime(gain, t0 + 0.04);
+  env.gain.setValueAtTime(gain, t0 + o.dur * 0.6);
+  env.gain.exponentialRampToValueAtTime(0.0001, t0 + o.dur);
+  const mix = c.createGain(); mix.gain.value = 1;
+  for (const [pts, q, g] of [[o.f1, 6, 1], [o.f2, 9, 0.6]] as const) {
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass'; f.Q.value = q;
+    f.frequency.setValueAtTime(pts[0][1], t0);
+    for (const [t, fr] of pts) f.frequency.linearRampToValueAtTime(fr, t0 + t);
+    const fg = c.createGain(); fg.gain.value = g * 3;
+    src.connect(f).connect(fg).connect(mix);
+  }
+  mix.connect(env).connect(out(c));
+  src.start(t0); lfo.start(t0);
+  src.stop(t0 + o.dur + 0.05); lfo.stop(t0 + o.dur + 0.05);
+  if (o.consonant) noise({ dur: o.consonant, gain: gain * 1.2, freq: 3500, q: 1.5, delay: o.delay });
+}

@@ -248,14 +248,25 @@ export class Play extends Phaser.Scene {
 
   /** 灯りが消えた家から、家の人が逃げ出す(小さなドット絵が、画面の端まで走っていく) */
   private flee(x: number, y: number) {
+    const cries = t('screams').split('|');
     for (let i = 0; i < 4; i++) {
       const dir = i % 2 ? 1 : -1;
       const p = this.add.image(x + dir * 6, y + 10, 'px_run0').setDepth(26).setFlipX(dir < 0).setScale(0.9);
       const toX = dir > 0 ? W + 20 : -20;
       const dur = (Math.abs(toX - x) / (70 + i * 12)) * 1000;
       this.tweens.add({ targets: p, x: toX, duration: dur, delay: i * 180, ease: 'Linear', onComplete: () => p.destroy() });
-      // 2 コマで走る + 少し跳ねる
-      this.time.addEvent({ delay: 120, repeat: Math.ceil(dur / 120) + 3, callback: () => { if (p.active) { p.setTexture(p.texture.key === 'px_run0' ? 'px_run1' : 'px_run0'); p.y = y + 10 - (p.texture.key === 'px_run1' ? 2 : 0); } } });
+      // 叫び声: 文字(頭の上で揺れる)と、合成の声。人ごとに少しずつずらす
+      const kind = i % 3, cry = cries[i % cries.length];
+      const lift = 22 + (i >> 1) * 16;
+      const bubble = this.add.text(p.x, p.y - lift, cry, txt(i % 2 ? 15 : 17, i % 2 ? '#ffe0e0' : '#fff6c0', { strokeThickness: 4 })).setOrigin(0.5).setDepth(57).setAlpha(0);
+      this.tweens.add({ targets: bubble, alpha: 1, delay: i * 180 + 60, duration: 120, hold: 900, yoyo: true, onComplete: () => bubble.destroy() });
+      snd.scream(kind, i * 0.18 + 0.05, 1 + (i - 1.5) * 0.06);
+      // 2 コマで走る + 少し跳ねる(叫びの文字も一緒に)
+      this.time.addEvent({ delay: 120, repeat: Math.ceil(dur / 120) + 3, callback: () => {
+        if (!p.active) return;
+        p.setTexture(p.texture.key === 'px_run0' ? 'px_run1' : 'px_run0'); p.y = y + 10 - (p.texture.key === 'px_run1' ? 2 : 0);
+        if (bubble.active) bubble.setPosition(p.x, p.y - lift + Math.sin(this.time.now / 60 + i) * 2).setAngle(Math.sin(this.time.now / 80 + i) * 8);
+      } });
     }
   }
 

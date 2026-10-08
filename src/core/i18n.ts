@@ -35,6 +35,7 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   ammo: { ja: '残り', en: 'Left' },
   waveClear: { ja: '刻を越えた', en: 'Watch survived' },
   demo: { ja: 'デモ', en: 'Demo' },
+  screams: { ja: 'キャー!|ワー!|ひぃ〜!|わぁっ!', en: 'Eek!|Aaah!|Help!|Waah!' },
   hiScore: { ja: 'ハイスコア', en: 'HI' },
   formation: { ja: '編隊全滅', en: 'Formation wiped' },
   chainBonus: { ja: '連鎖ボーナス', en: 'Chain bonus' },

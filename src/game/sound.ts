@@ -2,7 +2,7 @@
 // 効果音は WebAudio の合成(和の楽器に寄せる: 太鼓・鈴・拍子木・寺の鐘・篠笛の息)。core/audio の残響を通る。
 // BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。タイトル =「揺れる提灯」(民族09)、遊ぶ間 =「和bravery heart」(民族33、和風の戦闘曲)。
 // 読めない時は合成の爪弾きに切り替える。
-import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop } from '../core/audio';
+import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice } from '../core/audio';
 import { tune } from '../core/tuning';
 
 // 都節音階(D E♭ G A B♭)。和の夜の響き
@@ -76,6 +76,18 @@ export const snd = {
   watch: () => kane(note(0) / 2, 0.08),
   over: () => { kane(note(0) / 2, 0.09, 0, 4); kane(note(0) / 2, 0.07, 1.6, 4); },
   ui: () => wood(1500, 0.05),
+  /** 逃げる人の叫び声(合成)。kind: 0 = キャー(高い)/ 1 = ワー(低め)/ 2 = ひぃ〜(息まじり) */
+  scream: (kind: number, delay = 0, pitch = 1) => {
+    if (kind === 0) voice({ delay, dur: 0.75, gain: 0.05, consonant: 0.04, vibrato: 18,
+      pitch: [[0, 620 * pitch], [0.12, 980 * pitch], [0.5, 900 * pitch], [0.75, 560 * pitch]],
+      f1: [[0, 350], [0.1, 850], [0.75, 800]], f2: [[0, 2300], [0.1, 1300], [0.75, 1200]] });
+    else if (kind === 1) voice({ delay, dur: 0.8, gain: 0.055, vibrato: 12,
+      pitch: [[0, 220 * pitch], [0.15, 330 * pitch], [0.55, 310 * pitch], [0.8, 200 * pitch]],
+      f1: [[0, 320], [0.18, 780], [0.8, 720]], f2: [[0, 700], [0.18, 1150], [0.8, 1100]] });
+    else { noise({ dur: 0.5, gain: 0.03, freq: 2600, q: 2, delay });
+      voice({ delay: delay + 0.05, dur: 0.6, gain: 0.03, vibrato: 25,
+        pitch: [[0, 700 * pitch], [0.6, 480 * pitch]], f1: [[0, 300], [0.6, 300]], f2: [[0, 2400], [0.6, 2200]] }); }
+  },
 };
 
 /** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */

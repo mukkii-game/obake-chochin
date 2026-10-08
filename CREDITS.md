@@ -8,7 +8,7 @@
 | 絵すべて(巻物・夜の都の遠景・家・提灯・おばけ 3 種・月) | 手続き生成のコード(Claude が書いた Canvas2D の描画) | `src/game/art.ts` | この repo のライセンス | 不要 | 全画面 | |
 | BGM「揺れる提灯」(民族09) | 魔王魂(森田交一)の配布音源 | https://maou.audio/bgm_ethnic09/ | CC BY 4.0(魔王魂の規約も可) | 音楽：魔王魂 | タイトルの BGM(`public/audio/bgm_chochin.mp3`) | |
 | BGM「和bravery heart」(民族33) | 魔王魂(森田交一)の配布音源 | https://maou.audio/bgm_ethnic33/ | CC BY 4.0(魔王魂の規約も可) | 音楽：魔王魂 | 遊ぶ間の BGM(`public/audio/bgm_battle.mp3`。112kbps に変換、ループ点を推定) | |
-| 効果音すべて(太鼓・鈴・拍子木・寺の鐘など) | 手続き生成のコード(Claude が書いた WebAudio 合成。残響も合成) | `src/game/sound.ts` `src/core/audio.ts` | この repo のライセンス | 不要 | 全場面 | |
+| 効果音すべて(太鼓・鈴・拍子木・寺の鐘・逃げる人の叫び声など) | 手続き生成のコード(Claude が書いた WebAudio 合成。残響も合成) | `src/game/sound.ts` `src/core/audio.ts` | この repo のライセンス | 不要 | 全場面 | |
 | 文字 | 端末の明朝体フォント(読み込みなし) | — | 端末に依存 | 不要 | 文字 | |
 
 ※ `public/art/manifest.json` で絵を画像に差し替えた時は、その画像の行をここに足す(作ったモデル名・ライセンス)。作り方は `tools/art/README.md`。
