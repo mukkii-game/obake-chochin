@@ -391,6 +391,9 @@ export class Game {
       y = Math.round(PLAY.y0 + (HOUSE_POS[0][1] - 40 - PLAY.y0) * (gr.turn ?? 0.4));
     }
     let target = gr.to !== undefined && this.houses[gr.to]?.lit ? gr.to : this.nearestLit(x, y);
+    // 同じ隊列の仲間が先に出ていれば、同じ家を狙う(群れがばらけない)
+    const mate = this.ghosts.find((o) => !o.dead && o.form === form && this.houses[o.target]?.lit);
+    if (mate) target = mate.target;
     if (target < 0) target = 0;
     const g: Ghost = {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
@@ -455,10 +458,19 @@ export class Game {
 
   /** 行き先の家が消えた: いまの所から、近い灯りの家へ階段の道筋で向かい直す */
   private retarget(g: Ghost) {
-    const t = this.nearestLit(g.x, g.y);
+    // 群れはばらけない: 同じ隊列の仲間がもう別の家へ向かっていれば、同じ家へ
+    const mate = this.ghosts.find((o) => o !== g && !o.dead && o.form === g.form && o.target !== g.target && this.houses[o.target]?.lit);
+    const t = mate ? mate.target : this.nearestLit(g.x, g.y);
     if (t < 0) return;
     g.target = t;
     const h = this.houses[t];
+    // まだ道の途中なら、道の形(ジグザグ・行進・階段)はそのままに、最後に降りる所だけ新しい家へ(群れの形が崩れない)
+    const n = g.path.length;
+    if (g.kind !== 'oni' && g.seg < n - 2) {
+      g.path[n - 2] = [h.x, Math.min(g.path[n - 2][1], GROUND_Y - 20)];
+      g.path[n - 1] = [h.x, h.y];
+      return;
+    }
     // 別の家へ: いったん家の高さの線より上へ上がってから横へ渡り、あらためて降りて襲う
     const up = Math.min(g.y, GROUND_Y - 20);
     g.path = [[g.x, g.y], [g.x, up], [h.x, up], [h.x, h.y]];
