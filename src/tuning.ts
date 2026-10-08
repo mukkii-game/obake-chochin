@@ -29,12 +29,12 @@ export const KNOBS: Knob[] = [
   { key: 'light.hold', label: '光が 1 か所を照らす時間', value: 0.7, min: 0.1, max: 3, step: 0.1, unit: '秒', aim: '光は帯になって伸びる。どこも同じ間だけ照らされる' },
   { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 8, min: 3, max: 30, step: 1, unit: '連' },
   { key: 'score.base', label: '1体の基本点', value: 10, min: 1, max: 100, step: 1, unit: '点', aim: '1 回の光(と誘爆)の n 体目は基本点 × n' },
-  { key: 'score.chain', label: '連鎖ボーナス', value: 50, min: 0, max: 500, step: 10, unit: '点×(n-2)²', aim: '3 連以上' },
+  { key: 'score.chain', label: '連鎖ボーナス', value: 160, min: 0, max: 500, step: 10, unit: '点×(n-2)²', aim: '3 連以上' },
   { key: 'score.net', label: '提灯の網の倍率(弾けた提灯 1 つごと)', value: 0, min: 0, max: 2, step: 0.1, unit: '倍', aim: '提灯をつないで網にするほど、その連鎖の点が全部増える(置き方を考える理由)' },
   { key: 'score.big', label: '大入道の点の倍率', value: 5, min: 1, max: 20, step: 1, unit: '倍' },
   { key: 'score.giant', label: '大大入道の点の倍率', value: 12, min: 1, max: 50, step: 1, unit: '倍' },
   { key: 'score.mega', label: '特大入道の点の倍率', value: 25, min: 1, max: 60, step: 1, unit: '倍', aim: '倒した時のごほうび' },
-  { key: 'score.formation', label: '編隊ボーナス', value: 100, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
+  { key: 'score.formation', label: '編隊ボーナス', value: 40, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
   // おばけ(動きは種類ごとに決まっている)
   { key: 'ghost.speed', label: 'おばけの速さ', value: 26, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
