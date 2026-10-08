@@ -2,15 +2,16 @@
 // Play シーンはこれを 1/60 秒刻みで step() し、state を絵にするだけ。
 // bot(tools/sim.mjs)も同じものを描画なしで回す。
 //
-// 芯はミサイルコマンド(時限。サインは足さない。見て頭で読む):
-//   - 投げる: マスをタップ → 家から提灯がゆっくり飛び、着いた所で弾ける(着くまでの時間を読む)。
-//     光は家の形どおり(縦の楼 = 縦一列 / 長屋 = 横一列)に帯になって走る。光に触れたおばけは成仏。
+// 芯はミサイルコマンド(時限。位置はアナログ。サインは足さない。見て頭で読む):
+//   - 投げる: 押した所へ、家から提灯がゆっくり飛び、着いた所で弾ける(着くまでの時間を読む)。
+//     光は家の形どおり(縦の楼 = 縦 / 長屋 = 横)に、短く伸びる(最初はポーンより少し先まで)。
+//     光に触れたおばけは成仏。光が届いた提灯も弾ける(誘爆。並べてつなげば飛車・角のように遠くまで)。
 //   - その上に、プレイヤーが時を操る余地(平安京エイリアン・ディグダグ):
 //     飛んでいる提灯をもう一度押すと、着いても弾けずに下がる。下がった提灯にたどり着いたおばけは見とれて止まり、
 //     後ろのおばけはつかえて詰まる(せき止め)。下がった提灯は決まった時間で弾ける(押せばすぐ)。
-//   - 光が届いた提灯も弾ける(誘爆。プレイヤーが並べた分だけ)。おばけどうしは連鎖しない。
-//   - おばけは上から、決まった動き(まっすぐ / ジグザグ / 曲線)で家へ来る。刻ごとの出方は waves.ts。
+//   - おばけどうしは連鎖しない。おばけは上の外から、決まった動き(まっすぐ / ジグザグ / 曲線)で家へ来る。
 //   - 弾は軒先の提灯。時間で少しずつ戻る。
+// マス目は描画の目安だけ。おばけ・家・提灯・光の位置はすべて px(アナログ)。
 import { Rng } from '../core/rng';
 import type { Params } from './params';
 import { waveGroups, type Group } from './waves';
@@ -20,25 +21,20 @@ export const H = 540;
 /** 巻物の紙の内側(遊べる範囲) */
 export const FIELD = { x0: 70, y0: 46, x1: 890, y1: 494 };
 export const DT = 1 / 60;
+/** 遊べる範囲(おばけが動き、提灯を投げられる所) */
+export const PLAY = { x0: 77, y0: 53, x1: 883, y1: 487 };
+/** 目安のマス目(描画だけ) */
+export const GUIDE = 31;
+/** 出方の表(waves.ts)の「列」0-12 → x */
+export const colX = (c: number) => PLAY.x0 + (c + 0.5) * ((PLAY.x1 - PLAY.x0) / 13);
 
-/** マス目(地形は無い。光の形と、提灯を下げる場所の単位) */
-export const GRID = { cols: 13, rows: 7, x0: 77, y0: 53, cell: 62 };
-export const CELLS = GRID.cols * GRID.rows;
-export const cellCol = (n: number) => n % GRID.cols;
-export const cellRow = (n: number) => Math.floor(n / GRID.cols);
-export const cellAt = (c: number, r: number) => r * GRID.cols + c;
-export const cellX = (n: number) => GRID.x0 + (cellCol(n) + 0.5) * GRID.cell;
-export const cellY = (n: number) => GRID.y0 + (cellRow(n) + 0.5) * GRID.cell;
-export const colX = (c: number) => GRID.x0 + (c + 0.5) * GRID.cell;
-export const inGrid = (c: number, r: number) => c >= 0 && r >= 0 && c < GRID.cols && r < GRID.rows;
-/** 画面の座標のマス(枠の外は -1) */
-export function cellOf(x: number, y: number) {
-  const c = Math.floor((x - GRID.x0) / GRID.cell), r = Math.floor((y - GRID.y0) / GRID.cell);
-  return inGrid(c, r) ? cellAt(c, r) : -1;
-}
-/** 家の並ぶ列(一番下の段) */
-export const HOUSE_COLS = [1, 3, 5, 7, 9, 11];
-export const HOUSE_ROW = GRID.rows - 1;
+/** 家並み(一番下。少しずつずれて建つ) */
+export const HOUSE_POS: ReadonlyArray<[number, number]> = [[142, 452], [268, 462], [404, 448], [552, 460], [688, 450], [816, 460]];
+/** 家を押したとみなす近さ / おばけが家に入ったとみなす近さ */
+export const HOUSE_R = 26;
+const HOME_R = 12;
+/** おばけの体の大きさ(光に触れたかの判定) */
+export const GHOST_R = 11;
 
 /** おばけの動き: まっすぐ / ジグザグ / 曲線 */
 export type GhostKind = 'fuwa' | 'kasa' | 'oni';
@@ -61,7 +57,7 @@ export interface Ghost {
   speed: number; target: number; age: number; face: number;
   /** 止まっている(下がった提灯に見とれている / 前がつかえている) */
   stopped: boolean;
-  /** 下がった提灯のマスで見とれている */
+  /** 下がった提灯で見とれている */
   caught: boolean;
   /** 家に入り込んでいる(家の人が騒いでいる) */
   haunt: boolean;
@@ -69,8 +65,9 @@ export interface Ghost {
 }
 export interface Lantern {
   id: number;
-  cell: number;
   piece: Piece;
+  /** 行き先(押した所) */
+  tx: number; ty: number;
   sx: number; sy: number;
   x: number; y: number;
   flying: boolean; flyT: number; flyDur: number;
@@ -79,14 +76,9 @@ export interface Lantern {
   /** 下がってからの秒 */
   age: number;
 }
-export interface House { x: number; y: number; cell: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
-/** あの世の口(おばけの出てくる所)。刻の前から見えている */
-export interface Portal { x: number; y: number; cell: number }
-/** 光。cells のマスを、中心からの順番 d の順に帯になって走る */
-export interface Blast {
-  x: number; y: number; cells: Array<{ cell: number; d: number }>;
-  range: number; ext: number; chain: number;
-}
+export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
+/** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
+export interface Blast { x: number; y: number; piece: Piece; ext: number; chain: number }
 export interface Chain { id: number; count: number; pts: number; lx: number; ly: number }
 
 export type GameEvent =
@@ -104,17 +96,14 @@ export type GameEvent =
   | { type: 'houseOut'; x: number; y: number; house: number; left: number }
   | { type: 'relight'; x: number; y: number; from: [number, number] }
   | { type: 'spawn'; x: number; y: number; kind: GhostKind }
-  | { type: 'portals' }
   | { type: 'watch'; n: number }
   | { type: 'waveEnd'; n: number; bonus: number }
   | { type: 'over' };
 
-/** 刻の前の一息(この間に、次のあの世の口が見えている) */
+/** 刻の前の一息 */
 export const WAVE_PAUSE = 3.5;
 /** おばけが出てくる高さ(巻物の上の外。光の届かない所から降りてくる。出口で待ち伏せはできない) */
-const SPAWN_Y = GRID.y0 - 40;
-/** おばけが家に入ったとみなす近さ */
-const HOME_R = 14;
+const SPAWN_Y = PLAY.y0 - 40;
 
 export class Game {
   readonly rng: Rng;
@@ -130,7 +119,6 @@ export class Game {
   blasts: Blast[] = [];
   chains = new Map<number, Chain>();
   houses: House[];
-  portals: Portal[] = [];
   /** 選んでいる家(-1 = 選んでいない。投げると外れる) */
   selected = -1;
   events: GameEvent[] = [];
@@ -139,33 +127,21 @@ export class Game {
   readonly pieces: Piece[];
   private nextId = 1;
   private begun = false;
-  private queue: Array<{ at: number; g: Group; i: number }> = [];
+  private queue: Array<{ at: number; g: Group }> = [];
   private groups: Group[];
 
   constructor(seed: number, readonly P: Params) {
     this.rng = new Rng(seed);
     this.pieces = PIECE_SETS[P.pieceSet] ?? PIECE_SETS['縦・横'];
-    // 家並み: 一番下の段に 6 軒(ミサイルコマンドの町)。形(= 光の形)は左から順に並べる
-    this.houses = HOUSE_COLS.map((c, i) => {
-      const n = cellAt(c, HOUSE_ROW);
-      return { x: cellX(n), y: cellY(n), cell: n, lit: true, ammo: P.ammoPerHouse, regen: 0, haunt: 0, flash: 0, piece: this.pieces[i % this.pieces.length] };
-    });
+    this.houses = HOUSE_POS.map(([x, y], i) => ({ x, y, lit: true, ammo: P.ammoPerHouse, regen: 0, haunt: 0, flash: 0, piece: this.pieces[i % this.pieces.length] }));
     this.groups = waveGroups(0, this.rng);
-    this.showPortals();
   }
 
   get litCount() { return this.houses.filter((h) => h.lit).length; }
   get ammo() { return this.houses.reduce((s, h) => s + (h.lit ? h.ammo : 0), 0); }
   canThrow(i: number) { const h = this.houses[i]; return !!h && h.lit && h.ammo > 0 && h.haunt <= 0; }
 
-  /** 刻ごとのあの世の口 = その刻におばけが出てくる所(一番上の段) */
-  private showPortals() {
-    const cols = [...new Set(this.groups.flatMap((g) => g.cols.map((c) => Math.round(c))))].sort((a, b) => a - b);
-    this.portals = cols.map((c) => { const n = cellAt(Math.max(0, Math.min(GRID.cols - 1, c)), 0); return { x: colX(c), y: cellY(n), cell: n }; });
-    this.events.push({ type: 'portals' });
-  }
-
-  /** 一番近い灯りの家(まっすぐの距離) */
+  /** 一番近い灯りの家 */
   nearestLit(x: number, y: number): number {
     let best = -1, bd = Infinity;
     this.houses.forEach((h, i) => {
@@ -187,83 +163,78 @@ export class Game {
     return best;
   }
 
-  /** その家から、そのマスへ提灯が着くまでの秒 */
-  flightTime(cell: number, house = this.launchHouse(cellX(cell), cellY(cell))): number {
+  /** その家から、その所へ提灯が着くまでの秒 */
+  flightTime(x: number, y: number, house = this.launchHouse(x, y)): number {
     if (house < 0) return Infinity;
     const h = this.houses[house];
-    return Math.max(0.3, Math.hypot(cellX(cell) - h.x, cellY(cell) - h.y) / this.P.flySpeed);
+    return Math.max(0.3, Math.hypot(x - h.x, y - (h.y - 14)) / this.P.flySpeed);
   }
 
   /**
-   * 1 タップ。家 → その家を選ぶ(もう一度で外す)/ 飛んでいる提灯のマス → 着いたら下げる /
-   * 下がった提灯のマス → すぐ弾けさせる / それ以外のマス → 選んだ家(無ければ一番近い家)から投げる
+   * 1 タップ。家 → その家を選ぶ(もう一度で外す)/ 飛んでいる提灯の行き先 → 着いたら下げる /
+   * 下がった提灯 → すぐ弾けさせる / それ以外 → 選んだ家(無ければ一番近い家)から、押した所へ投げる
    */
   tap(x: number, y: number) {
     if (this.over) return;
     x = Math.round(x); y = Math.round(y); // 記録(整数)と同じ値で動かす
-    const cell = cellOf(x, y);
-    if (cell < 0) return;
-    const hi = this.houses.findIndex((h) => h.cell === cell);
+    if (x < PLAY.x0 || x > PLAY.x1 || y < PLAY.y0 || y > PLAY.y1) return;
+    const hi = this.houses.findIndex((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R);
     if (hi >= 0) {
       if (this.selected === hi) this.selected = -1;
       else if (this.canThrow(hi)) this.selected = hi;
-      else { this.events.push({ type: 'deny', x: cellX(cell), y: cellY(cell) }); return; }
+      else { this.events.push({ type: 'deny', x, y }); return; }
       this.events.push({ type: 'select', house: this.selected });
       return;
     }
-    const l = this.lanterns.find((q) => q.cell === cell);
+    const l = this.lanterns.find((q) => Math.hypot(q.tx - x, q.ty - y) < this.P.grabR);
     if (l) {
       if (!l.flying) this.burst(l, null);
-      else if (!l.hang) { l.hang = true; this.events.push({ type: 'hang', x: cellX(cell), y: cellY(cell) }); }
+      else if (!l.hang) { l.hang = true; this.events.push({ type: 'hang', x: l.tx, y: l.ty }); }
       return;
     }
-    const tx = cellX(cell), ty = cellY(cell);
-    const from = this.selected >= 0 && this.canThrow(this.selected) ? this.selected : this.launchHouse(tx, ty);
-    if (from < 0 || this.lanterns.length >= this.P.maxLanterns) { this.events.push({ type: 'deny', x: tx, y: ty }); return; }
+    const from = this.selected >= 0 && this.canThrow(this.selected) ? this.selected : this.launchHouse(x, y);
+    if (from < 0 || this.lanterns.length >= this.P.maxLanterns) { this.events.push({ type: 'deny', x, y }); return; }
     const h = this.houses[from];
     h.ammo--;
     this.selected = -1;
     const sy = h.y - 14;
-    this.lanterns.push({ id: this.nextId++, cell, piece: h.piece, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(cell, from), hang: false, age: 0 });
-    this.events.push({ type: 'launch', sx: h.x, sy, x: tx, y: ty, house: from });
+    this.lanterns.push({ id: this.nextId++, piece: h.piece, tx: x, ty: y, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(x, y, from), hang: false, age: 0 });
+    this.events.push({ type: 'launch', sx: h.x, sy, x, y, house: from });
   }
 
-  /** 提灯の模様どおりに光が照らすマス。d は中心からの順番 */
-  shape(cell: number, piece: Piece): Array<{ cell: number; d: number }> {
-    const P = this.P;
-    const out = [{ cell, d: 0 }];
-    const ray = (dc: number, dr: number, len: number) => {
-      for (let k = 1; k <= len; k++) {
-        const c = cellCol(cell) + dc * k, r = cellRow(cell) + dr * k;
-        if (!inGrid(c, r)) break;
-        out.push({ cell: cellAt(c, r), d: k });
-      }
-    };
+  /** 光の形の長さ(中心から。周りは半径) */
+  reach(piece: Piece) { return piece === 'area' ? this.P.areaReach : piece === 'cross' ? this.P.lineReach * 0.7 : this.P.lineReach; }
+  /** 光の帯の長さ(px)。どの所も同じ間(light.hold 秒)だけ照らされる */
+  get band() { return Math.max(10, this.P.lightHold * this.P.lightSpeed); }
+
+  /**
+   * 点 (x, y) が、光の形の中の「中心から何 px の所」にあるか(形の外なら -1)。r = 当たりの余裕(体の大きさ)
+   */
+  along(piece: Piece, cx: number, cy: number, x: number, y: number, r = 0): number {
+    const dx = x - cx, dy = y - cy, w = this.P.lightWidth / 2 + r, L = this.reach(piece) + r;
+    const line = (a: number, b: number) => (Math.abs(b) <= w && Math.abs(a) <= L ? Math.abs(a) : -1);
     switch (piece) {
-      case 'up': ray(0, -1, P.lineRange); break;
-      case 'down': ray(0, 1, P.lineRange); break;
-      case 'vline': ray(0, -1, P.lineRange); ray(0, 1, P.lineRange); break;
-      case 'hline': ray(-1, 0, P.lineRange); ray(1, 0, P.lineRange); break;
-      case 'cross': for (const [dc, dr] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) ray(dc, dr, Math.ceil(P.lineRange / 2)); break;
-      case 'area':
-        for (let dr = -P.areaRange; dr <= P.areaRange; dr++) {
-          for (let dc = -P.areaRange; dc <= P.areaRange; dc++) {
-            const c = cellCol(cell) + dc, r = cellRow(cell) + dr;
-            if ((dc || dr) && inGrid(c, r)) out.push({ cell: cellAt(c, r), d: Math.max(Math.abs(dc), Math.abs(dr)) });
-          }
-        }
-        break;
+      case 'vline': return line(dy, dx);
+      case 'hline': return line(dx, dy);
+      case 'up': return dy <= w && Math.abs(dx) <= w && -dy <= L ? Math.max(0, -dy) : -1;
+      case 'down': return dy >= -w && Math.abs(dx) <= w && dy <= L ? Math.max(0, dy) : -1;
+      case 'cross': { const a = line(dy, dx), b = line(dx, dy); return a < 0 ? b : b < 0 ? a : Math.min(a, b); }
+      case 'area': { const d = Math.hypot(dx, dy); return d <= L ? Math.max(0, d - r) : -1; }
     }
-    return out;
+  }
+
+  /** 光がいま (x, y) を照らしているか */
+  lit(b: Blast, x: number, y: number, r = 0) {
+    const a = this.along(b.piece, b.x, b.y, x, y, r);
+    return a >= 0 && a <= b.ext && a >= b.ext - this.band;
   }
 
   /** 提灯が弾ける。chain があれば誘爆(同じ連鎖として数える) */
   private burst(l: Lantern, chain: Chain | null) {
-    const c = chain ?? this.newChain(l.x, l.y);
-    const cells = this.shape(l.cell, l.piece);
-    this.blasts.push({ x: cellX(l.cell), y: cellY(l.cell), cells, range: Math.max(...cells.map((q) => q.d), 0), ext: 0, chain: c.id });
+    const c = chain ?? this.newChain(l.tx, l.ty);
+    this.blasts.push({ x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id });
     this.lanterns = this.lanterns.filter((q) => q !== l);
-    this.events.push({ type: 'break', x: l.x, y: l.y, chained: !!chain });
+    this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain });
   }
 
   /** 1/60 秒進める */
@@ -279,14 +250,14 @@ export class Game {
     for (const l of [...this.lanterns]) {
       if (!l.flying) {
         l.age += dt;
-        if (l.age >= P.hangTime) this.burst(l, null); // 下がった提灯も、決まった時間で弾ける
+        if (l.age >= P.hangTime) this.burst(l, null); // 下がった提灯も、いつも同じ時間で弾ける
         continue;
       }
       l.flyT += dt;
       const k = Math.min(1, l.flyT / l.flyDur);
-      l.x = lerp(l.sx, cellX(l.cell), k); l.y = lerp(l.sy, cellY(l.cell), k);
+      l.x = lerp(l.sx, l.tx, k); l.y = lerp(l.sy, l.ty, k);
       if (k >= 1) {
-        l.flying = false; l.x = cellX(l.cell); l.y = cellY(l.cell);
+        l.flying = false;
         if (!l.hang) { this.burst(l, null); continue; } // 基本は着いたら弾ける(ミサイルコマンド)
         this.events.push({ type: 'light', x: l.x, y: l.y });
       }
@@ -348,7 +319,7 @@ export class Game {
         if (this.begun) this.wave++;
         this.begun = true;
         this.events.push({ type: 'watch', n: this.wave });
-        for (const g of this.groups) for (let i = 0; i < g.n; i++) this.queue.push({ at: this.t + g.t + i * g.gap, g, i });
+        for (const g of this.groups) for (let i = 0; i < g.n; i++) this.queue.push({ at: this.t + g.t + i * g.gap, g });
       }
       return;
     }
@@ -358,7 +329,6 @@ export class Game {
       this.pause = WAVE_PAUSE;
       this.events.push({ type: 'waveEnd', n: this.wave, bonus });
       this.groups = waveGroups(this.wave + 1, this.rng);
-      this.showPortals();
     }
   }
 
@@ -397,57 +367,52 @@ export class Game {
     if (d < 1e-6) return;
     dx /= d; dy /= d;
     let vx = dx, vy = dy;
-    if (g.kind === 'kasa' && d > GRID.cell * 0.8) {
+    if (g.kind === 'kasa' && d > 50) {
       const s = Math.SQRT1_2;
       vx = (dx - dy * g.zig) * s; vy = (dy + dx * g.zig) * s;
       g.zigLeft -= dist;
       if (g.zigLeft <= 0) { g.zigLeft += this.P.zigLen; g.zig = -g.zig; }
-    } else if (g.kind === 'oni' && d > GRID.cell * 0.6) {
+    } else if (g.kind === 'oni' && d > 40) {
       // 向きを、家の方へ最大 curveTurn 度/秒 だけ回す
       const turn = (this.P.curveTurn * Math.PI / 180) * (dist / g.speed);
       const cross = g.hx * dy - g.hy * dx, dot = g.hx * dx + g.hy * dy;
-      const ang = Math.atan2(cross, dot);
-      const a = Math.max(-turn, Math.min(turn, ang));
+      const a = Math.max(-turn, Math.min(turn, Math.atan2(cross, dot)));
       [g.hx, g.hy] = [g.hx * Math.cos(a) - g.hy * Math.sin(a), g.hx * Math.sin(a) + g.hy * Math.cos(a)];
       vx = g.hx; vy = g.hy;
     }
     const st = Math.min(dist, d);
     const ox = g.x;
-    g.x += vx * st; g.y += vy * st;
-    g.x = clamp(g.x, GRID.x0 + 4, GRID.x0 + GRID.cols * GRID.cell - 4);
-    g.y = clamp(g.y, SPAWN_Y, GRID.y0 + GRID.rows * GRID.cell - 4);
+    g.x = clamp(g.x + vx * st, PLAY.x0 + 6, PLAY.x1 - 6);
+    g.y = clamp(g.y + vy * st, SPAWN_Y, PLAY.y1 - 4);
     if (Math.abs(g.x - ox) > 0.01) g.face = g.x < ox ? -1 : 1;
   }
 
   /**
-   * おばけを動かす。下がった提灯のマスに入ったおばけは見とれて止まる。
-   * 止まったおばけで埋まったマス(ghost.dam 体)には、後ろのおばけは入れず、手前で止まる(せき止め)
+   * おばけを動かす。下がった提灯に着いたおばけは見とれて止まる。
+   * 止まったおばけのすぐ手前まで来たおばけは、つかえて止まる(せき止め)。前が動けばまた進む
    */
   private moveGhosts(dt: number) {
     const P = this.P;
-    const hung = new Set(this.lanterns.filter((l) => !l.flying).map((l) => l.cell));
-    const full = new Map<number, number>();
-    for (const g of this.ghosts) if (!g.dead && g.stopped) { const c = cellOf(g.x, g.y); full.set(c, (full.get(c) ?? 0) + 1); }
+    const hung = this.lanterns.filter((l) => !l.flying);
     for (const g of this.ghosts) {
       if (g.dead) continue;
       g.age += dt;
       if (g.haunt) continue;
       if (!this.houses[g.target].lit) { const t = this.nearestLit(g.x, g.y); if (t >= 0) g.target = t; }
-      const here = cellOf(g.x, g.y);
-      if (hung.has(here)) {
+      if (hung.some((l) => Math.hypot(l.tx - g.x, l.ty - g.y) < P.catchR)) {
         if (!g.caught) { g.caught = true; this.events.push({ type: 'caught', x: g.x, y: g.y }); }
-        if (!g.stopped) { g.stopped = true; full.set(here, (full.get(here) ?? 0) + 1); }
+        g.stopped = true;
         continue;
       }
       g.caught = false;
       const c: Ghost = { ...g };
       this.advance(c, g.speed * dt);
-      const next = cellOf(c.x, c.y);
-      if (next !== here && (full.get(next) ?? 0) >= P.damCap) {
-        if (!g.stopped) { g.stopped = true; full.set(here, (full.get(here) ?? 0) + 1); }
-        continue;
-      }
-      if (g.stopped) { g.stopped = false; full.set(here, Math.max(0, (full.get(here) ?? 1) - 1)); }
+      const vx = c.x - g.x, vy = c.y - g.y;
+      // 前に止まっているおばけがいれば、つかえる
+      const blocked = this.ghosts.some((o) => o !== g && !o.dead && o.stopped && !o.haunt
+        && Math.hypot(o.x - c.x, o.y - c.y) < P.queueGap && (o.x - g.x) * vx + (o.y - g.y) * vy > 0);
+      if (blocked) { g.stopped = true; continue; }
+      g.stopped = false;
       Object.assign(g, c);
       const h = this.houses[g.target];
       if (h.lit && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
@@ -458,39 +423,28 @@ export class Game {
   }
 
   /** 先読み: このおばけが step 秒ごとにいる所(止まらないとして) */
-  predict(g: Ghost, horizon: number, step = 0.25): Array<{ cell: number; t: number; x: number; y: number }> {
+  predict(g: Ghost, horizon: number, step = 0.25): Array<{ x: number; y: number; t: number }> {
     const c: Ghost = { ...g };
-    const out: Array<{ cell: number; t: number; x: number; y: number }> = [];
+    const out: Array<{ x: number; y: number; t: number }> = [];
     const house = this.houses[g.target];
     for (let t = 0; t <= horizon; t += step) {
-      out.push({ cell: cellOf(c.x, c.y), t, x: c.x, y: c.y });
+      out.push({ x: c.x, y: c.y, t });
       if (g.haunt || g.stopped || Math.hypot(house.x - c.x, house.y - c.y) < HOME_R) break;
       this.advance(c, c.speed * step);
     }
     return out;
   }
 
-  /** 光の帯の長さ(マス)。光は帯になって形の上を走り、どのマスも同じ間(light.hold 秒)だけ照らされる */
-  get band() { return Math.max(0.3, this.P.lightHold * this.P.lightSpeed); }
-
-  /** そのマスが光に照らされているか */
-  lit(b: Blast, cell: number) {
-    const band = this.band;
-    return b.cells.some((q) => q.cell === cell && q.d <= b.ext && q.d >= b.ext - band);
-  }
-
   private runBlasts(dt: number) {
     const P = this.P;
     for (const b of [...this.blasts]) {
       b.ext += P.lightSpeed * dt;
-      if (b.ext - this.band > b.range) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
+      if (b.ext - this.band > this.reach(b.piece) + GHOST_R) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
       const chain = this.chains.get(b.chain)!;
-      // 誘爆: 光が届いたマスの提灯も弾ける(飛んでいるものは除く)
-      for (const l of [...this.lanterns]) if (!l.flying && this.lit(b, l.cell)) this.burst(l, chain);
+      // 誘爆: 光が届いた提灯も弾ける(飛んでいるものは除く)
+      for (const l of [...this.lanterns]) if (!l.flying && this.lit(b, l.tx, l.ty, 6)) this.burst(l, chain);
       for (const g of this.ghosts) {
-        if (g.dead) continue;
-        const cell = cellOf(g.x, g.y);
-        if (cell < 0 || !this.lit(b, cell)) continue;
+        if (g.dead || g.y < PLAY.y0 || !this.lit(b, g.x, g.y, GHOST_R)) continue;
         g.dead = true;
         chain.count++;
         const pts = P.basePts * chain.count;

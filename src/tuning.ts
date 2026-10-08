@@ -16,23 +16,26 @@ export const KNOBS: Knob[] = [
   { key: 'lantern.perHouse', label: '1 軒の軒先の提灯', value: 3, min: 1, max: 6, step: 1, unit: '個' },
   { key: 'lantern.regen', label: '軒先の提灯が 1 つ戻るまで', value: 6, min: 0.5, max: 20, step: 0.5, unit: '秒', aim: '使い切っても待てば戻る(弾切れで何もできなくならない)' },
   { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 140, min: 60, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり。着くまでの間を読む(ミサイルコマンドの弾)' },
+  { key: 'lantern.catch', label: '下げた提灯に見とれる近さ', value: 20, min: 4, max: 80, step: 1, unit: 'px' },
+  { key: 'lantern.grab', label: '提灯を押したとみなす近さ', value: 26, min: 8, max: 60, step: 1, unit: 'px', aim: '飛んでいる提灯の行き先・下がった提灯の近くを押すと、下げる / 弾けさせる' },
   { key: 'lantern.hang', label: '下げた提灯が弾けるまで', value: 5, min: 1, max: 15, step: 0.5, unit: '秒', aim: 'いつも同じ。その間におばけを止めて詰まらせる' },
   // 光
-  { key: 'light.line', label: '縦・横の光の届くマス', value: 4, min: 1, max: 12, step: 1, unit: 'マス', aim: '両側に。縦はほぼ一列まるごと、横は 9 マス' },
-  { key: 'light.area', label: '周りの光の広さ', value: 1, min: 1, max: 3, step: 1, unit: 'マス' },
-  { key: 'light.speed', label: '光の走る速さ', value: 3, min: 0.5, max: 12, step: 0.1, unit: 'マス/秒' },
-  { key: 'light.hold', label: '光が 1 マスを照らす時間', value: 0.8, min: 0.1, max: 3, step: 0.1, unit: '秒', aim: '光は帯になって形の上を走る。どのマスも同じ間だけ照らされる' },
+  { key: 'light.line', label: '縦・横の光の長さ(中心から)', value: 72, min: 20, max: 400, step: 4, unit: 'px', aim: '最初はポーンより少し先まで。遠くへは提灯を並べて誘爆でつなぐ' },
+  { key: 'light.width', label: '縦・横の光の太さ', value: 30, min: 8, max: 120, step: 2, unit: 'px' },
+  { key: 'light.area', label: '周りの光の半径', value: 48, min: 16, max: 200, step: 4, unit: 'px' },
+  { key: 'light.speed', label: '光の伸びる速さ', value: 150, min: 20, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり伸びる。伸びる先におばけが来る時を読む' },
+  { key: 'light.hold', label: '光が 1 か所を照らす時間', value: 0.7, min: 0.1, max: 3, step: 0.1, unit: '秒', aim: '光は帯になって伸びる。どこも同じ間だけ照らされる' },
   { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 8, min: 3, max: 30, step: 1, unit: '連' },
   { key: 'score.base', label: '1体の基本点', value: 10, min: 1, max: 100, step: 1, unit: '点', aim: '1 回の光(と誘爆)の n 体目は基本点 × n' },
   // 家
   { key: 'house.haunt', label: '家の人が騒いでから逃げ出すまで', value: 1.5, min: 0, max: 8, step: 0.1, unit: '秒', aim: '騒いでいる家は提灯を投げられない' },
   // おばけ(動きは種類ごとに決まっている)
-  { key: 'ghost.speed', label: 'おばけの速さ', value: 26, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 17 秒' },
+  { key: 'ghost.speed', label: 'おばけの速さ', value: 26, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.speedRamp', label: '9 刻目からの刻ごとの速さ増', value: 0.08, min: 0, max: 0.5, step: 0.01, unit: '倍/刻' },
   { key: 'ghost.zig', label: 'ジグザグの折れる長さ', value: 80, min: 20, max: 300, step: 5, unit: 'px' },
   { key: 'ghost.curveStart', label: '曲線の出だしのそれ', value: 75, min: 0, max: 120, step: 5, unit: '度' },
   { key: 'ghost.curveTurn', label: '曲線の曲がる速さ', value: 14, min: 1, max: 90, step: 1, unit: '度/秒' },
-  { key: 'ghost.dam', label: '1 マスに詰まるおばけ', value: 2, min: 1, max: 6, step: 1, unit: '体', aim: '止まったおばけで埋まったマスには入れず、手前で止まる(せき止め)' },
+  { key: 'ghost.queue', label: 'つかえたおばけの間', value: 18, min: 6, max: 60, step: 1, unit: 'px', aim: '止まったおばけのこれだけ手前で、後ろのおばけも止まる(せき止め)' },
   // 刻
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },
   // 演出

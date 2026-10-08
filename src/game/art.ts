@@ -2,7 +2,7 @@
 // 見た目を差し替える時は、同じキーで assets/mine/ の画像を load すればよい。
 import Phaser from 'phaser';
 import { Rng } from '../core/rng';
-import { W, H, FIELD, GRID } from './logic';
+import { W, H, FIELD, PLAY, GUIDE } from './logic';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -59,18 +59,6 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'mark_hline', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(3, 14); c2.lineTo(25, 14); }));
   make(scene, 'mark_vline', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 3); c2.lineTo(14, 25); }));
   make(scene, 'mark_cross', 28, 28, (c) => ink(c, (c2) => { c2.moveTo(14, 5); c2.lineTo(14, 23); c2.moveTo(5, 14); c2.lineTo(23, 14); }));
-  // 町家の塊(通れない、光も通さないマス)。面ごとに置き場所が変わるので、背景には描かず Play で置く
-  make(scene, 'block', GRID.cell, GRID.cell, (c) => {
-    const bx = 0, by = 0, s = GRID.cell;
-    // 柱のマス: 町家の塊(通れない、光も通さない)
-    c.fillStyle = 'rgba(20,20,32,0.98)'; c.fillRect(bx + 2, by + 2, s - 4, s - 4);
-    c.fillStyle = 'rgba(52,48,66,1)';
-    c.beginPath(); c.moveTo(bx + 4, by + 30); c.lineTo(bx + 14, by + 8); c.lineTo(bx + s - 14, by + 8); c.lineTo(bx + s - 4, by + 30); c.closePath(); c.fill();
-    c.fillStyle = 'rgba(32,30,44,1)'; c.fillRect(bx + 8, by + 30, s - 16, s - 36);
-    c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 1;
-    for (let i = 0; i < 6; i++) { c.beginPath(); c.moveTo(bx + 8 + i * 9, by + 29); c.lineTo(bx + 16 + i * 6, by + 9); c.stroke(); }
-    c.fillStyle = 'rgba(255,200,120,0.18)'; c.fillRect(bx + 14, by + 38, 10, 8); c.fillRect(bx + s - 24, by + 38, 10, 8);
-  });
   make(scene, 'tree', 40, 44, (c) => {
     c.fillStyle = 'rgba(12,14,22,0.9)';
     c.fillRect(18, 28, 4, 16);
@@ -123,21 +111,13 @@ function drawBackground(c: Ctx) {
     g.addColorStop(0, 'rgba(200,210,255,0)'); g.addColorStop(0.5, `rgba(200,210,255,${a})`); g.addColorStop(1, 'rgba(200,210,255,0)');
     c.fillStyle = g; c.fillRect(x0, y - 16, x1 - x0, 32);
   }
-  // マス目の都。土の道のマスと、町家の屋根が載った柱のマス(ボンバーマンの柱)。板塀は毎回変わるので Play で描く
-  const gx = (col: number) => GRID.x0 + col * GRID.cell, gy = (r: number) => GRID.y0 + r * GRID.cell;
-  c.fillStyle = 'rgba(14,16,26,0.6)';
-  c.fillRect(gx(0) - 6, gy(0) - 6, GRID.cols * GRID.cell + 12, GRID.rows * GRID.cell + 12);
-  for (let r = 0; r < GRID.rows; r++) {
-    for (let col = 0; col < GRID.cols; col++) {
-      const bx = gx(col), by = gy(r), s = GRID.cell;
-      {
-        // 道のマス: 白っぽい土。目地が少し見える
-        c.fillStyle = (col + r) % 2 ? 'rgba(200,180,140,0.13)' : 'rgba(200,180,140,0.10)';
-        c.fillRect(bx + 1, by + 1, s - 2, s - 2);
-        for (let k = 0; k < 4; k++) { c.fillStyle = 'rgba(255,240,200,0.05)'; c.fillRect(bx + 6 + rng.next() * (s - 12), by + 6 + rng.next() * (s - 12), 2, 2); }
-      }
-    }
-  }
+  // 夜の都の地面と、目安の細かいマス目(位置はアナログ。線はうっすら見えるだけ)
+  c.fillStyle = 'rgba(14,16,26,0.45)';
+  c.fillRect(PLAY.x0, PLAY.y0, PLAY.x1 - PLAY.x0, PLAY.y1 - PLAY.y0);
+  c.strokeStyle = 'rgba(220,200,160,0.06)'; c.lineWidth = 1;
+  for (let x = PLAY.x0; x <= PLAY.x1; x += GUIDE) { c.beginPath(); c.moveTo(x + 0.5, PLAY.y0); c.lineTo(x + 0.5, PLAY.y1); c.stroke(); }
+  for (let y = PLAY.y0; y <= PLAY.y1; y += GUIDE) { c.beginPath(); c.moveTo(PLAY.x0, y + 0.5); c.lineTo(PLAY.x1, y + 0.5); c.stroke(); }
+  for (let k = 0; k < 260; k++) { c.fillStyle = 'rgba(255,240,200,0.04)'; c.fillRect(PLAY.x0 + rng.next() * (PLAY.x1 - PLAY.x0), PLAY.y0 + rng.next() * (PLAY.y1 - PLAY.y0), 2, 2); }
   // 紙の端のかすれ
   const vg = c.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 560);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');

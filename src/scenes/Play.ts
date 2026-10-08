@@ -1,7 +1,7 @@
 // プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
 // 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { Game, DT, W, H, GRID, CELLS, cellX, cellY, cellCol, cellRow, cellAt, encodeTaps, decodeTaps, type Ghost, type GameEvent } from '../game/logic';
+import { Game, DT, W, H, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity } from '../game/sound';
@@ -18,7 +18,7 @@ import { isMuted, toggleMuted } from '../core/audio';
 
 const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa' } as const;
 /** 軒先の提灯の位置(家の中心から) */
-const HANG: ReadonlyArray<[number, number]> = [[-25, -2], [25, -2], [-25, 12]];
+const HANG: ReadonlyArray<[number, number]> = [[-21, -4], [21, -4], [-21, 8]];
 
 export class Play extends Phaser.Scene {
   private game2!: Game;
@@ -69,9 +69,9 @@ export class Play extends Phaser.Scene {
       const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
       // 家の形 = この家から投げる提灯の光の形(縦の楼は縦、長屋は横)
       const key = `house_${h.piece}`;
-      const img = this.add.image(h.x, h.y + GRID.cell / 2 - 2, `${key}_lit`).setOrigin(0.5, 0.92).setScale(0.9).setDepth(2);
+      const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(0.68).setDepth(2);
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
-      const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, 'lantern').setScale(0.26).setDepth(3));
+      const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, 'lantern').setScale(0.22).setDepth(3));
       this.houseImgs.push({ img, glow, hang, key });
     }
     this.fx = this.add.graphics().setDepth(5);
@@ -267,15 +267,15 @@ export class Play extends Phaser.Scene {
       const panic = h.haunt > 0;
       const flick = panic ? (Math.sin(time * 37 + i) + Math.sin(time * 23)) > 0.3 : true;
       o.img.setTexture(`${o.key}_${h.lit && flick ? 'lit' : 'dark'}`);
-      o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y + GRID.cell / 2 - 2);
+      o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y + 22);
       o.glow.setVisible(h.lit).setAlpha(panic ? (flick ? 0.5 : 0.15) : 0.45 + 0.1 * Math.sin(time * 3 + i));
-      o.img.setScale(0.9 * (1 + h.flash * 0.25));
+      o.img.setScale(0.68 * (1 + h.flash * 0.25));
       o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setAngle(Math.sin(time * 1.5 + k + i) * 6));
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
     if (g.selected >= 0) {
-      const h = g.houses[g.selected], s = GRID.cell / 2 - 2;
+      const h = g.houses[g.selected], s = 26;
       this.selFx.lineStyle(3, 0xffd890, 0.55 + 0.3 * Math.sin(time * 6));
       this.selFx.strokeRoundedRect(h.x - s, h.y - s, s * 2, s * 2, 6);
     }
@@ -287,7 +287,7 @@ export class Play extends Phaser.Scene {
       let s = this.lSprites.get(l.id);
       if (!s) {
         const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8).setAlpha(0);
-        const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.55);
+        const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.45);
         // 提灯の模様 = 光の形(縦 / 横)
         const label = this.add.image(l.x, l.y, `mark_${l.piece}`).setDepth(13);
         s = { body, glow, label };
@@ -296,18 +296,18 @@ export class Play extends Phaser.Scene {
       if (l.flying) {
         // ゆっくり弧を描いて飛ぶ。着いたら弾ける
         const k = l.flyT / l.flyDur;
-        const arc = Math.sin(k * Math.PI) * Math.min(90, Math.hypot(cellX(l.cell) - l.sx, cellY(l.cell) - l.sy) * 0.35);
-        s.body.setPosition(l.x, l.y - arc).setScale(0.55).setAngle(Math.sin(time * 14 + l.id) * 12);
+        const arc = Math.sin(k * Math.PI) * Math.min(90, Math.hypot(l.tx - l.sx, l.ty - l.sy) * 0.35);
+        s.body.setPosition(l.x, l.y - arc).setScale(0.45).setAngle(Math.sin(time * 14 + l.id) * 12);
         s.glow.setPosition(l.x, l.y - arc).setScale(0.5).setAlpha(0.6);
         s.label.setPosition(l.x, l.y - arc + 1).setScale(0.4);
       } else {
         // 下がった提灯。いつも同じ時間で弾ける(終わり際に火がゆらぐだけ。数字は出さない)
-        if (s.body.scale < 1) s.body.setScale(Math.min(1, s.body.scale + 0.1));
+        if (s.body.scale < 0.75) s.body.setScale(Math.min(0.75, s.body.scale + 0.08));
         const late = Math.max(0, l.age - (P.hangTime - 1.2)) / 1.2;
         const sway = Math.sin(time * (2 + late * 14) + l.id) * (5 + late * 7);
         s.body.setPosition(l.x, l.y - 8).setAngle(sway);
-        s.label.setPosition(l.x, l.y - 7).setScale(0.62 * Math.min(1, s.body.scale)).setAngle(s.body.angle);
-        s.glow.setPosition(l.x, l.y).setScale(1.1).setAlpha(0.55 + (0.08 + late * 0.25) * Math.sin(time * (5 + late * 20) + l.id));
+        s.label.setPosition(l.x, l.y - 7).setScale(0.62 * s.body.scale).setAngle(s.body.angle);
+        s.glow.setPosition(l.x, l.y).setScale(0.8).setAlpha(0.55 + (0.08 + late * 0.25) * Math.sin(time * (5 + late * 20) + l.id));
       }
     }
     for (const [id, s] of this.lSprites) if (!seenL.has(id)) { s.body.destroy(); s.glow.destroy(); s.label.destroy(); this.lSprites.delete(id); }
@@ -339,7 +339,7 @@ export class Play extends Phaser.Scene {
     // 飛んでいる提灯: 弧の軌跡と、行き先のマスの小さな × (下げる時は、吊るす鉤の輪)
     for (const l of g.lanterns) {
       if (!l.flying) continue;
-      const tx = cellX(l.cell), ty = cellY(l.cell);
+      const tx = l.tx, ty = l.ty;
       const top = Math.min(90, Math.hypot(tx - l.sx, ty - l.sy) * 0.35);
       const k = l.flyT / l.flyDur;
       this.fx.lineStyle(2, 0xffb060, 0.6);
@@ -358,31 +358,13 @@ export class Play extends Phaser.Scene {
       }
     }
     this.glowFx.clear();
-    // 下がった提灯の明かりが、模様の形のマスにうっすらこぼれる(弾けたら光がここを埋める。印ではなく提灯の明かり)
-    const cs = GRID.cell;
+    // 下がった提灯の明かりが、模様の形にうっすらこぼれる(弾けたら光がここを伸びる。印ではなく提灯の明かり)
     for (const l of g.lanterns) {
       if (l.flying) continue;
-      for (const q of g.shape(l.cell, l.piece)) {
-        if (!q.d) continue;
-        this.glowFx.fillStyle(0xffb060, 0.07 / q.d + 0.02);
-        this.glowFx.fillRect(cellX(q.cell) - cs / 2 + 4, cellY(q.cell) - cs / 2 + 4, cs - 8, cs - 8);
-      }
+      this.drawShape(l.piece, l.tx, l.ty, g.reach(l.piece), 0, 0xffb060, 0.07);
     }
-    // 光: 家の形どおりに帯になって走る
-    const band = g.band;
-    for (const b of g.blasts) {
-      for (const q of b.cells) {
-        // 帯の先頭で明るくふくらみ、帯の後ろで薄れる
-        const front = Math.max(0, Math.min(1, b.ext - q.d + 0.6));
-        const back = Math.max(0, Math.min(1, q.d - (b.ext - band) + 0.4));
-        const k = Math.min(front, back);
-        if (k <= 0) continue;
-        const x = cellX(q.cell), y = cellY(q.cell);
-        const half = (cs / 2) * (0.35 + 0.65 * front);
-        const layers: ReadonlyArray<[number, number, number]> = [[1.15, 0xffb050, 0.28], [0.85, 0xfff0c0, 0.4], [0.45, 0xffffff, 0.5]];
-        for (const [m, col, a] of layers) { this.glowFx.fillStyle(col, a * k); this.glowFx.fillRoundedRect(x - half * m, y - half * m, half * m * 2, half * m * 2, 8); }
-      }
-    }
+    // 光: 家の形どおりに、帯になって伸びる
+    for (const b of g.blasts) this.drawBlast(b);
 
     // おばけの通った跡(どちらへ向かっているか読めるように)
     for (const gh of g.ghosts) {
@@ -397,6 +379,40 @@ export class Play extends Phaser.Scene {
     void dt;
   }
 
+  /** 光の形(中心から from〜to px の所)を塗る */
+  private drawShape(piece: Piece, x: number, y: number, to: number, from: number, col: number, a: number, widen = 1) {
+    const g = this.game2, fx = this.glowFx, w = (g.P.lightWidth / 2) * widen;
+    if (to <= from) return;
+    fx.fillStyle(col, a);
+    const seg = (dx: number, dy: number) => {
+      // 中心から (dx, dy) の向きに from〜to
+      const x0 = x + dx * from, y0 = y + dy * from, x1 = x + dx * to, y1 = y + dy * to;
+      const l = Math.min(x0, x1) - (dx ? 0 : w), t = Math.min(y0, y1) - (dy ? 0 : w);
+      fx.fillRoundedRect(l, t, Math.abs(x1 - x0) + (dx ? 0 : w * 2), Math.abs(y1 - y0) + (dy ? 0 : w * 2), Math.min(8, w));
+    };
+    switch (piece) {
+      case 'vline': seg(0, -1); seg(0, 1); break;
+      case 'hline': seg(-1, 0); seg(1, 0); break;
+      case 'up': seg(0, -1); break;
+      case 'down': seg(0, 1); break;
+      case 'cross': seg(0, -1); seg(0, 1); seg(-1, 0); seg(1, 0); break;
+      case 'area': fx.fillCircle(x, y, to); break;
+    }
+  }
+
+  /** 光の帯: 先頭がふくらんで明るく、後ろは薄れる */
+  private drawBlast(b: Blast) {
+    const g = this.game2;
+    const L = g.reach(b.piece), band = g.band;
+    const head = Math.min(L, b.ext), tail = Math.max(0, b.ext - band);
+    if (head <= tail) return;
+    const fade = b.ext > L ? Math.max(0, 1 - (b.ext - L) / band) : 1;
+    this.drawShape(b.piece, b.x, b.y, head, tail, 0xffb050, 0.3 * fade, 1.35);
+    this.drawShape(b.piece, b.x, b.y, head, tail, 0xfff0c0, 0.45 * fade, 0.9);
+    this.drawShape(b.piece, b.x, b.y, head, Math.max(tail, head - band * 0.4), 0xffffff, 0.55 * fade, 0.55);
+    if (tail <= 0) { this.glowFx.fillStyle(0xfff6d8, 0.5 * fade); this.glowFx.fillCircle(b.x, b.y, 12); }
+  }
+
   private drawGhost(s: Phaser.GameObjects.Image, gh: Ghost, time: number) {
     const bob = Math.sin(time * 3 + gh.id) * 3;
     let sx = 1, sy = 1;
@@ -406,10 +422,10 @@ export class Play extends Phaser.Scene {
     // 下がった提灯に見とれたおばけは提灯のまわりを回る / 前がつかえたおばけは足踏みする
     const orbit = time * 3 + gh.id;
     let ox = 0, oy = 0;
-    if (gh.caught) { ox = Math.cos(orbit) * 16; oy = Math.sin(orbit) * 9 - 6; }
+    if (gh.caught) { ox = Math.cos(orbit) * 12; oy = Math.sin(orbit) * 7 - 5; }
     else if (gh.stopped) { ox = Math.sin(time * 18 + gh.id) * 2; sy *= 0.92 + 0.08 * Math.abs(Math.sin(time * 9 + gh.id)); }
     else if (gh.haunt) { ox = Math.sin(time * 7 + gh.id) * 8; oy = -10; }
-    s.setPosition(gh.x + ox, gh.y + oy + bob).setScale(sx * 0.82, sy * 0.82).setAlpha(alpha).setFlipX(gh.face < 0);
+    s.setPosition(gh.x + ox, gh.y + oy + bob).setScale(sx * 0.62, sy * 0.62).setAlpha(alpha).setFlipX(gh.face < 0);
     // 唐傘は折れるたびに傘を傾ける / 鬼火は揺らめく
     s.setAngle(gh.kind === 'kasa' ? gh.zig * 14 : gh.kind === 'oni' ? Math.sin(time * 8 + gh.id) * 6 : 0);
   }

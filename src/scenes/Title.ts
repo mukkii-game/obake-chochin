@@ -44,9 +44,9 @@ export class Title extends Phaser.Scene {
       const g = this.add.graphics();
       const cs = 9, cx = x + 26, cy = y;
       const on: Array<[number, number]> = [[0, 0]];
-      if (p === 'up' || p === 'vline') for (let k = 1; k <= 3; k++) on.push([0, -k]);
-      if (p === 'down' || p === 'vline') for (let k = 1; k <= 3; k++) on.push([0, k]);
-      if (p === 'hline') for (let k = 1; k <= 3; k++) on.push([k, 0], [-k, 0]);
+      if (p === 'up' || p === 'vline') for (let k = 1; k <= 2; k++) on.push([0, -k]);
+      if (p === 'down' || p === 'vline') for (let k = 1; k <= 2; k++) on.push([0, k]);
+      if (p === 'hline') for (let k = 1; k <= 2; k++) on.push([k, 0], [-k, 0]);
       if (p === 'cross') for (const [a, b] of [[0, 1], [0, -1], [1, 0], [-1, 0], [0, 2], [0, -2], [2, 0], [-2, 0]]) on.push([a, b]);
       if (p === 'area') for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (a || b) on.push([a, b]);
       for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) {
