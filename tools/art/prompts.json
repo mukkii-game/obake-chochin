@@ -1,0 +1,17 @@
+{
+  "_style": "ukiyo-e woodblock print meets soft watercolor, Edo period Japanese night, ink outlines, muted indigo and warm lantern orange palette, game sprite, centered, full body, single subject, no text, no watermark",
+  "_negative": "text, letters, watermark, signature, frame, border, multiple subjects, cropped, photo, 3d render, blurry",
+  "_note": "key = ゲームの絵のキー / bg = 背景の色(後で抜く: black は暗い所を透明に、white は明るい所を透明に) / size = 生成する大きさ / n = 候補の数",
+  "assets": [
+    { "key": "g_fuwa",  "bg": "black", "size": [768, 896], "n": 12, "prompt": "a cute translucent white Japanese yurei ghost with a triangular white headband (tenkan), drooping hands, wispy tail, faint blue glow, front view" },
+    { "key": "g_kasa",  "bg": "black", "size": [768, 896], "n": 12, "prompt": "a karakasa-obake, a purple oiled-paper umbrella yokai with one big eye, long red tongue and a single wooden leg with a geta sandal, playful, front view" },
+    { "key": "g_oni",   "bg": "black", "size": [768, 896], "n": 12, "prompt": "an onibi will-o-the-wisp, a teal-green spirit flame with a mischievous face, glowing, flickering fire tail" },
+    { "key": "lantern", "bg": "black", "size": [640, 896], "n": 12, "prompt": "a red Japanese paper chochin lantern glowing warmly from inside, black top and bottom rims, ribbed paper, hanging cord, front view" },
+    { "key": "house_vline_lit", "bg": "white", "size": [896, 896], "n": 10, "prompt": "a tall narrow two-story Edo period Japanese townhouse (machiya) with a tiled roof and glowing shoji paper windows at night, front view, isolated" },
+    { "key": "house_hline_lit", "bg": "white", "size": [896, 896], "n": 10, "prompt": "a long low Edo period Japanese row house (nagaya) with a thatched roof and three glowing shoji windows at night, front view, isolated" },
+    { "key": "house_vline_dark", "bg": "white", "size": [896, 896], "n": 6, "prompt": "a tall narrow two-story Edo period Japanese townhouse (machiya), all windows dark, abandoned, at night, front view, isolated" },
+    { "key": "house_hline_dark", "bg": "white", "size": [896, 896], "n": 6, "prompt": "a long low Edo period Japanese row house (nagaya) with a thatched roof, all windows dark, at night, front view, isolated" },
+    { "key": "moon",    "bg": "black", "size": [768, 768], "n": 6,  "prompt": "a pale full moon with soft halo, ukiyo-e style" },
+    { "key": "bg",      "bg": "none",  "size": [1536, 864], "n": 8, "prompt": "wide landscape of an Edo period Japanese town at night seen from above the rooftops, distant pagoda and temple roofs, misty mountains, starry indigo sky, full moon at upper right, mostly empty dark sky in the upper two thirds, rooftops only along the bottom edge, calm, ukiyo-e" }
+  ]
+}

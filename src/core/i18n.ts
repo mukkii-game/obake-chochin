@@ -17,7 +17,7 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   mute: { ja: '音: ON', en: 'Sound: ON' },
   unmute: { ja: '音: OFF', en: 'Sound: OFF' },
   how1: { ja: 'おばけは上から、決まった動き(まっすぐ・ジグザグ・曲線)で灯りの家へ来る', en: 'Ghosts come down toward the lit houses, each with a fixed way of moving (straight, zigzag, curve).' },
-  how2: { ja: 'マスをタップ → 近くの家から提灯が飛び、着いた所で弾ける。縦の楼は縦一列、長屋は横一列に光る', en: 'Tap a square: a lantern flies from a nearby house and bursts where it lands. Tall house = column, long house = row.' },
+  how2: { ja: '押した所へ、近くの家から提灯が飛び、着いた所で弾ける。縦の楼は縦に、長屋は横に光る', en: 'Tap anywhere: a lantern flies from a nearby house and bursts where it lands. Tall house = vertical, long house = sideways.' },
   how3: { ja: '飛んでいる提灯をもう一度押すと、弾けずに下がって待つ。たどり着いたおばけは止まり、後ろが詰まる', en: 'Tap a flying lantern again and it hangs instead. Ghosts that reach it stop, and the ones behind pile up.' },
   how4: { ja: '光が届いた提灯も弾ける。家をタップすると、その家の提灯をどこへでも投げられる', en: 'Light sets off other lanterns. Tap a house first to throw from that house.' },
   kinds: { ja: 'まっすぐの幽霊 ・ ジグザグの唐傘 ・ 曲がって来る鬼火', en: 'Ghost: straight · Umbrella: zigzag · Onibi: curve' },
@@ -35,6 +35,7 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   ammo: { ja: '残り', en: 'Left' },
   waveClear: { ja: '刻を越えた', en: 'Watch survived' },
   demo: { ja: 'デモ', en: 'Demo' },
+  musicCredit: { ja: '音楽：魔王魂「揺れる提灯」', en: 'Music: MaouDamashii' },
 };
 
 let current: Lang = detect();

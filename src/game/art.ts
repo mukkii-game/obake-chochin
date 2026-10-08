@@ -111,13 +111,44 @@ function drawBackground(c: Ctx) {
     g.addColorStop(0, 'rgba(200,210,255,0)'); g.addColorStop(0.5, `rgba(200,210,255,${a})`); g.addColorStop(1, 'rgba(200,210,255,0)');
     c.fillStyle = g; c.fillRect(x0, y - 16, x1 - x0, 32);
   }
-  // 夜の都の地面と、目安の細かいマス目(位置はアナログ。線はうっすら見えるだけ)
-  c.fillStyle = 'rgba(14,16,26,0.45)';
-  c.fillRect(PLAY.x0, PLAY.y0, PLAY.x1 - PLAY.x0, PLAY.y1 - PLAY.y0);
-  c.strokeStyle = 'rgba(220,200,160,0.06)'; c.lineWidth = 1;
-  for (let x = PLAY.x0; x <= PLAY.x1; x += GUIDE) { c.beginPath(); c.moveTo(x + 0.5, PLAY.y0); c.lineTo(x + 0.5, PLAY.y1); c.stroke(); }
-  for (let y = PLAY.y0; y <= PLAY.y1; y += GUIDE) { c.beginPath(); c.moveTo(PLAY.x0, y + 0.5); c.lineTo(PLAY.x1, y + 0.5); c.stroke(); }
-  for (let k = 0; k < 260; k++) { c.fillStyle = 'rgba(255,240,200,0.04)'; c.fillRect(PLAY.x0 + rng.next() * (PLAY.x1 - PLAY.x0), PLAY.y0 + rng.next() * (PLAY.y1 - PLAY.y0), 2, 2); }
+  // 遠景: 寺の屋根と五重塔の影(霞の向こう)
+  const silhouette = (col: string, base: number, seedOff: number, tall: boolean) => {
+    c.fillStyle = col;
+    let x = x0;
+    const r2 = new Rng(seedOff);
+    while (x < x1) {
+      const w = 40 + r2.next() * 70, h = 14 + r2.next() * 22;
+      // 反った瓦屋根
+      c.beginPath(); c.moveTo(x - 6, base); c.quadraticCurveTo(x + w * 0.15, base - h * 0.55, x + w * 0.3, base - h); c.lineTo(x + w * 0.7, base - h);
+      c.quadraticCurveTo(x + w * 0.85, base - h * 0.55, x + w + 6, base); c.closePath(); c.fill();
+      c.fillRect(x, base, w, 60);
+      x += w + r2.next() * 30;
+    }
+    if (tall) {
+      // 五重塔
+      const px = x0 + (x1 - x0) * 0.22;
+      for (let k = 0; k < 5; k++) {
+        const yy = base - 30 - k * 26, ww = 64 - k * 8;
+        c.beginPath(); c.moveTo(px - ww / 2 - 8, yy); c.quadraticCurveTo(px - ww / 4, yy - 10, px - ww / 4, yy - 14); c.lineTo(px + ww / 4, yy - 14);
+        c.quadraticCurveTo(px + ww / 4, yy - 10, px + ww / 2 + 8, yy); c.closePath(); c.fill();
+        c.fillRect(px - ww / 3, yy, (ww * 2) / 3, 12);
+      }
+      c.fillRect(px - 1.5, base - 30 - 5 * 26 - 30, 3, 34);
+    }
+  };
+  silhouette('rgba(26,28,52,0.75)', 352, 7, true);
+  // 霞
+  const mist = c.createLinearGradient(0, 300, 0, 420);
+  mist.addColorStop(0, 'rgba(160,170,220,0)'); mist.addColorStop(0.6, 'rgba(160,170,220,0.08)'); mist.addColorStop(1, 'rgba(160,170,220,0)');
+  c.fillStyle = mist; c.fillRect(x0, 300, x1 - x0, 120);
+  // 近景: 家並みの後ろの町家の屋根(家はこの前に建つ)
+  silhouette('rgba(16,16,30,0.92)', 440, 11, false);
+  const ground = c.createLinearGradient(0, 430, 0, y1);
+  ground.addColorStop(0, 'rgba(10,10,20,0)'); ground.addColorStop(1, 'rgba(8,8,16,0.8)');
+  c.fillStyle = ground; c.fillRect(x0, 430, x1 - x0, y1 - 430);
+  // 目安のマス目: 線ではなく、交わる所の小さな点だけ(位置はアナログ)
+  c.fillStyle = 'rgba(230,215,180,0.11)';
+  for (let x = PLAY.x0; x <= PLAY.x1; x += GUIDE) for (let y = PLAY.y0; y <= PLAY.y1; y += GUIDE) c.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
   // 紙の端のかすれ
   const vg = c.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 560);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');

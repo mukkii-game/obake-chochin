@@ -1,47 +1,88 @@
-// この作品の効果音と BGM(すべて WebAudio の合成音。ファイルなし)。
-import { tone, noise, audioNow, toneAt, isMuted } from '../core/audio';
+// この作品の効果音と BGM。
+// 効果音は WebAudio の合成(和の楽器に寄せる: 太鼓・鈴・拍子木・寺の鐘・篠笛の息)。core/audio の残響を通る。
+// BGM は 魔王魂「揺れる提灯」(民族09。CC BY 4.0、表記: 音楽：魔王魂)。読めない時は合成の爪弾きに切り替える。
+import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop } from '../core/audio';
 import { tune } from '../core/tuning';
 
 // 都節音階(D E♭ G A B♭)。和の夜の響き
 const SCALE = [293.66, 311.13, 392.0, 440.0, 466.16];
 const note = (i: number) => SCALE[((i % 5) + 5) % 5] * 2 ** Math.floor(i / 5);
 
-/** 鈴(りん)っぽい音。倍音を少し足す */
-function bell(freq: number, gain = 0.06, delay = 0, dur = 0.9) {
+/** 鈴(りん): 金属の、倍音が整数倍でない澄んだ音 */
+function rin(freq: number, gain = 0.05, delay = 0, dur = 1.2) {
   tone({ freq, dur, type: 'sine', gain, delay });
-  tone({ freq: freq * 2.76, dur: dur * 0.4, type: 'sine', gain: gain * 0.35, delay });
+  tone({ freq: freq * 2.71, dur: dur * 0.45, type: 'sine', gain: gain * 0.4, delay });
+  tone({ freq: freq * 5.12, dur: dur * 0.18, type: 'sine', gain: gain * 0.18, delay });
+}
+/** 寺の鐘: 低く長い。少しずれた音が重なってうなる */
+function kane(freq: number, gain = 0.08, delay = 0, dur = 3.5) {
+  tone({ freq, dur, type: 'sine', gain, delay, attack: 0.01 });
+  tone({ freq: freq * 1.006, dur, type: 'sine', gain: gain * 0.7, delay, attack: 0.01 });
+  tone({ freq: freq * 2.42, dur: dur * 0.5, type: 'sine', gain: gain * 0.35, delay });
+  tone({ freq: freq * 3.9, dur: dur * 0.25, type: 'sine', gain: gain * 0.15, delay });
+  noise({ dur: 0.05, gain: gain * 0.6, freq: 1200, q: 3, delay });
+}
+/** 太鼓: 皮の低い胴鳴り(音程が下がる)+ 撥の当たり */
+function taiko(gain = 0.16, delay = 0, freq = 95) {
+  tone({ freq: freq * 1.6, slide: freq, dur: 0.35, type: 'sine', gain, delay, attack: 0.002 });
+  tone({ freq: freq * 0.5 * 1.6, slide: freq * 0.5, dur: 0.5, type: 'sine', gain: gain * 0.6, delay, attack: 0.003 });
+  noise({ dur: 0.06, gain: gain * 0.5, freq: 900, q: 0.7, delay });
+}
+/** 拍子木 / 木魚: 乾いた木の音 */
+function wood(freq = 1800, gain = 0.07, delay = 0) {
+  noise({ dur: 0.04, gain, freq, q: 9, delay });
+  tone({ freq: freq * 0.5, dur: 0.05, type: 'triangle', gain: gain * 0.5, delay, attack: 0.001 });
+}
+/** 篠笛の息のような、ふわっと上がる風 */
+function breath(from: number, to: number, dur: number, gain = 0.05, delay = 0) {
+  noise({ dur, gain, freq: from, slide: to, q: 4, delay, attack: dur * 0.3 });
 }
 
 export const snd = {
-  place: () => { tone({ freq: 520, slide: 300, dur: 0.12, type: 'triangle', gain: 0.09 }); bell(note(7), 0.025, 0.03, 0.4); },
-  launch: () => { noise({ dur: 0.18, gain: 0.07, freq: 900, q: 1.2 }); tone({ freq: 300, slide: 700, dur: 0.16, type: 'triangle', gain: 0.05 }); },
-  arm: () => { tone({ freq: 1400, dur: 0.05, type: 'square', gain: 0.03 }); tone({ freq: 1800, dur: 0.05, type: 'square', gain: 0.03, delay: 0.06 }); },
-  catch: () => tone({ freq: 700, slide: 1000, dur: 0.07, type: 'sine', gain: 0.025 }),
-  /** おばけが家に入った: 中の人の悲鳴(上ずる短い音の繰り返し) */
-  haunt: () => { for (let i = 0; i < 3; i++) tone({ freq: 700 + i * 90, slide: 1100 + i * 60, dur: 0.12, type: 'triangle', gain: 0.035, delay: i * 0.16 }); },
-  saved: () => [0, 2, 4].forEach((k, i) => bell(note(7 + k), 0.04, i * 0.06, 0.8)),
-  deny: () => tone({ freq: 160, dur: 0.12, type: 'square', gain: 0.04 }),
-  break: (held: number) => {
-    noise({ dur: 0.22, gain: 0.16, freq: 2400, q: 0.6 });
-    tone({ freq: 180, slide: 60, dur: 0.25, type: 'sine', gain: 0.12 });
-    if (held > 0) bell(note(10), 0.05, 0.02, 1.2);
+  /** 下がった提灯が灯った: 風鈴 */
+  place: () => { rin(note(12), 0.03, 0, 0.9); rin(note(14), 0.02, 0.09, 0.7); },
+  /** 投げた: 息が上がる + 小さな提灯の揺れ */
+  launch: () => { breath(500, 1600, 0.35, 0.05); wood(2600, 0.025, 0.02); },
+  /** 下げる: 拍子木 2 打 */
+  arm: () => { wood(2100, 0.08); wood(2300, 0.08, 0.13); },
+  /** おばけが見とれて止まった: 小さな木魚 */
+  catch: () => wood(900, 0.05),
+  /** おばけが家に入った: ひゅ〜どろどろ */
+  haunt: () => {
+    tone({ freq: 1250, slide: 520, dur: 0.7, type: 'sine', gain: 0.04, attack: 0.08 });
+    tone({ freq: 1262, slide: 525, dur: 0.7, type: 'sine', gain: 0.03, attack: 0.08 });
+    taiko(0.06, 0.55, 70); taiko(0.05, 0.72, 66);
+  },
+  saved: () => [0, 2, 4].forEach((k, i) => rin(note(7 + k), 0.04, i * 0.07, 1)),
+  deny: () => wood(500, 0.05),
+  /** 提灯が弾けた: 太鼓 + 和紙が裂ける。誘爆は高めの太鼓 */
+  break: (chained: number) => {
+    taiko(0.15, 0, chained ? 130 : 95);
+    noise({ dur: 0.25, gain: 0.07, freq: 3200, slide: 1500, q: 0.6 });
   },
   burnout: () => noise({ dur: 0.4, gain: 0.06, freq: 600, q: 2 }),
-  /** n 連目。音階を上っていく */
-  purify: (n: number) => bell(note(5 + Math.min(n - 1, 14)), 0.045, 0, 0.6),
-  wispPop: () => tone({ freq: 1200, slide: 1800, dur: 0.08, type: 'sine', gain: 0.025 }),
+  /** n 体目の成仏: 鈴が音階を上っていく */
+  purify: (n: number) => rin(note(6 + Math.min(n - 1, 12)), 0.045, 0, 1.0),
+  wispPop: () => rin(note(12), 0.02, 0, 0.4),
   chainEnd: (n: number) => {
-    if (n < 5) return;
-    [0, 2, 4, 7].forEach((k, i) => bell(note(10 + k), 0.04, i * 0.07, 1.4));
+    if (n < 4) return;
+    [0, 2, 4, 7].forEach((k, i) => rin(note(10 + k), 0.04, i * 0.08, 1.6));
+    if (n >= 6) kane(note(0) / 2, 0.05, 0.3, 2.5);
   },
-  houseOut: () => { tone({ freq: 110, slide: 50, dur: 0.5, type: 'sawtooth', gain: 0.06 }); noise({ dur: 0.5, gain: 0.08, freq: 300, q: 1 }); },
-  relight: () => [0, 1, 2, 3, 4].forEach((k, i) => bell(note(10 + k), 0.04, i * 0.06, 1)),
-  watch: () => { bell(note(0) / 2, 0.08, 0, 2.2); bell(note(0) / 2, 0.05, 1.1, 2.0); },
-  over: () => { [4, 2, 1, 0].forEach((k, i) => bell(note(k), 0.05, i * 0.25, 1.6)); },
-  ui: () => tone({ freq: 880, dur: 0.06, type: 'sine', gain: 0.05 }),
+  houseOut: () => { taiko(0.12, 0, 60); tone({ freq: 220, slide: 90, dur: 0.9, type: 'triangle', gain: 0.05, delay: 0.05 }); noise({ dur: 0.6, gain: 0.05, freq: 400, q: 1, delay: 0.05 }); },
+  relight: () => [0, 1, 2, 3, 4].forEach((k, i) => rin(note(10 + k), 0.04, i * 0.07, 1.2)),
+  /** 刻の始まり: 寺の鐘 */
+  watch: () => kane(note(0) / 2, 0.08),
+  over: () => { kane(note(0) / 2, 0.09, 0, 4); kane(note(0) / 2, 0.07, 1.6, 4); },
+  ui: () => wood(1500, 0.05),
 };
 
-/** BGM: ゆっくりした琴っぽい爪弾き + 低い持続音。オーディオ時計で先読み予約する */
+/** BGM: 魔王魂「揺れる提灯」。曲頭の無音(0.53 秒)を飛ばし、34 小節(1 拍 0.329 秒)でループ */
+const BGM_URL = './audio/bgm_chochin.mp3';
+const LOOP_START = 0.529, LOOP_END = 0.529 + 34 * 4 * 0.3293;
+let stopFile: (() => void) | null = null;
+let starting = false;
+let gen = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 let next = 0;
 let stepI = 0;
@@ -49,7 +90,20 @@ let intensity = 0;
 const PHRASE = [0, 2, 3, 2, 5, 4, 3, -1, 2, 3, 5, 7, 6, 5, 3, -1];
 
 export function bgmStart() {
-  if (timer || !tune<boolean>('audio.bgm')) return;
+  if (stopFile || starting || timer || !tune<boolean>('audio.bgm')) return;
+  starting = true;
+  const my = ++gen;
+  loadBuffer(BGM_URL).then((buf) => {
+    if (my !== gen) return; // 読んでいる間に止められた
+    starting = false;
+    if (stopFile || timer) return;
+    if (buf) stopFile = playLoop(buf, 0.32, LOOP_START, LOOP_END);
+    else synthStart();
+  });
+}
+
+/** 合成の爪弾き(曲ファイルが読めない時) */
+function synthStart() {
   const now = audioNow();
   if (now == null) return;
   next = now + 0.1; stepI = 0;
@@ -63,12 +117,15 @@ export function bgmStart() {
         const p = PHRASE[stepI % PHRASE.length];
         if (p >= 0) toneAt(next, note(p + (stepI >> 4) % 2 * 2), 0.9, 'triangle', 0.028);
         if (stepI % 8 === 0) toneAt(next, note(0) / 2, 3.2, 'sine', 0.035);
-        if (intensity > 0.5 && stepI % 2 === 1) toneAt(next, note(p + 5 > 0 ? p + 5 : 5), 0.15, 'sine', 0.012);
       }
       next += beat; stepI++;
     }
   }, 60);
 }
-/** 0..1。夜が更けるほど少し速く、細かく */
+/** 0..1。夜が更けるほど(合成の時だけ)少し速く */
 export function bgmIntensity(v: number) { intensity = Math.max(0, Math.min(1, v)); }
-export function bgmStop() { if (timer) clearInterval(timer); timer = null; }
+export function bgmStop() {
+  starting = false; gen++;
+  if (stopFile) { stopFile(); stopFile = null; }
+  if (timer) clearInterval(timer); timer = null;
+}

@@ -18,7 +18,7 @@ export const KNOBS: Knob[] = [
   { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 140, min: 60, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり。着くまでの間を読む(ミサイルコマンドの弾)' },
   { key: 'lantern.catch', label: '下げた提灯に見とれる近さ', value: 20, min: 4, max: 80, step: 1, unit: 'px' },
   { key: 'lantern.grab', label: '提灯を押したとみなす近さ', value: 26, min: 8, max: 60, step: 1, unit: 'px', aim: '飛んでいる提灯の行き先・下がった提灯の近くを押すと、下げる / 弾けさせる' },
-  { key: 'lantern.hang', label: '下げた提灯が弾けるまで', value: 5, min: 1, max: 15, step: 0.5, unit: '秒', aim: 'いつも同じ。その間におばけを止めて詰まらせる' },
+  { key: 'lantern.hang', label: '下げた提灯が弾けるまで', value: 8, min: 1, max: 15, step: 0.5, unit: '秒', aim: 'いつも同じ。その間におばけを止めて詰まらせる' },
   // 光
   { key: 'light.line', label: '縦・横の光の長さ(中心から)', value: 72, min: 20, max: 400, step: 4, unit: 'px', aim: '最初はポーンより少し先まで。遠くへは提灯を並べて誘爆でつなぐ' },
   { key: 'light.width', label: '縦・横の光の太さ', value: 30, min: 8, max: 120, step: 2, unit: 'px' },

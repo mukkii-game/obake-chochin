@@ -4,3 +4,4 @@ tools/out/
 assets/inbox/
 .env
 .DS_Store
+assets/mine/candidates/

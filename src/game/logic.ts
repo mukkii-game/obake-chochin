@@ -130,11 +130,13 @@ export class Game {
   private queue: Array<{ at: number; g: Group }> = [];
   private groups: Group[];
 
-  constructor(seed: number, readonly P: Params) {
+  /** startWave: その刻から始める(刻ごとの確かめ用。tools/waves.mjs) */
+  constructor(seed: number, readonly P: Params, startWave = 0) {
     this.rng = new Rng(seed);
+    this.wave = startWave;
     this.pieces = PIECE_SETS[P.pieceSet] ?? PIECE_SETS['縦・横'];
     this.houses = HOUSE_POS.map(([x, y], i) => ({ x, y, lit: true, ammo: P.ammoPerHouse, regen: 0, haunt: 0, flash: 0, piece: this.pieces[i % this.pieces.length] }));
-    this.groups = waveGroups(0, this.rng);
+    this.groups = waveGroups(startWave, this.rng);
   }
 
   get litCount() { return this.houses.filter((h) => h.lit).length; }

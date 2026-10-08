@@ -20,6 +20,8 @@ export class Bot {
   noLead = false;
   /** 下げる手を使うか(比較用に切れる) */
   useHang = true;
+  /** 何体まとめて取れるまで待つか(家に迫るおばけがいれば待たない) */
+  patience = 2;
   /** skill 0..1: 低いほど迷う時間が長く、読み違えが多い。乱数はゲームと別にする(記録の再生がずれないように) */
   constructor(private skill = 0.8, seed = 1, private lag = 0) { this.rng = new Rng(seed ^ 0x5bd1e995); }
 
@@ -56,7 +58,7 @@ export class Bot {
     const at = (p: Pt[], t: number) => (this.noLead ? p[0] : p[Math.min(p.length - 1, Math.max(0, Math.round(t / step)))]);
     const ok = (x: number, y: number) => x > PLAY.x0 + 4 && x < PLAY.x1 - 4 && y > PLAY.y0 + 4 && y < PLAY.y1 - 4
       && !g.houses.some((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R + 2) && !g.lanterns.some((l) => Math.hypot(l.tx - x, l.ty - y) < P.grabR + 2);
-    let best: { house: number; x: number; y: number; score: number; hang: boolean } | null = null;
+    let best: { house: number; x: number; y: number; score: number; hang: boolean; hits: number } | null = null;
     for (let i = 0; i < g.houses.length; i++) {
       if (!g.canThrow(i)) continue;
       const piece = g.houses[i].piece;
@@ -67,9 +69,15 @@ export class Bot {
           // 着いた時にそのおばけがそこにいる所(先読みしないなら今いる所)
           if (!this.noLead && Math.abs(ft - s.t) > step * 0.6) continue;
           let hits = 0, urgent = 0;
+          const span = (g.reach(piece) + g.band) / P.lightSpeed;
           for (const q of paths) {
-            const e = at(q, ft + 0.2);
-            if (g.along(piece, s.x, s.y, e.x, e.y, 10) >= 0) { hits++; urgent = Math.max(urgent, 1 / (1 + (q.length - 1) * step / 3)); }
+            // 光が伸びる間、そのおばけのいる所が光の帯の中に入るか(ゲームと同じ決まりで)
+            let hit = false;
+            for (let dt = 0; dt <= span && !hit; dt += 0.1) {
+              const e = at(q, ft + dt), a = g.along(piece, s.x, s.y, e.x, e.y, 11), ext = dt * P.lightSpeed;
+              hit = a >= 0 && a <= ext && a >= ext - g.band;
+            }
+            if (hit) { hits++; urgent = Math.max(urgent, 1 / (1 + (q.length - 1) * step / 3)); }
           }
           // 列が続いて来る所なら、下げて先頭を止める手も考える
           let hangScore = 0;
@@ -79,13 +87,14 @@ export class Bot {
           }
           const hang = hangScore > hits;
           const score = Math.max(hits, hangScore) + urgent * 2 - this.rng.next() * (1 - this.skill) * 1.5;
-          if (!best || score > best.score) best = { house: i, x: Math.round(s.x), y: Math.round(s.y), score, hang };
+          if (!best || score > best.score) best = { house: i, x: Math.round(s.x), y: Math.round(s.y), score, hang, hits: Math.max(hits, hang ? Math.floor(hangScore / 0.8) : 0) };
         }
       }
     }
     if (!best || best.score < 0.5) return [];
-    // 1 体しか取れない時は、家に近づくまで待つ(弾を惜しむ)
-    if (best.score < 1.4 && g.ammo > 6 && !this.noLead) return [];
+    // まとめて取れる時を待つ(patience 体に届かず、家に迫るおばけもいなければ待つ)
+    const danger = free.some((q) => Math.hypot(g.houses[q.target].x - q.x, g.houses[q.target].y - q.y) < 150);
+    if (!this.noLead && !danger && best.hits < this.patience) return [];
     this.cool = 0.9 - this.skill * 0.6 + this.lag;
     const h = g.houses[best.house];
     const taps: Array<[number, number]> = [];

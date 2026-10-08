@@ -35,14 +35,14 @@ const T = (h: number, m: boolean) => (m ? 5 - h : h);
 
 export const PATTERNS: Record<string, Pattern> = {
   line: (m) => [{ t: 0, kind: 'fuwa', cols: [X(5, m)], n: 5, gap: 1.6, to: T(2, m) }],
-  row: () => [{ t: 0, kind: 'fuwa', cols: [1, 3, 5, 7, 9, 11], n: 1, gap: 0 }],
+  row: (m) => [{ t: 0, kind: 'fuwa', cols: [X(3, m), X(4, m), X(5, m), X(6, m), X(7, m)], n: 1, gap: 0, to: T(2, m) }],
   cross: (m) => [
     { t: 0, kind: 'fuwa', cols: [X(0, m)], n: 4, gap: 1.8, to: T(5, m) },
     { t: 0, kind: 'fuwa', cols: [X(12, m)], n: 4, gap: 1.8, to: T(0, m) },
   ],
   zigzag: (m) => [{ t: 0, kind: 'kasa', cols: [X(7, m)], n: 4, gap: 2.2, to: T(3, m), side: 1 }],
   curve: (m) => [{ t: 0, kind: 'oni', cols: [X(1, m)], n: 4, gap: 1.6, to: T(3, m), side: m ? 1 : -1 }],
-  dam: (m) => [{ t: 0, kind: 'fuwa', cols: [X(9, m)], n: 6, gap: 4, to: T(4, m) }],
+  dam: (m) => [{ t: 0, kind: 'fuwa', cols: [X(9, m)], n: 7, gap: 2.4, to: T(4, m) }],
 };
 
 /** 最初の 8 刻(決まった出方) */

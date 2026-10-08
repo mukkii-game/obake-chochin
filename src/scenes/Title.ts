@@ -56,6 +56,7 @@ export class Title extends Phaser.Scene {
       }
     });
 
+    this.add.text(PAPER.x0 + 14, H - 30, t('musicCredit'), txt(11, '#8a84a0')).setOrigin(0, 0.5);
     const start = this.add.text(W / 2, 470, t('tapToStart'), txt(22, '#ffe066')).setOrigin(0.5);
     this.tweens.add({ targets: start, alpha: 0.35, yoyo: true, repeat: -1, duration: 700 });
     const best = load().best;
@@ -76,6 +77,5 @@ export class Title extends Phaser.Scene {
     this.events.once('shutdown', off);
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (e.key !== 'F2') go(); });
     if (DemoDriver.enabled) this.time.delayedCall(800, go);
-    void H;
   }
 }

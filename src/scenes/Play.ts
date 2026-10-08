@@ -17,6 +17,7 @@ import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted } from '../core/audio';
 
 const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa' } as const;
+const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff } as const;
 /** 軒先の提灯の位置(家の中心から) */
 const HANG: ReadonlyArray<[number, number]> = [[-21, -4], [21, -4], [-21, 8]];
 
@@ -32,6 +33,7 @@ export class Play extends Phaser.Scene {
   private offTap: (() => void) | null = null;
 
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
+  private gGlows = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; label: Phaser.GameObjects.Image }>();
   private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string }> = [];
   private selFx!: Phaser.GameObjects.Graphics;
@@ -52,7 +54,7 @@ export class Play extends Phaser.Scene {
   create() {
     expose('scene', 'Play');
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0;
-    this.gSprites.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
+    this.gSprites.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
     const seed = replay ? replay.seed : startSeed();
@@ -165,7 +167,7 @@ export class Play extends Phaser.Scene {
         break;
       }
       case 'break':
-        snd.break(1);
+        snd.break(e.chained ? 1 : 0);
         this.shards.explode(14, e.x, e.y);
         this.sparks.explode(12, e.x, e.y);
         break;
@@ -322,12 +324,17 @@ export class Play extends Phaser.Scene {
         this.gSprites.set(gh.id, s);
       }
       this.drawGhost(s, gh, time);
+      // おばけのまわりの淡い光(種類ごとの色。暗い空でも動きが読める)
+      let gl = this.gGlows.get(gh.id);
+      if (!gl) { gl = this.add.image(gh.x, gh.y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setDepth(14).setTint(GHOST_GLOW[gh.kind]); this.gGlows.set(gh.id, gl); }
+      gl.setPosition(s.x, s.y + 2).setScale(0.42 + 0.04 * Math.sin(time * 3 + gh.id)).setAlpha(s.alpha * (gh.haunt ? 0.25 : 0.4));
       let tr = this.trails.get(gh.id);
       if (!tr) { tr = []; this.trails.set(gh.id, tr); }
       const last = tr[tr.length - 1];
       if (!last || Math.hypot(last[0] - gh.x, last[1] - gh.y) > 4) { tr.push([gh.x, gh.y]); if (tr.length > 22) tr.shift(); }
     }
     for (const id of this.trails.keys()) if (!seenG.has(id)) this.trails.delete(id);
+    for (const [id, gl] of this.gGlows) if (!seenG.has(id)) { gl.destroy(); this.gGlows.delete(id); }
     for (const [id, s] of this.gSprites) {
       if (seenG.has(id)) continue;
       this.gSprites.delete(id);
