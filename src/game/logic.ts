@@ -112,6 +112,7 @@ export type GameEvent =
   | { type: 'watch'; n: number }
   | { type: 'waveEnd'; n: number; bonus: number }
   | { type: 'clear' }
+  | { type: 'houses' }
   | { type: 'fever'; on: boolean }
   | { type: 'enter'; x: number; y: number; house: number; kind: GhostKind; ghost: number }
   | { type: 'ignite'; x: number; y: number }
@@ -158,20 +159,41 @@ export class Game {
     this.rng = new Rng(seed);
     this.wave = startWave;
     this.pieces = PIECE_SETS[P.pieceSet] ?? PIECE_SETS['縦・横・丸'];
-    // 家の形: どの形も必ず 1 軒はある。どこに建つかは毎回変わる
-    const kinds: Piece[] = [...this.pieces];
-    while (kinds.length < HOUSE_POS.length) kinds.push(this.rng.pick(this.pieces));
-    for (let i = kinds.length - 1; i > 0; i--) { const j = this.rng.int(0, i); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
-    this.houses = HOUSE_POS.map(([x, y], i) => ({ x, y, lit: true, ammo: P.ammoPerHouse, regen: 0, haunt: 0, flash: 0, piece: kinds[i] }));
+    this.buildHouses(dayOf(startWave));
     this.groups = waveGroups(startWave, this.rng);
   }
 
+  /**
+   * その日の家を建てる: 1 日目 3 軒・2 日目 4 軒・3 日目 5 軒、横に等間隔。
+   * 形(縦・横・丸)はどれも必ず 1 軒はあり、どこに建つかは毎回変わる。提灯はいくらでも投げられる(数えない)
+   */
+  private buildHouses(day: number, carry?: number) {
+    const n = 3 + Math.min(2, day);
+    const kinds: Piece[] = [...this.pieces];
+    while (kinds.length < n) kinds.push(this.rng.pick(this.pieces));
+    kinds.length = n;
+    for (let i = kinds.length - 1; i > 0; i--) { const j = this.rng.int(0, i); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
+    const x0 = HOUSE_POS[0][0], x1 = HOUSE_POS[HOUSE_POS.length - 1][0];
+    this.houses = kinds.map((piece, i) => ({
+      x: Math.round(x0 + ((x1 - x0) * (i + 0.5)) / n + (n === 3 ? 0 : 0)), y: HOUSE_POS[i % 2][1],
+      lit: true, ammo: 1, regen: 0, haunt: 0, flash: 0, piece,
+    }));
+    // 前の日に守り切った家の数 + carryBonus 軒だけ灯る(残りは最初からのっとられたまま = 前の日の出来が響く)
+    if (carry !== undefined) {
+      const lit = Math.min(n, carry + this.P.carryBonus);
+      // 消えている家は端からではなく、ばらけるように
+      const order = [...this.houses.keys()].sort((a, b) => ((a * 7) % n) - ((b * 7) % n));
+      order.slice(lit).forEach((i) => { this.houses[i].lit = false; this.houses[i].takenForm = -1; });
+    }
+    this.selected = -1;
+  }
+
   get litCount() { return this.houses.filter((h) => h.lit).length; }
-  get ammo() { return this.houses.reduce((s, h) => s + (h.lit ? h.ammo : 0), 0); }
+  get ammo() { return this.litCount; }
   get waveCount() { return WAVE_COUNT; }
   /** 画面に同時に置ける提灯の数: 1 日目 3・2 日目 4・3 日目 5(lantern.max + 日) */
-  get maxOnField() { return this.P.maxLanterns + Math.min(2, dayOf(this.wave)); }
-  canThrow(i: number) { const h = this.houses[i]; return !!h && h.lit && h.ammo > 0 && h.haunt <= 0; }
+  get maxOnField() { return this.P.maxLanterns; }
+  canThrow(i: number) { const h = this.houses[i]; return !!h && h.lit && h.haunt <= 0; }
 
   /** 一番近い灯りの家 */
   nearestLit(x: number, y: number): number {
@@ -222,7 +244,7 @@ export class Game {
       this.events.push({ type: 'deny', x, y }); return;
     }
     const h = this.houses[from];
-    h.ammo--;
+    // 提灯の数はもう数えない(置ける数だけ。家ごとの在庫は無し)
     // 選んだ家はそのまま(続けてその家から投げられる)。外れるのは、同じ家をもう一度押す・他の家を押す・弾が無くなった時
     const sy = h.y - 14;
     this.lanterns.push({ id: this.nextId++, piece: h.piece, tx: x, ty: y, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(x, y, from), age: 0 });
@@ -230,7 +252,11 @@ export class Game {
   }
 
   /** 光の形の長さ(中心から。丸は半径) */
-  reach(piece: Piece) { return piece === 'area' ? this.P.areaReach : piece === 'cross' ? this.P.lineReach * 0.7 : this.P.lineReach; }
+  /** 光の届く長さ。2 日目・3 日目は広くなる(置ける数は増えない) */
+  reach(piece: Piece) {
+    const k = 1 + this.P.reachGrow * Math.min(2, dayOf(this.wave));
+    return (piece === 'area' ? this.P.areaReach : piece === 'cross' ? this.P.lineReach * 0.7 : this.P.lineReach) * k;
+  }
   /** 光の帯の長さ(px)。どの所も同じ間(light.hold 秒)だけ照らされる */
   get band() { return Math.max(10, this.P.lightHold * this.P.lightSpeed); }
 
@@ -330,13 +356,7 @@ export class Game {
       if (k >= 1) { l.flying = false; this.events.push({ type: 'light', x: l.x, y: l.y }); }
     }
 
-    // 軒先の提灯は時間で少しずつ戻る
-    for (const h of this.houses) {
-      h.flash = Math.max(0, h.flash - dt);
-      if (!h.lit || h.ammo >= P.ammoPerHouse) { h.regen = 0; continue; }
-      h.regen += dt;
-      if (h.regen >= P.regenTime) { h.regen = 0; h.ammo++; }
-    }
+    for (const h of this.houses) h.flash = Math.max(0, h.flash - dt);
 
     this.moveGhosts(dt);
     this.runBlasts(dt);
@@ -387,14 +407,11 @@ export class Game {
       // 日が変わる時(次の晩): 家はみんな灯り直し、提灯も満タン
       if (dayOf(this.wave + 1) !== dayOf(this.wave)) {
         this.pause = WAVE_PAUSE + 1.5;
-        // 次の日: 消えた家のうち dayRelight 軒だけ灯り直す(全部は戻らない = 守った家の数が次の日に響く)
-        let back = this.P.dayRelight;
-        for (const h of this.houses) {
-          if (!h.lit) { if (back <= 0) continue; back--; h.lit = true; h.takenForm = undefined; }
-          h.ammo = this.P.ammoPerHouse; h.regen = 0; h.flash = 0.4;
-        }
-        this.selected = -1;
+        // 次の日: 家を建て直す(1 日目 3 軒 → 2 日目 4 軒 → 3 日目 5 軒)
         this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
+        this.buildHouses(dayOf(this.wave + 1), this.P.carryBonus >= 9 ? undefined : this.litCount);
+        for (const h of this.houses) h.flash = 0.4;
+        this.events.push({ type: 'houses' });
       }
       this.groups = waveGroups(this.wave + 1, this.rng);
     }
@@ -409,7 +426,9 @@ export class Game {
       x = gr.edge < 0 ? PLAY.x0 - 30 : PLAY.x1 + 30;
       y = Math.round(PLAY.y0 + (HOUSE_POS[0][1] - 40 - PLAY.y0) * (gr.turn ?? 0.4));
     }
-    let target = gr.to !== undefined && this.houses[gr.to]?.lit ? gr.to : this.nearestLit(x, y);
+    // 波のデータの家番号(0〜5)を、その日の家の数に合わせて読み替える
+    const to = gr.to !== undefined ? Math.round((gr.to * (this.houses.length - 1)) / 5) : undefined;
+    let target = to !== undefined && this.houses[to]?.lit ? to : this.nearestLit(x, y);
     // 同じ隊列の仲間が先に出ていれば、同じ家を狙う(群れがばらけない)
     const mate = this.ghosts.find((o) => !o.dead && o.form === form && this.houses[o.target]?.lit);
     if (mate) target = mate.target;
@@ -424,10 +443,24 @@ export class Game {
       : this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
     // 集まる所(via): 2・3 日目は、どの組もいったん同じ縦の筋に集まってから、それぞれの家へ降りる。
     // 道のりが長くなって(やられるまでの時間が延びる)、筋に縦の提灯を置けばまとめて倒せる
+    if (gr.viaRow !== undefined && kind !== 'oni' && kind !== 'inazuma' && !gr.march) {
+      // 横の筋に集まる: その高さで反対側の端まで渡り、引き返して家の上で降りる(横に長くまとまる)
+      const h = this.houses[target], ry = gr.viaRow, far = x < (PLAY.x0 + PLAY.x1) / 2 ? PLAY.x1 - 60 : PLAY.x0 + 60;
+      g.path = [[x, y], [x, ry], [far, ry], [h.x, ry], [h.x, h.y]];
+    }
     if (gr.via !== undefined && kind !== 'oni' && kind !== 'inazuma' && !gr.march) {
       const h = this.houses[target], top = Math.max(y, PLAY.y0);
-      const t1 = gr.edge ? y : top + (h.y - 40 - top) * 0.22, t2 = Math.max(t1 + 60, top + (h.y - 40 - top) * 0.62);
-      g.path = [[x, y], [x, t1], [gr.via, t1], [gr.via, t2], [h.x, t2], [h.x, h.y]];
+      if (gr.viaY !== undefined) {
+        // 1 点に集まる: いったんその点へ寄ってから家へ
+        const R = 48, cx = gr.via, cy = gr.viaY, pts: Array<[number, number]> = [[x, y], [x, Math.min(cy - R - 20, Math.max(y, PLAY.y0 + 10))]];
+        for (let k = 0; k <= 16; k++) { const a = -Math.PI / 2 + (k / 16) * Math.PI * 2; pts.push([cx + Math.cos(a) * R, cy + Math.sin(a) * R]); }
+        pts.push([h.x, cy + R + 30], [h.x, h.y]);
+        g.path = pts;
+      } else {
+        // 縦の筋に集まる: 筋を上から下まで長く通る
+        const t1 = gr.edge ? y : top + (h.y - 40 - top) * 0.15, t2 = Math.max(t1 + 90, top + (h.y - 40 - top) * 0.75);
+        g.path = [[x, y], [x, t1], [gr.via, t1], [gr.via, t2], [h.x, t2], [h.x, h.y]];
+      }
     }
     // 横から来る組は家までの道のりが長いので、そのぶん速く(行進は除く)
     if (gr.edge && !gr.march) g.speed *= this.P.sideSpeed;
@@ -684,7 +717,7 @@ export class Game {
       const dark = this.houses.filter((h) => !h.lit);
       if (!dark.length) continue;
       dark.sort((a, b) => Math.hypot(a.x - last[0], a.y - last[1]) - Math.hypot(b.x - last[0], b.y - last[1]));
-      dark[0].lit = true; dark[0].flash = 0.8; dark[0].ammo = 1; dark[0].takenForm = undefined;
+      dark[0].lit = true; dark[0].flash = 0.8; dark[0].takenForm = undefined;
       this.events.push({ type: 'relight', x: dark[0].x, y: dark[0].y, from: last });
     }
   }

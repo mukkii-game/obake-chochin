@@ -33,6 +33,10 @@ export interface Group {
   edge?: number;
   /** 集まる所の x(px)。あれば、いったんこの縦の筋に集まってから家へ降りる */
   via?: number;
+  /** 集まる点の y(px)。via と両方あれば、その 1 点にみんな集まる(丸の提灯で) */
+  viaY?: number;
+  /** 集まる横の筋の y(px)。この高さで横に長く渡ってから家へ(横の提灯で) */
+  viaRow?: number;
   /** 行進(インベーダー): 端から端へ渡っては 1 段ずつ下がる(edge と一緒に使う) */
   march?: boolean;
 }
@@ -143,8 +147,12 @@ export function waveGroups(n: number, rng: Rng): Group[] {
   if (n < WAVES.length) {
     // 2・3 日目は、刻ごとに決まった縦の筋へみんなが集まってから家へ(狙ってまとめて倒しやすく、家までの道も長く)
     // 3 日目は第一・第二刻だけ集まりを弱める(筋に寄らない組を混ぜる)代わりに、総力戦は少し軽く
-    const via = n >= WAVES_PER_DAY ? [300, 480, 660][n % 3] : undefined;
-    return WAVES[n].map((g, k) => ({ ...g, via: n >= 2 * WAVES_PER_DAY && n < WAVES.length - 1 && k % 2 ? undefined : via }));
+    // 2・3 日目は刻ごとに集まり方が変わる: 縦の筋(縦の提灯)/ 横の筋(横の提灯)/ 1 点(丸の提灯)。長くまとまって通る
+    if (n < WAVES_PER_DAY) return WAVES[n].map((g) => ({ ...g }));
+    const mode = n % 3, x = [300, 480, 660][(n * 2) % 3];
+    return WAVES[n].map((g) => mode === 0 ? { ...g, via: x }
+      : mode === 1 ? { ...g, viaRow: 230 }
+      : { ...g, via: x, viaY: 250 });
   }
   const keys = Object.keys(PATTERNS);
   const out: Group[] = [];

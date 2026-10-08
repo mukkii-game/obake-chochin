@@ -127,24 +127,7 @@ export class Play extends Phaser.Scene {
     this.moon = this.add.image(0, 0, 'moon_0').setAlpha(0);
     this.hi = load().best;
     this.selFx = this.add.graphics().setDepth(27);
-    for (const h of this.game2.houses) {
-      const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
-      // 家の形 = この家から投げる提灯の光の形(縦の楼は縦、長屋は横)
-      // 家の形はどれも同じ(撃てる光の形は軒先の提灯で分かる)。ひと回り大きく
-      const key = 'house_hline';
-      const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(HOUSE_SCALE).setDepth(2);
-      // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
-      // 形ごとに重なり具合を変える(横長は広め、縦長は詰める)
-      const step = h.piece === 'hline' ? 17 : h.piece === 'vline' ? 13 : 14;
-      const hang = HANG.map(([, dy], k) => this.add.image(h.x + 46 + k * step, h.y + dy, `lantern_${h.piece}`).setScale(0.56).setDepth(4 + k * 0.01));
-      // 窓の向こうの暗がり(暗い家の窓は穴なので、その後ろに置く)
-      const back = this.add.rectangle(h.x, h.y + 22 + (50 - 66.24) * HOUSE_SCALE, 48 * HOUSE_SCALE, 22 * HOUSE_SCALE, 0x15131c);
-      back.setDepth(1.5).setVisible(false);
-      // のっとられた家の青い魂のオーラと人魂(灯りのついた家・提灯の暖かい色と対比)
-      const aura = this.add.image(h.x, h.y - 6, 'glow').setTint(0x4f7dff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.6).setVisible(false);
-      const wisps = [0, 1, 2].map(() => this.add.image(h.x, h.y, 'wisp').setTint(0x8fd8ff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.7).setScale(0.55).setVisible(false));
-      this.houseImgs.push({ img, glow, hang, key, back, aura, wisps, peeks: [] });
-    }
+    this.buildHouseImgs();
     this.fx = this.add.graphics().setDepth(5);
     this.slotFx = this.add.graphics().setDepth(4.5);
     // あせる時間: 画面がうっすら赤く脈打つ
@@ -265,6 +248,28 @@ export class Play extends Phaser.Scene {
     this.updateHud();
     bgmIntensity(g.t / 180);
     if (g.over && !this.ended) this.finish();
+  }
+
+  /** 家の絵を建てる(日が変わると家の数が変わるので建て直す) */
+  private buildHouseImgs() {
+    for (const o of this.houseImgs) { o.img.destroy(); o.glow.destroy(); o.hang.forEach((x) => x.destroy()); o.back.destroy(); o.aura.destroy(); o.wisps.forEach((x) => x.destroy()); o.peeks.forEach((x) => x.destroy()); }
+    this.houseImgs = []; this.peek = [];
+    for (const h of this.game2.houses) {
+      const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
+      // 家の形 = この家から投げる提灯の光の形(縦の楼は縦、長屋は横)
+      // 家の形はどれも同じ(撃てる光の形は軒先の提灯で分かる)。ひと回り大きく
+      const key = 'house_hline';
+      const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(HOUSE_SCALE).setDepth(2);
+      // 軒先の提灯 1 つ: この家から投げる光の形(数は数えない)
+      const hang = [this.add.image(h.x + 48, h.y + HANG[0][1], `lantern_${h.piece}`).setScale(0.62).setDepth(4)];
+      // 窓の向こうの暗がり(暗い家の窓は穴なので、その後ろに置く)
+      const back = this.add.rectangle(h.x, h.y + 22 + (50 - 66.24) * HOUSE_SCALE, 48 * HOUSE_SCALE, 22 * HOUSE_SCALE, 0x15131c);
+      back.setDepth(1.5).setVisible(false);
+      // のっとられた家の青い魂のオーラと人魂(灯りのついた家・提灯の暖かい色と対比)
+      const aura = this.add.image(h.x, h.y - 6, 'glow').setTint(0x4f7dff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.6).setVisible(false);
+      const wisps = [0, 1, 2].map(() => this.add.image(h.x, h.y, 'wisp').setTint(0x8fd8ff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.7).setScale(0.55).setVisible(false));
+      this.houseImgs.push({ img, glow, hang, key, back, aura, wisps, peeks: [] });
+    }
   }
 
   /** ポーズ: 止めて、戻る / この日のはじめから / タイトルへ を出す */
@@ -414,7 +419,7 @@ export class Play extends Phaser.Scene {
         break;
       case 'formation':
         snd.relight();
-        this.banner(`${t('formation')}!  +${e.bonus}`, e.x, e.y + 40, '#ffb0e0', 30);
+        this.banner(`${t('formation')}!  +${e.bonus}`, e.x, e.y + 95, '#ffb0e0', 26);
         this.cameras.main.shake(160, 0.004);
         break;
       case 'clear':
@@ -466,7 +471,7 @@ export class Play extends Phaser.Scene {
         const first = waveInDay(e.n) === 0;
         if (first) {
           // 日のはじめに、画面に置ける提灯の数(日が変わると 1 つ増える)
-          const up = this.add.text(W / 2, H / 2 + 84, t('maxUp').replace('{n}', String(this.game2.maxOnField)), pop(22, '#9ff0ff')).setOrigin(0.5).setDepth(56).setAlpha(0);
+          const up = this.add.text(W / 2, H / 2 + 84, (dayOf(e.n) === 0 ? t('maxUp').replace('{n}', String(this.game2.maxOnField)) : t('reachUp')), pop(22, '#9ff0ff')).setOrigin(0.5).setDepth(56).setAlpha(0);
           this.tweens.add({ targets: up, alpha: 1, yoyo: true, hold: 1800, duration: 300, delay: 400, onComplete: () => up.destroy() });
         }
         if (first) {
@@ -512,6 +517,10 @@ export class Play extends Phaser.Scene {
         }
         break;
       }
+      case 'houses':
+        // 次の日の家(数が変わる)を建て直す
+        this.buildHouseImgs();
+        break;
       case 'dayEnd': {
         // その晩を凌いだ: 家がみんな灯り直す
         snd.chainEnd(5);
@@ -721,23 +730,8 @@ export class Play extends Phaser.Scene {
         if (cx1 > cx0 && cy1 > cy0) im.setCrop(cx0, cy0, cx1 - cx0, cy1 - cy0); else im.setVisible(false);
       });
       for (let j = list.length; j < o.peeks.length; j++) o.peeks[j].setVisible(false);
-      // 軒先の提灯: ある分は灯る。無い分は点々の輪郭だけ。次に戻る 1 つは、下から灯りが溜まっていく(戻るまでのゲージ)
-      const regenK = Math.min(1, h.regen / P.regenTime);
-      o.hang.forEach((hg, k) => {
-        const y = h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2;
-        hg.setY(y);
-        if (!h.lit) { hg.setVisible(false); return; }
-        const fw = hg.frame.width, fh = hg.frame.height;
-        if (k < h.ammo) { hg.setVisible(true).setAlpha(1).setCrop(); return; }
-        // 輪郭(点々)
-        const rx = (fw * 0.56) / 2 * 0.9, ry = (fh * 0.56) / 2 * 0.9;
-        this.slotFx.fillStyle(0xffd8a0, 0.55);
-        for (let a = 0; a < 14; a++) this.slotFx.fillCircle(hg.x + Math.cos((a / 14) * Math.PI * 2) * rx, y + Math.sin((a / 14) * Math.PI * 2) * ry, 1);
-        if (k === h.ammo && regenK > 0) {
-          const ch = Math.max(1, Math.round(fh * regenK));
-          hg.setVisible(true).setAlpha(0.85).setCrop(0, fh - ch, fw, ch);
-        } else hg.setVisible(false);
-      });
+      // 軒先の提灯: この家の光の形を見せるだけ(数は数えない)
+      o.hang.forEach((hg, k) => hg.setVisible(h.lit).setY(h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2));
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
