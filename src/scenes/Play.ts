@@ -62,6 +62,8 @@ export class Play extends Phaser.Scene {
   private rushId = -1;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeTick = 0;
+  /** 狙いから連爆する提灯の id(前の 1 コマで決めたもの) */
+  private chainTargets = new Set<number>();
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   private fireworks!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -239,6 +241,9 @@ export class Play extends Phaser.Scene {
         snd.deny();
         break;
       }
+      case 'ignite':
+        this.sparks.explode(6, e.x, e.y - 6);
+        break;
       case 'break': {
         snd.break(e.n);
         this.shards.explode(8, e.x, e.y);
@@ -522,7 +527,17 @@ export class Play extends Phaser.Scene {
         const k = Math.min(1, l.age / P.fuse);
         const sway = Math.sin(time * (2 + k * 16) + l.id) * (4 + k * 8);
         s.body.setPosition(l.x, l.y - 6).setAngle(sway).setScale(0.95 * (1 + k * k * 0.18));
-        s.glow.setPosition(l.x, l.y).setScale(0.7 + k * 0.4).setAlpha(0.5 + (0.1 + k * 0.3) * Math.sin(time * (5 + k * 24) + l.id));
+        s.glow.setPosition(l.x, l.y).setScale(0.7 + k * 0.4).setAlpha(0.5 + (0.1 + k * 0.3) * Math.sin(time * (5 + k * 24) + l.id)).setTint(0xff9a40);
+        if (l.fuseLit !== undefined) {
+          // 誘爆の火が付いた: 白く膨らんで震え、すぐ弾ける
+          s.body.setScale(1.15).setAngle(Math.sin(time * 60 + l.id) * 14);
+          s.glow.setTint(0xffffff).setScale(1.3).setAlpha(1);
+        } else if (this.chainTargets.has(l.id)) {
+          // 狙いから連爆する提灯: 白い光が強く脈打つ
+          const p = 0.5 + 0.5 * Math.sin(time * 10);
+          s.glow.setTint(0xffffff).setScale(1 + 0.35 * p).setAlpha(0.75 + 0.25 * p);
+          s.body.setScale(1.05 + 0.08 * p);
+        }
       }
     }
     for (const [id, s] of this.lSprites) if (!seenL.has(id)) { s.body.destroy(); s.glow.destroy(); this.lSprites.delete(id); }
@@ -579,6 +594,7 @@ export class Play extends Phaser.Scene {
       this.fx.lineBetween(tx - 6, ty + 6, tx + 6, ty - 6);
     }
     this.glowFx.clear();
+    this.chainTargets.clear();
     // 置かれた提灯の光の範囲: うっすら塗り、縁がほんのり明るい(線は引かない)。
     // 範囲が重なって連爆する提灯どうしは、少しだけ明るく暖かい色になる
     const ls = g.lanterns;
@@ -588,6 +604,7 @@ export class Play extends Phaser.Scene {
       const k = l.flying ? 0.5 : 1;
       this.drawShape(l.piece, l.tx, l.ty, L, 0, linked[i] ? 0xffc870 : 0xffb060, (linked[i] ? 0.05 : 0.025) * k);
       this.softEdge(l.piece, l.tx, l.ty, linked[i] ? 0xffd890 : 0xffb070, (linked[i] ? 0.08 : 0.04) * k);
+      if (linked[i] && !l.flying) this.outlineShape(l.piece, l.tx, l.ty, 0xffffff, 0.22, 1.5);
     });
     // 狙い: 離せばここへ飛ぶ。どの家の形の光が、どこまで届くか。連爆する提灯も、ほんのり光る
     if (this.aim && !this.ended) {
@@ -599,7 +616,13 @@ export class Play extends Phaser.Scene {
         const ok = g.lanterns.length < P.maxLanterns;
         this.drawShape(piece, x, y, g.reach(piece), 0, ok ? 0xfff0c0 : 0x8080a0, 0.035);
         this.softEdge(piece, x, y, ok ? 0xfff0c0 : 0x8080a0, 0.07);
-        for (const l of g.lanterns) if (g.touches(me, l)) { this.drawShape(l.piece, l.tx, l.ty, g.reach(l.piece), 0, 0xffe090, 0.06); this.softEdge(l.piece, l.tx, l.ty, 0xffe8a0, 0.11); }
+        // 連爆する提灯: 真っ白にはっきり光る(輪郭も白く脈打つ)。ここに置けばつながる、が一目でわかる
+        const pulse = 0.5 + 0.5 * Math.sin(time * 10);
+        for (const l of g.lanterns) if (!l.flying && g.touches(me, l)) {
+          this.chainTargets.add(l.id);
+          this.drawShape(l.piece, l.tx, l.ty, g.reach(l.piece), 0, 0xffffff, 0.07 + 0.05 * pulse);
+          this.outlineShape(l.piece, l.tx, l.ty, 0xffffff, 0.45 + 0.4 * pulse, 2.5);
+        }
         // どの家から飛ぶか: 家がほんのり明るい
         const h = g.houses[from];
         this.glowFx.fillStyle(0xffe0a0, 0.12); this.glowFx.fillCircle(h.x, h.y, 30);

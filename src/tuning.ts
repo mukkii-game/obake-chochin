@@ -39,6 +39,7 @@ export const KNOBS: Knob[] = [
   { key: 'ghost.giantHp', label: '大大入道の力', value: 6, min: 1, max: 15, step: 1, unit: '回' },
   { key: 'ghost.queue', label: 'つかえたおばけの間', value: 18, min: 6, max: 60, step: 1, unit: 'px', aim: '止まったおばけのこれだけ手前で、後ろのおばけも止まる(せき止め)' },
   { key: 'ghost.last', label: '最後の一匹の速さ(倍)', value: 1.8, min: 1, max: 4, step: 0.1, unit: '倍', aim: 'インベーダーのように、残り 1 体は急いで来る' },
+  { key: 'chain.delay', label: '誘爆の間(火が付いてから弾けるまで)', value: 0.2, min: 0, max: 0.6, step: 0.02, unit: '秒', aim: 'ぴん、ぽん、ぱーん! と 1 つずつ弾ける気持ちよさ。0 で一気に' },
   // 刻
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },
   // 演出

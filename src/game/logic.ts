@@ -80,6 +80,8 @@ export interface Lantern {
   flying: boolean; flyT: number; flyDur: number;
   /** 着いてからの秒(fuse 秒で弾ける) */
   age: number;
+  /** 誘爆の火が付いた: あと何秒で弾けるか(ぴん、ぽん、ぱーん と間をあけて弾ける)と、つながる連鎖 */
+  fuseLit?: number; litChain?: number;
 }
 export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
@@ -105,6 +107,7 @@ export type GameEvent =
   | { type: 'watch'; n: number }
   | { type: 'waveEnd'; n: number; bonus: number }
   | { type: 'clear' }
+  | { type: 'ignite'; x: number; y: number }
   | { type: 'dayEnd'; day: number }
   | { type: 'over' };
 
@@ -287,6 +290,11 @@ export class Game {
     for (const l of [...this.lanterns]) {
       if (!l.flying) {
         l.age += dt;
+        if (l.fuseLit !== undefined) {
+          l.fuseLit -= dt;
+          if (l.fuseLit <= 0) this.burst(l, this.chains.get(l.litChain!) ?? null);
+          continue;
+        }
         if (l.age >= P.fuse) this.burst(l, null); // 置いて fuse 秒で弾ける(ボンバーマン)
         continue;
       }
@@ -495,7 +503,12 @@ export class Game {
       const chain = this.chains.get(b.chain)!;
       // 誘爆: 光が届いた提灯は、すぐ弾ける(置かれたものだけ。飛んでいるものは除く)
       // 連爆は、光がその提灯の光の範囲に触れるだけで起きる(提灯そのものに当たらなくてよい)
-      for (const l of [...this.lanterns]) if (!l.flying && this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, 4))) this.burst(l, chain);
+      for (const l of [...this.lanterns]) {
+        if (l.flying || l.fuseLit !== undefined || !this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, 4))) continue;
+        // 誘爆は一気でなく、少し間をあけて順に(元の残り時間とは関係なく chainDelay 秒後)
+        if (P.chainDelay <= 0) this.burst(l, chain);
+        else { l.fuseLit = P.chainDelay; l.litChain = chain.id; this.events.push({ type: 'ignite', x: l.tx, y: l.ty }); }
+      }
       for (const g of this.ghosts) {
         if (g.dead || g.y < PLAY.y0 || g.hitBy.includes(b.id) || !this.lit(b, g.x, g.y, ghostR(g))) continue;
         g.hitBy.push(b.id);
@@ -515,6 +528,7 @@ export class Game {
   private closeChains() {
     const alive = new Set<number>();
     for (const b of this.blasts) alive.add(b.chain);
+    for (const l of this.lanterns) if (l.litChain !== undefined) alive.add(l.litChain);
     for (const c of [...this.chains.values()]) {
       if (alive.has(c.id)) continue;
       this.chains.delete(c.id);

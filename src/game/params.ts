@@ -13,6 +13,7 @@ export function readParams() {
     grabR: tune('lantern.grab'),
     queueGap: tune('ghost.queue'),
     lastRush: tune('ghost.last'),
+    chainDelay: tune('chain.delay'),
     lineReach: tune('light.line'),
     lightWidth: tune('light.width'),
     areaReach: tune('light.area'),
