@@ -17,6 +17,8 @@ export const KNOBS: Knob[] = [
   { key: 'lantern.regen', label: '軒先の提灯が 1 つ戻るまで', value: 6, min: 0.5, max: 20, step: 0.5, unit: '秒', aim: '使い切っても待てば戻る(弾切れで何もできなくならない)' },
   { key: 'lantern.speed', label: '提灯の飛ぶ速さ', value: 140, min: 60, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり。着くまでの間を読む(ミサイルコマンドの弾)' },
   { key: 'lantern.catch', label: '置いた提灯に見とれる近さ', value: 20, min: 4, max: 80, step: 1, unit: 'px' },
+  { key: 'lantern.lure', label: '提灯に寄ってくる距離', value: 0, min: 0, max: 160, step: 5, unit: 'px', aim: 'この距離を通るおばけは置かれた提灯へ寄って止まる(寄せ集めてまとめて弾く攻略)。0 で寄らない' },
+  { key: 'lantern.lureSpeed', label: '提灯へ寄る速さ(倍)', value: 0.8, min: 0.2, max: 2, step: 0.1, unit: '倍', aim: 'ふらふら寄る感じ' },
   { key: 'lantern.grab', label: '提灯を押したとみなす近さ', value: 26, min: 8, max: 60, step: 1, unit: 'px', aim: '提灯のこれだけ近くには重ねて投げられない' },
   { key: 'lantern.fuse', label: '置いた提灯が弾けるまで', value: 3, min: 0.5, max: 10, step: 0.1, unit: '秒', aim: 'ボンバーマン。光が届いた提灯はすぐ弾ける(誘爆)ので、つなぐために置く手もある' },
   // 光
@@ -28,6 +30,7 @@ export const KNOBS: Knob[] = [
   { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 8, min: 3, max: 30, step: 1, unit: '連' },
   { key: 'score.base', label: '1体の基本点', value: 10, min: 1, max: 100, step: 1, unit: '点', aim: '1 回の光(と誘爆)の n 体目は基本点 × n' },
   { key: 'score.chain', label: '連鎖ボーナス', value: 50, min: 0, max: 500, step: 10, unit: '点×(n-2)²', aim: '3 連以上' },
+  { key: 'score.net', label: '提灯の網の倍率(弾けた提灯 1 つごと)', value: 0, min: 0, max: 2, step: 0.1, unit: '倍', aim: '提灯をつないで網にするほど、その連鎖の点が全部増える(置き方を考える理由)' },
   { key: 'score.big', label: '大入道の点の倍率', value: 5, min: 1, max: 20, step: 1, unit: '倍' },
   { key: 'score.giant', label: '大大入道の点の倍率', value: 12, min: 1, max: 50, step: 1, unit: '倍' },
   { key: 'score.mega', label: '特大入道の点の倍率', value: 25, min: 1, max: 60, step: 1, unit: '倍', aim: '倒した時のごほうび' },

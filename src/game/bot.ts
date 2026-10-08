@@ -20,6 +20,10 @@ export class Bot {
   noLead = false;
   /** 何体まとめて取れるまで待つか(家に迫るおばけがいれば待たない) */
   patience = 2;
+  /** 置いた提灯につながる所を好む度合い(提灯の網を作る bot。0 = 気にしない) */
+  linkBias = 0;
+  /** 形を考えない(いつも一番近い家から投げる)。形の選び方が効いているかを測る比較用 */
+  shapeBlind = false;
   /** skill 0..1: 低いほど迷う時間が長く、読み違えが多い。乱数はゲームと別にする(記録の再生がずれないように) */
   constructor(private skill = 0.8, seed = 1, private lag = 0) { this.rng = new Rng(seed ^ 0x5bd1e995); }
 
@@ -62,6 +66,7 @@ export class Bot {
           const T = ft + P.fuse;
           if (!this.noLead && Math.abs(T - s.t) > step * 0.6) continue;
           if (!ok(s.x, s.y)) continue;
+          if (this.shapeBlind && g.launchHouse(s.x, s.y) !== i) continue;
           let hits = 0, urgent = 0;
           for (const q of paths) {
             // 着いてから弾けるまでの間に提灯まで来るおばけは、見とれて止まる → 弾けた時にそこにいる
@@ -73,7 +78,8 @@ export class Bot {
             // 大入道は残りの力の分だけ当てる値打ちがある(早めに何度も当てる)
             if (hit) { hits += free[paths.indexOf(q)].hp; urgent = Math.max(urgent, 1 / (1 + (q.length - 1) * step / 3)); }
           }
-          const score = hits + urgent * 2 - this.rng.next() * (1 - this.skill) * 1.5;
+          const links = this.linkBias > 0 ? g.lanterns.filter((l) => !l.flying && g.touches({ piece, tx: s.x, ty: s.y }, l)).length : 0;
+          const score = hits + urgent * 2 + links * this.linkBias - this.rng.next() * (1 - this.skill) * 1.5;
           if (!best || score > best.score) best = { house: i, x: Math.round(s.x), y: Math.round(s.y), score, hits };
         }
       }

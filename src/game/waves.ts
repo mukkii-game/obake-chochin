@@ -130,7 +130,7 @@ const WAVES: Group[][] = [
   [...P.sides(false), ...shift(Q.marchL(true), 4), ...shift(Q.zig(false), 7), ...shift(Q.kazeSide(false), 10)],
   [...Q.giantEscort(false), ...shift(Q.escort(true), 5), ...shift(Q.kazeLine(false), 8), ...shift(P.big(false), 10), ...shift(P.mega(false), 13)],
   [...P.line(false), ...shift(P.loop(true), 2), ...shift(P.sides(false), 5), ...shift(Q.kazeRow(true), 8), ...shift(Q.marchK(false), 10),
-    ...shift(Q.escort(false), 12), ...shift(P.giant(true), 14), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22), ...shift(Q.zig(true), 15), ...shift(P.mega(false), 24)],
+    ...shift(Q.escort(false), 12), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22), ...shift(Q.zig(true), 15), ...shift(P.mega(false), 24)],
 ];
 export const WAVE_COUNT = WAVES.length;
 /** n ウェーブ目が何日目か(0 = 8/13)と、その日の何番目か */
@@ -142,8 +142,9 @@ export const OPENING_WAVES = WAVES.length;
 export function waveGroups(n: number, rng: Rng): Group[] {
   if (n < WAVES.length) {
     // 2・3 日目は、刻ごとに決まった縦の筋へみんなが集まってから家へ(狙ってまとめて倒しやすく、家までの道も長く)
+    // 3 日目は第一・第二刻だけ集まりを弱める(筋に寄らない組を混ぜる)代わりに、総力戦は少し軽く
     const via = n >= WAVES_PER_DAY ? [300, 480, 660][n % 3] : undefined;
-    return WAVES[n].map((g) => ({ ...g, via }));
+    return WAVES[n].map((g, k) => ({ ...g, via: n >= 2 * WAVES_PER_DAY && n < WAVES.length - 1 && k % 2 ? undefined : via }));
   }
   const keys = Object.keys(PATTERNS);
   const out: Group[] = [];

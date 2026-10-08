@@ -293,6 +293,9 @@ export class Game {
     this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain, n: c.bursts, dmg, grow });
   }
 
+  /** 提灯の網: 1 つの連鎖で弾けた提灯が多いほど、その連鎖の点がまとめて増える(2 つで ×1.5、3 つで ×2 …) */
+  netMult(c: Chain) { return 1 + this.P.netMult * Math.max(0, c.bursts - 1); }
+
   /** 1/60 秒進める */
   step(taps: Array<[number, number]> = []) {
     if (this.over) return;
@@ -504,6 +507,20 @@ export class Game {
         continue;
       }
       g.caught = false;
+      // 灯りに寄る: 置かれた提灯の近く(lureR)を通るおばけは、ふらふらと提灯へ寄っていき、着くと見とれて止まる。
+      // 先に 1 つ置いて寄せ集め、まとめて弾く(誘爆でつなぐ)のが攻略になる。大きいおばけは寄りにくい
+      if (P.lureR > 0 && g.kind !== 'giant' && g.kind !== 'mega') {
+        let best: Lantern | null = null, bd = P.lureR;
+        for (const l of placed) { const d = Math.hypot(l.tx - g.x, l.ty - g.y); if (d < bd) { bd = d; best = l; } }
+        if (best) {
+          const step = Math.min(bd, this.speedOf(g) * P.lureSpeed * dt);
+          g.x += ((best.tx - g.x) / bd) * step; g.y += ((best.ty - g.y) / bd) * step;
+          if (Math.abs(best.tx - g.x) > 0.5) g.face = best.tx < g.x ? -1 : 1;
+          // 寄った後は、いまの所から元の道の次の曲がり角へ戻る(道へ瞬間移動しない)
+          g.path = [[g.x, g.y], ...g.path.slice(g.seg + 1)]; g.seg = 0; g.segProg = 0;
+          continue;
+        }
+      }
       const c: Ghost = { ...g };
       this.advance(c, this.speedOf(g) * dt);
       const vx = c.x - g.x, vy = c.y - g.y;
@@ -618,7 +635,7 @@ export class Game {
         g.dead = true;
         chain.count++;
         chain.forms.set(g.form, (chain.forms.get(g.form) ?? 0) + 1);
-        const pts = P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : g.kind === 'giant' ? P.giantPts : g.kind === 'mega' ? P.megaPts : 1);
+        const pts = Math.round(P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : g.kind === 'giant' ? P.giantPts : g.kind === 'mega' ? P.megaPts : 1) * this.netMult(chain));
         chain.pts += pts; this.score += pts; this.purified++;
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });
@@ -637,14 +654,14 @@ export class Game {
       if (c.count === 0) continue;
       this.bestChain = Math.max(this.bestChain, c.count);
       const last: [number, number] = [c.lx, c.ly];
-      const bonus = c.count >= 3 ? this.P.chainBonus * (c.count - 2) * (c.count - 2) : 0;
+      const bonus = c.count >= 3 ? Math.round(this.P.chainBonus * (c.count - 2) * (c.count - 2) * this.netMult(c)) : 0;
       this.score += bonus;
       this.events.push({ type: 'chainEnd', x: last[0], y: last[1], n: c.count, pts: c.pts, bonus });
       // 編隊を一度の光(と誘爆)で全部倒した
       for (const [form, k] of c.forms) {
         const size = this.formSize.get(form) ?? 0;
         if (size >= 3 && k >= size) {
-          const fb = this.P.formBonus * size * (this.wave + 1);
+          const fb = Math.round(this.P.formBonus * size * (this.wave + 1) * this.netMult(c));
           this.score += fb; this.formations++;
           this.events.push({ type: 'formation', x: last[0], y: last[1], size, bonus: fb });
         }
