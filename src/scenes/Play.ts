@@ -65,6 +65,7 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private hoverHouse = -1;
   private aimTag!: Phaser.GameObjects.Text;
   private lastDmgShown = 1;
   private continues = 0;
@@ -640,6 +641,13 @@ export class Play extends Phaser.Scene {
     // 選んだ家: 色つきの太い輪で囲む(この家から続けて投げられる)。下に小さな矢印
     if (g.selected >= 0) ring(g.selected, hover === g.selected ? (blink ? 1 : 0.15) : 1);
     if (hover >= 0 && hover !== g.selected) ring(hover, blink ? 0.4 : 0.1);
+    // 押すとどうなるかを一言: 選んでいない家は「発射位置ロック!」、選んだ家は「ロック解除!」
+    this.hoverHouse = hover;
+    if (hover >= 0) {
+      const h = g.houses[hover];
+      this.aimTag.setText(hover === g.selected ? t('unlock') : t('lock')).setColor(hover === g.selected ? '#ffd0e0' : '#ff9ec8')
+        .setPosition(h.x, h.y - 66).setVisible(true).setAlpha(blink ? 1 : 0.6);
+    }
 
     // 提灯: 飛んでいる間は軌跡と行き先の印、灯ったら縮んでいく灯り
     const seenL = new Set<number>();
@@ -753,14 +761,15 @@ export class Play extends Phaser.Scene {
       const inField = x > PLAY.x0 && x < PLAY.x1 && y > PLAY.y0 && y < PLAY.y1 && !onHouse;
       const low = inField && y > GROUND_Y, full = g.lanterns.length >= g.maxOnField;
       // カーソルを見ているだけで分かるように: 置けない所・いっぱいの時は赤い × と一言、置ける時は「あと N」
-      if (inField && (low || full)) {
+      if (this.hoverHouse >= 0) { /* 家の一言(ロック / 解除)を出している */ }
+      else if (low) this.aimTag.setVisible(false); // 家より下: 何も出さない(投げられないだけ)
+      else if (inField && full) {
         // 置けない: カーソルの赤い × と輪が点滅する
         const on = Math.sin(time * 14) > 0;
         this.fx.lineStyle(4, 0xff6070, on ? 1 : 0.25);
         this.fx.lineBetween(x - 10, y - 10, x + 10, y + 10); this.fx.lineBetween(x - 10, y + 10, x + 10, y - 10);
         this.fx.strokeCircle(x, y, 17);
-        this.aimTag.setText(low ? t('tooLow') : t('maxOnField').replace('{n}', String(g.maxOnField))).setColor('#ff9aa8').setPosition(x, y - 30).setVisible(true).setAlpha(on ? 1 : 0.35);
-        if (low) { this.fx.lineStyle(1.5, 0xffb0b8, 0.35); for (let gx = PLAY.x0; gx < PLAY.x1; gx += 14) this.fx.lineBetween(gx, GROUND_Y, gx + 7, GROUND_Y); }
+        this.aimTag.setText(t('maxOnField').replace('{n}', String(g.maxOnField))).setColor('#ff9aa8').setPosition(x, y - 30).setVisible(true).setAlpha(on ? 1 : 0.35);
       } else if (inField && from >= 0) {
         this.aimTag.setText(`${t('left')} ${g.maxOnField - g.lanterns.length}`).setColor('#fff0d0').setPosition(x + 30, y + 18).setVisible(true).setAlpha(0.6);
       } else this.aimTag.setVisible(false);
