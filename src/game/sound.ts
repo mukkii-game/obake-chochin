@@ -112,7 +112,8 @@ export function sayObake() { if (voObake) playSample(voObake, 0.9); }
 
 /** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */
 const TRACKS = {
-  play: { url: './audio/bgm_play.mp3', start: 0.52, end: 57.985, gain: 0.3 },
+  // bpm と最初の拍(秒)は、音の立ち上がりの自己相関で測った(おばけが拍に合わせて弾む)
+  play: { url: './audio/bgm_play.mp3', start: 0.52, end: 57.985, gain: 0.3, bpm: 152, firstBeat: 0.717 },
 } as const;
 export type Track = keyof typeof TRACKS;
 let stopFile: (() => void) | null = null;
@@ -125,6 +126,22 @@ let intensity = 0;
 const PHRASE = [0, 2, 3, 2, 5, 4, 3, -1, 2, 3, 5, 7, 6, 5, 3, -1];
 
 let current: Track | null = null;
+/** 曲が鳴り始めた時刻(音の時計) */
+let playT0: number | null = null;
+/**
+ * いまの拍の位置(拍の数。小数部が拍の中の位置)。曲が鳴っていれば曲の位置から、鳴っていなければ同じテンポの時計で。
+ * 絵(おばけが弾む)を BGM に合わせるために使う
+ */
+export function beatPos(fallbackSec: number): number {
+  const tr = TRACKS.play, beat = 60 / tr.bpm;
+  const now = audioNow();
+  if (playT0 != null && now != null && current === 'play' && stopFile) {
+    const len = tr.end - tr.start;
+    const pos = tr.start + (((now - playT0) % len) + len) % len;
+    return (pos - tr.firstBeat) / beat;
+  }
+  return fallbackSec / beat;
+}
 export function bgmStart(track: Track = 'play') {
   setVolumes(tune<number>('audio.sfx'), tune<number>('audio.music'));
   if (current === track && (stopFile || starting || timer)) return;
@@ -138,7 +155,7 @@ export function bgmStart(track: Track = 'play') {
     if (my !== gen) return; // 読んでいる間に止められた
     starting = false;
     if (stopFile || timer) return;
-    if (buf) stopFile = playLoop(buf, tr.gain, tr.start, tr.end);
+    if (buf) { stopFile = playLoop(buf, tr.gain, tr.start, tr.end); playT0 = audioNow(); }
     else synthStart();
   });
 }

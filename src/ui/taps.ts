@@ -12,6 +12,9 @@ export type AimPhase = 'down' | 'move' | 'hover' | 'up';
 type AimListener = (phase: AimPhase, x: number, y: number) => void;
 const aimListeners = new Set<AimListener>();
 let pressed = false;
+const cancelListeners = new Set<() => void>();
+/** 右クリック(取り消し)を受け取る。戻り値で解除 */
+export function onCancel(f: () => void): () => void { cancelListeners.add(f); return () => cancelListeners.delete(f); }
 export const tapStats: Record<string, number> = {};
 export let lastTap = { x: 0, y: 0, src: '' };
 let game: Phaser.Game | null = null;
@@ -65,6 +68,7 @@ function isUi(e: Event) {
 
 export function installTaps(g: Phaser.Game) {
   game = g;
+  g.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   const targets: Array<[EventTarget, string]> = [
     [g.canvas, 'canvas'], [g.canvas.parentElement ?? document.body, 'box'], [document.body, 'body'], [document, 'doc'],
   ];
@@ -97,6 +101,8 @@ export function installTaps(g: Phaser.Game) {
       const pe = e as PointerEvent;
       if (isUi(pe) || seen(pe)) return;
       if (pe.pointerType === 'touch' && sawTouch) return;
+      // 右クリック: 「取り消し」(選んだ家を外す等)。普通のタップにはしない
+      if (pe.button === 2) { for (const f of [...cancelListeners]) f(); return; }
       emit(pe.clientX, pe.clientY, 'ptr:' + name);
       emitAim('down', pe.clientX, pe.clientY);
       pressed = true;

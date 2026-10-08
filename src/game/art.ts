@@ -71,6 +71,8 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_fuwa', 64, 68, drawFuwa);
   // 大入道: 幽霊を大きく描いたもの(色は Play で桃色にする)
   make(scene, 'g_big', 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c); });
+  // 大大入道: さらに大きく(色は Play でうす紫にする)
+  make(scene, 'g_giant', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c); });
   make(scene, 'g_oni', 64, 68, drawOnibi);
   make(scene, 'g_kasa', 64, 72, drawKarakasa);
   make(scene, 'g_kirai', 50, 56, drawKage);

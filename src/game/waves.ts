@@ -1,14 +1,14 @@
 // 刻ごとのおばけの出方(全 10 刻でクリア)。1 刻目は型を 1 つだけ、2 刻目からは型を重ねて忙しくする。
 // 説明の文字は出さない。出方そのものが「こういう時はこう」を教える。
 //
-// 型(と、その答えの一例):
-//   一列     … 縦に並んで降りてくる → 縦の家の提灯を列の中ほどへ
-//   横並び   … 横に並んで降りてくる → 横の家の提灯を並んだ高さへ。端まで届かなければ 2 つ置いて誘爆
-//   階段     … 縦に降り、横へ渡り、また縦に降りる → 横へ渡る所を横で、降りる所を縦で
-//   交差     … 左右から来て真ん中で交わる → 交わる所と時に、丸で
-//   ジグザグ … 斜めと縦を交互に → 縦に降りる所を縦で
-//   輪       … 輪を描いてから突っ込む(ギャラガ)→ 輪の真ん中に丸
-//   大入道   … 大きくてゆっくり、光 3 回で成仏 → 誘爆で何度も光を当てる。止めて詰まらせて重ねる
+// 型(と、その答えの一例)。どのおばけも途中で 1〜2 回だけ向きが変わる:
+//   一列     … 幽霊が縦に並んで降りてくる → 縦の家の提灯を列の中ほどへ
+//   横並び   … 幽霊が横に並んで降りてくる → 横の家の提灯を並んだ高さへ。端まで届かなければ 2 つ置いて誘爆
+//   段       … 幽霊が降りて、少し横へ、また降りる → 横へ動く所を横で、降りる所を縦で
+//   横渡り   … 唐傘が端から出て、長く横へ渡る → 渡る高さに横で
+//   交差     … 唐傘が左右から渡ってきて真ん中ですれ違う → すれ違う所と時に丸で
+//   輪       … 鬼火が輪を描いてから突っ込む(ギャラガ)→ 輪の真ん中に丸
+//   大入道   … 大きくてゆっくり、光 3 回(大大入道は 6 回)で成仏 → 誘爆で何度も光を当てる。止めて重ねる
 //   せき止め … 間をあけて長く続く → 先頭の前に置いて止め、詰まった所を縦で(置いた提灯は 3 秒後に弾ける)
 import type { GhostKind } from './logic';
 import type { Rng } from '../core/rng';
@@ -37,34 +37,41 @@ const X = (c: number, m: boolean) => (m ? 12 - c : c);
 const T = (h: number, m: boolean) => (m ? 5 - h : h);
 
 export const PATTERNS: Record<string, Pattern> = {
-  line: (m) => [{ t: 0, kind: 'fuwa', cols: [X(5, m)], n: 5, gap: 1.6, to: T(2, m) }],
+  // 幽霊(主に縦)
+  line: (m) => [{ t: 0, kind: 'fuwa', cols: [X(5, m)], n: 5, gap: 1.5, to: T(2, m) }],
   row: (m) => [{ t: 0, kind: 'fuwa', cols: [X(3, m), X(4, m), X(5, m), X(6, m), X(7, m)], n: 1, gap: 0, to: T(2, m), turn: 0.6 }],
-  stair: (m) => [{ t: 0, kind: 'fuwa', cols: [X(1, m)], n: 5, gap: 1.6, to: T(4, m), turn: 0.4 }],
-  cross: (m) => [
-    { t: 0, kind: 'fuwa', cols: [X(1, m)], n: 4, gap: 1.6, to: T(4, m), turn: 0.5 },
-    { t: 0, kind: 'fuwa', cols: [X(11, m)], n: 4, gap: 1.6, to: T(1, m), turn: 0.5 },
-  ],
-  zigzag: (m) => [{ t: 0, kind: 'kasa', cols: [X(8, m)], n: 4, gap: 2.0, to: T(3, m), side: 1 }],
-  loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.9, to: T(3, m), side: m ? -1 : 1 }],
+  step: (m) => [{ t: 0, kind: 'fuwa', cols: [X(4, m)], n: 4, gap: 1.5, to: T(3, m), turn: 0.5 }],
   dam: (m) => [{ t: 0, kind: 'fuwa', cols: [X(10, m)], n: 7, gap: 2.2, to: T(5, m) }],
+  // 唐傘(主に横): 端から出て、少し降りて長く横へ渡り、家の上で降りる
+  sweep: (m) => [{ t: 0, kind: 'kasa', cols: [X(0, m)], n: 4, gap: 1.3, to: T(4, m), turn: 0.3 }],
+  cross: (m) => [
+    { t: 0, kind: 'kasa', cols: [X(0, m)], n: 3, gap: 1.3, to: T(4, m), turn: 0.35 },
+    { t: 0, kind: 'kasa', cols: [X(12, m)], n: 3, gap: 1.3, to: T(1, m), turn: 0.35 },
+  ],
+  // 鬼火(輪)
+  loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.9, to: T(3, m), side: m ? -1 : 1 }],
+  // 大入道・大大入道(主に縦、ゆっくり、何度も光を当てる)
   big: (m) => [{ t: 0, kind: 'big', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 }],
+  giant: (m) => [{ t: 0, kind: 'giant', cols: [X(7, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 }],
 };
 
 const P = PATTERNS;
 function shift(gs: Group[], dt: number): Group[] { return gs.map((g) => ({ ...g, t: g.t + dt })); }
+/** 数を減らした型(1・2 刻目の顔見世用) */
+function few(gs: Group[], n: number): Group[] { return gs.map((g) => ({ ...g, n: Math.min(g.n, n) })); }
 
-/** 全 10 刻(決まった出方) */
+/** 全 10 刻(決まった出方)。1・2 刻目は少なめでサクサク、いろんなおばけの顔見世 */
 const WAVES: Group[][] = [
-  P.line(false),
-  [...P.row(false), ...shift(P.line(true), 6)],
-  [...P.stair(false), ...shift(P.cross(true), 5)],
-  [...P.zigzag(false), ...shift(P.zigzag(true), 3), ...shift(P.line(false), 8), ...shift(P.big(false), 4)],
-  [...P.loop(false), ...shift(P.row(true), 7)],
-  [...P.dam(false), ...shift(P.zigzag(true), 4), ...shift(P.stair(true), 10), ...shift(P.big(true), 6)],
-  [...P.loop(false), ...shift(P.loop(true), 5), ...shift(P.cross(false), 10)],
-  [...P.row(false), ...shift(P.row(true), 4), ...shift(P.zigzag(false), 8), ...shift(P.line(true), 12), ...shift(P.big(false), 2)],
-  [...P.cross(false), ...shift(P.loop(true), 3), ...shift(P.dam(false), 6), ...shift(P.stair(true), 11)],
-  [...P.loop(false), ...shift(P.row(true), 3), ...shift(P.zigzag(false), 6), ...shift(P.cross(true), 9), ...shift(P.loop(true), 13), ...shift(P.big(false), 1), ...shift(P.big(true), 10)],
+  [...few(P.line(false), 3), ...shift(few(P.sweep(true), 2), 3), ...shift(few(P.loop(false), 3), 6), ...shift(P.big(false), 8)],
+  [...few(P.row(false), 1).map((g) => ({ ...g, cols: g.cols.slice(1, 4) })), ...shift(few(P.cross(false), 2), 3), ...shift(P.big(true), 5)],
+  [...P.step(false), ...shift(P.sweep(true), 4), ...shift(P.giant(false), 5)],
+  [...P.sweep(false), ...shift(P.sweep(true), 3), ...shift(P.line(false), 7), ...shift(P.big(false), 4)],
+  [...P.loop(false), ...shift(P.row(true), 6), ...shift(P.big(true), 3), ...shift(P.big(false), 10)],
+  [...P.dam(false), ...shift(P.sweep(true), 4), ...shift(P.step(true), 10), ...shift(P.giant(true), 6)],
+  [...P.loop(false), ...shift(P.loop(true), 5), ...shift(P.cross(false), 10), ...shift(P.big(false), 7)],
+  [...P.row(false), ...shift(P.row(true), 4), ...shift(P.sweep(false), 8), ...shift(P.line(true), 12), ...shift(P.big(true), 2), ...shift(P.giant(false), 9)],
+  [...P.cross(false), ...shift(P.loop(true), 3), ...shift(P.dam(false), 6), ...shift(P.step(true), 11), ...shift(P.big(false), 1), ...shift(P.big(true), 9)],
+  [...P.loop(false), ...shift(P.row(true), 3), ...shift(P.sweep(false), 6), ...shift(P.cross(true), 9), ...shift(P.loop(true), 13), ...shift(P.giant(false), 1), ...shift(P.giant(true), 11), ...shift(P.big(false), 6)],
 ];
 
 export const WAVE_COUNT = WAVES.length;

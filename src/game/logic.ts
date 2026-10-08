@@ -35,10 +35,14 @@ const HOME_R = 6;
 /** おばけの体の大きさ(光に触れたかの判定) */
 export const GHOST_R = 13;
 /** 大入道は大きい(力が減るほど小さくなる) */
-export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * (1 + 0.35 * g.hp) : GHOST_R);
+export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * (1 + 0.35 * g.hp) : g.kind === 'giant' ? GHOST_R * (1.6 + 0.3 * g.hp) : GHOST_R);
 
-/** おばけの動き: 階段(縦・横・縦)/ ジグザグ(斜めと縦)/ 輪(ギャラガ)/ 大入道(大きくてゆっくり。光 3 回で成仏) */
-export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big';
+/**
+ * おばけの動き(どれも途中で 1〜2 回だけ向きが変わる):
+ *   幽霊 = 主に縦(降りる → 少し横 → 降りる)/ 唐傘 = 主に横(少し降りる → 長く横 → 降りる)/ 鬼火 = 輪(ギャラガ)/
+ *   大入道 = 大きくてゆっくり、光 3 回で成仏 / 大大入道 = もっと大きくてもっとゆっくり、光 6 回
+ */
+export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant';
 
 /** 提灯の形 = 光の形 = 家の形 */
 export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross';
@@ -185,7 +189,7 @@ export class Game {
     return Math.max(0.3, Math.hypot(x - h.x, y - (h.y - 14)) / this.P.flySpeed);
   }
 
-  /** 1 タップ。家 → その家を選ぶ(もう一度で外す)/ それ以外 → 選んだ家(無ければ一番近い家)から、押した所へ投げる */
+  /** 1 タップ。家 → その家を選ぶ(もう一度で外す・他の家で切り替え)/ それ以外 → 選んだ家(無ければ一番近い家)から、押した所へ投げる */
   tap(x: number, y: number) {
     if (this.over) return;
     x = Math.round(x); y = Math.round(y); // 記録(整数)と同じ値で動かす
@@ -204,7 +208,7 @@ export class Game {
     }
     const h = this.houses[from];
     h.ammo--;
-    this.selected = -1;
+    // 選んだ家はそのまま(続けてその家から投げられる)。外れるのは、同じ家をもう一度押す・他の家を押す・弾が無くなった時
     const sy = h.y - 14;
     this.lanterns.push({ id: this.nextId++, piece: h.piece, tx: x, ty: y, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(x, y, from), age: 0 });
     this.events.push({ type: 'launch', sx: h.x, sy, x, y, house: from });
@@ -367,15 +371,15 @@ export class Game {
 
   addGhost(gr: Group, x: number, form = 0) {
     const kind = gr.kind;
-    const mult = { fuwa: 1, kasa: 1, oni: 1.3, big: 0.65 }[kind];
+    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45 }[kind];
     const y = SPAWN_Y;
     let target = gr.to !== undefined && this.houses[gr.to]?.lit ? gr.to : this.nearestLit(x, y);
     if (target < 0) target = 0;
     const g: Ghost = {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
-      speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
+      speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
-    g.path = this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? 0.45);
+    g.path = this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
     this.ghosts.push(g);
     this.events.push({ type: 'spawn', x, y, kind });
     return g;
@@ -391,28 +395,17 @@ export class Game {
     const P = this.P;
     const pts: Array<[number, number]> = [[sx, sy]];
     const top = Math.max(sy, PLAY.y0);
-    if (kind === 'fuwa' || kind === 'big') {
+    if (kind !== 'oni') {
+      // 縦 → 横 → 縦(向きが変わるのは 2 回だけ)。幽霊・大入道は横が短く(主に縦)、唐傘は出口が遠く横が長い(主に横)
       if (Math.abs(h.x - sx) > 4) {
         const ty = top + (h.y - 40 - top) * turn;
         pts.push([sx, ty], [h.x, ty]);
-      }
-    } else if (kind === 'kasa') {
-      const L = P.zigLen;
-      let x = sx, y = sy, s = side;
-      while (y + L * 1.6 < h.y - 30) {
-        // 斜めに L、縦に L * 0.6。斜めは家への線の側へ戻るように振る
-        const lineX = sx + (h.x - sx) * ((y - sy) / (h.y - sy));
-        if ((x - lineX) * s > L * 0.6) s = -s;
-        x = clamp(x + s * L, PLAY.x0 + 20, PLAY.x1 - 20); y += L;
-        pts.push([x, y]);
-        y += L * 0.6; pts.push([x, y]);
-        s = -s;
       }
     } else {
       // 輪: 中心は出口と家の間の上の方
       const R = P.loopR;
       const cx = clamp(sx + (h.x - sx) * 0.45, PLAY.x0 + R + 10, PLAY.x1 - R - 10), cy = top + (h.y - top) * 0.38;
-      const a0 = side > 0 ? Math.PI : 0; // 輪に入る所(左端か右端)
+      const a0 = side > 0 ? Math.PI : 0;
       for (let k = 0; k <= 24; k++) {
         const a = a0 + side * (k / 24) * Math.PI * 2;
         pts.push([cx + Math.cos(a) * R, cy - Math.sin(a) * R]);
@@ -472,8 +465,8 @@ export class Game {
       const blocked = this.ghosts.some((o) => o !== g && !o.dead && o.stopped && !o.haunt
         && Math.hypot(o.x - c.x, o.y - c.y) < P.queueGap && (o.x - g.x) * vx + (o.y - g.y) * vy > 0);
       if (blocked) { g.stopped = true; continue; }
-      g.stopped = false;
       Object.assign(g, c);
+      g.stopped = false; // c は止まる前の写しなので、写した後で戻す(写す前に戻すと、止まったままの印が残る)
       const h = this.houses[g.target];
       if (h.lit && g.seg >= g.path.length - 1 && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
         g.haunt = true; g.x = h.x; g.y = h.y;
@@ -510,7 +503,7 @@ export class Game {
         g.dead = true;
         chain.count++;
         chain.forms.set(g.form, (chain.forms.get(g.form) ?? 0) + 1);
-        const pts = P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : 1);
+        const pts = P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : g.kind === 'giant' ? P.giantPts : 1);
         chain.pts += pts; this.score += pts; this.purified++;
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });

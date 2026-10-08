@@ -70,7 +70,8 @@ export class Bot {
               const e = at(q, T + dt), a = g.along(piece, s.x, s.y, e.x, e.y, 11), ext = dt * P.lightSpeed;
               hit = a >= 0 && a <= ext && a >= ext - g.band;
             }
-            if (hit) { hits++; urgent = Math.max(urgent, 1 / (1 + (q.length - 1) * step / 3)); }
+            // 大入道は残りの力の分だけ当てる値打ちがある(早めに何度も当てる)
+            if (hit) { hits += free[paths.indexOf(q)].hp; urgent = Math.max(urgent, 1 / (1 + (q.length - 1) * step / 3)); }
           }
           const score = hits + urgent * 2 - this.rng.next() * (1 - this.skill) * 1.5;
           if (!best || score > best.score) best = { house: i, x: Math.round(s.x), y: Math.round(s.y), score, hits };
@@ -83,7 +84,9 @@ export class Bot {
     if (!this.noLead && !danger && best.hits < this.patience) return [];
     this.cool = 0.9 - this.skill * 0.6 + this.lag;
     const h = g.houses[best.house];
-    if (g.launchHouse(best.x, best.y) !== best.house) { this.next.push([best.x, best.y]); return [[h.x, h.y]]; }
+    // 選んだ家は続くので、投げたい家が「いま投げる家」でなければ、その家を押して選ぶ
+    const willThrow = g.selected >= 0 && g.canThrow(g.selected) ? g.selected : g.launchHouse(best.x, best.y);
+    if (willThrow !== best.house) { this.next.push([best.x, best.y]); return [[h.x, h.y]]; }
     return [[best.x, best.y]];
   }
 }

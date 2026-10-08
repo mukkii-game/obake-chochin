@@ -1,13 +1,13 @@
 // プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
 // 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { Game, DT, W, H, PLAY, HOUSE_R, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece } from '../game/logic';
+import { Game, DT, W, H, PLAY, HOUSE_R, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
-import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake } from '../game/sound';
+import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos } from '../game/sound';
 import { txt, watchName } from '../game/view';
 import { PAPER } from '../game/art';
-import { onTap, onAim } from '../ui/taps';
+import { onTap, onAim, onCancel } from '../ui/taps';
 import { DemoDriver, expose } from '../core/demo';
 import { t } from '../core/i18n';
 import { save, load } from '../core/save';
@@ -16,8 +16,9 @@ import { startSeed } from '../core/rng';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted } from '../core/audio';
 
-const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big' } as const;
-const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8 } as const;
+const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant' } as const;
+const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff };
+const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff } as const;
 /** 軒先の提灯の位置(家の中心から) */
 const HANG: ReadonlyArray<[number, number]> = [[32, -16], [32, -1], [32, 14]];
 
@@ -55,6 +56,7 @@ export class Play extends Phaser.Scene {
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   private fireworks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private fireworksBig!: Phaser.GameObjects.Particles.ParticleEmitter;
   /** 光が通った後の、ゆっくり消える余韻 */
   private afterglow: Array<{ piece: Piece; x: number; y: number; t: number }> = [];
   private tipShown = new Set<string>();
@@ -82,7 +84,7 @@ export class Play extends Phaser.Scene {
     this.dusk = this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD);
     this.moon = this.add.image(0, 0, 'moon').setAlpha(0);
     this.hi = load().best;
-    this.selFx = this.add.graphics().setDepth(4);
+    this.selFx = this.add.graphics().setDepth(27);
     for (const h of this.game2.houses) {
       const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
       // 家の形 = この家から投げる提灯の光の形(縦の楼は縦、長屋は横)
@@ -106,6 +108,12 @@ export class Play extends Phaser.Scene {
       scale: { start: 0.9, end: 0.15 }, alpha: { start: 1, end: 0 }, blendMode: 'ADD', emitting: false,
       tint: [0xffd27a, 0xff9ec8, 0x9ee8ff, 0xfff4c0, 0xc8a0ff],
     }).setDepth(30);
+    // 連爆の花火: 大きく、速く、虹色に、長く残る
+    this.fireworksBig = this.add.particles(0, 0, 'dot', {
+      lifespan: { min: 1400, max: 2400 }, speed: { min: 60, max: 260 }, angle: { min: 0, max: 360 }, gravityY: 45,
+      scale: { start: 1.6, end: 0.2 }, alpha: { start: 1, end: 0 }, blendMode: 'ADD', emitting: false,
+      tint: [0xff5e8a, 0xffd23f, 0x5ee0ff, 0x9dff7a, 0xc77dff, 0xffffff, 0xff9f40],
+    }).setDepth(31);
     this.shards = this.add.particles(0, 0, 'shard', {
       lifespan: 700, speed: { min: 80, max: 220 }, gravityY: 300, rotate: { min: 0, max: 360 },
       scale: { start: 1, end: 0.4 }, alpha: { start: 1, end: 0 }, emitting: false,
@@ -137,7 +145,7 @@ export class Play extends Phaser.Scene {
         const d = this.aimDown;
         this.aimDown = null; this.aim = null;
         if (!d || Number.isNaN(x)) return;
-        if (d.house >= 0 && Math.hypot(x - d.x, y - d.y) > 30) { this.pending.push([d.x, d.y]); this.pending.push([x, y]); }
+        if (d.house >= 0 && Math.hypot(x - d.x, y - d.y) > 30) { if (g.selected !== d.house) this.pending.push([d.x, d.y]); this.pending.push([x, y]); }
         else this.pending.push([x, y]);
         return;
       }
@@ -147,7 +155,14 @@ export class Play extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-M', () => { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); });
-    this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; this.offAim?.(); this.offAim = null; bgmStop(); });
+    // 右クリック: 選んだ家を外す(記録に残るよう、その家を押したことにする)
+    const offCancel = onCancel(() => {
+      const g = this.game2;
+      if (this.player || this.ended || this.bot || g.selected < 0) return;
+      const h = g.houses[g.selected];
+      this.pending.push([h.x, h.y]);
+    });
+    this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; this.offAim?.(); this.offAim = null; offCancel(); bgmStop(); });
 
     bgmStart();
     preloadSfx();
@@ -214,9 +229,19 @@ export class Play extends Phaser.Scene {
         // 花火: 光が伸びるのに合わせて、形の上の各所で火の粉が開く
         const piece = this.lanternPieceAt(e.x, e.y);
         const g = this.game2;
-        for (const [px, py] of g.shapePoints(piece, e.x, e.y).filter((_, k) => k % 3 === 0)) {
+        // 連爆するほど、花火が大きく・多く・色とりどりに
+        const big = e.n >= 2;
+        const per = big ? Math.min(5 + e.n * 3, 20) : 5;
+        for (const [px, py] of g.shapePoints(piece, e.x, e.y).filter((_, k) => k % (big ? 2 : 3) === 0)) {
           const d = Math.hypot(px - e.x, py - e.y);
-          this.time.delayedCall((d / g.P.lightSpeed) * 1000, () => this.fireworks.explode(5, px, py));
+          this.time.delayedCall((d / g.P.lightSpeed) * 1000, () => (big ? this.fireworksBig : this.fireworks).explode(per, px, py));
+        }
+        if (big) {
+          // 真ん中で大きな菊の花火 + 少し揺れる
+          this.fireworksBig.explode(Math.min(20 + e.n * 10, 80), e.x, e.y);
+          this.cameras.main.shake(90 + e.n * 20, 0.002 + Math.min(e.n, 6) * 0.0008);
+          const ring = this.add.image(e.x, e.y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint([0xff7eb6, 0xffd23f, 0x5ee0ff, 0x9dff7a][e.n % 4]).setScale(0.3).setDepth(29);
+          this.tweens.add({ targets: ring, scale: 2.2 + e.n * 0.3, alpha: 0, duration: 700, ease: 'Quad.Out', onComplete: () => ring.destroy() });
         }
         this.afterglow.push({ piece, x: e.x, y: e.y, t: this.time.now });
         break;
@@ -245,8 +270,9 @@ export class Play extends Phaser.Scene {
         snd.hurt();
         this.sparks.explode(14, e.x, e.y);
         this.popup(e.x, e.y - 40, '!', '#ffb0e0', 30);
-        const sp = [...this.gSprites.entries()].find(([id]) => this.game2.ghosts.some((q) => q.id === id && q.kind === 'big' && Math.hypot(q.x - e.x, q.y - e.y) < 2));
-        if (sp) { sp[1].setTint(0xffffff); this.time.delayedCall(140, () => { if (sp[1].active) sp[1].setTint(0xffd6ea); }); }
+        const big = this.game2.ghosts.find((q) => (q.kind === 'big' || q.kind === 'giant') && Math.hypot(q.x - e.x, q.y - e.y) < 2);
+        const sp = big ? [big.id, this.gSprites.get(big.id)!] as const : undefined;
+        if (sp && sp[1] && big) { sp[1].setTint(0xffffff); this.time.delayedCall(140, () => { if (sp[1].active) sp[1].setTint(GHOST_TINT[big.kind] ?? 0xffffff); }); }
         break;
       }
       case 'caught':
@@ -386,9 +412,14 @@ export class Play extends Phaser.Scene {
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
     if (g.selected >= 0) {
-      const h = g.houses[g.selected], s = 26;
-      this.selFx.lineStyle(3, 0xffd890, 0.55 + 0.3 * Math.sin(time * 6));
-      this.selFx.strokeRoundedRect(h.x - s, h.y - s, s * 2, s * 2, 6);
+      // 選んだ家: 色つきの太い輪で囲む(この家から続けて投げられる)。下に小さな矢印
+      const h = g.houses[g.selected], r = 34 + 3 * Math.sin(time * 6);
+      this.selFx.lineStyle(9, 0xff7eb6, 0.25); this.selFx.strokeCircle(h.x, h.y - 4, r + 4);
+      this.selFx.lineStyle(4, 0xff7eb6, 0.95); this.selFx.strokeCircle(h.x, h.y - 4, r);
+      this.selFx.lineStyle(2, 0xffffff, 0.8); this.selFx.strokeCircle(h.x, h.y - 4, r - 4);
+      this.selFx.fillStyle(0xff7eb6, 0.95);
+      const ay = h.y - r - 14 + 3 * Math.sin(time * 8);
+      this.selFx.fillTriangle(h.x - 8, ay, h.x + 8, ay, h.x, ay + 10);
     }
 
     // 提灯: 飛んでいる間は軌跡と行き先の印、灯ったら縮んでいく灯り
@@ -426,7 +457,7 @@ export class Play extends Phaser.Scene {
       let s = this.gSprites.get(gh.id);
       if (!s) {
         s = this.add.image(gh.x, gh.y, GHOST_TEX[gh.kind]).setDepth(15).setAlpha(0);
-        if (gh.kind === 'big') s.setTint(0xffd6ea);
+        const tint = GHOST_TINT[gh.kind]; if (tint) s.setTint(tint);
         this.gSprites.set(gh.id, s);
       }
       this.drawGhost(s, gh, time);
@@ -575,9 +606,9 @@ export class Play extends Phaser.Scene {
   }
 
   private drawGhost(s: Phaser.GameObjects.Image, gh: Ghost, time: number) {
-    // 楽しそうに: ぴょこぴょこ弾んで、着く時につぶれ、左右にゆれる
-    const ph = time * 7 + gh.id;
-    const hop = Math.abs(Math.sin(ph));
+    // 楽しそうに: BGM の拍に合わせてぴょこぴょこ弾み(拍で着地してつぶれる)、2 拍で左右にゆれる
+    const bp = beatPos(time);
+    const hop = Math.sin(Math.PI * (((bp % 1) + 1) % 1));
     const bob = -hop * 6;
     let sx = 1 + (1 - hop) * 0.1, sy = 1 - (1 - hop) * 0.1;
     const appear = Math.min(1, gh.age / 0.6);
@@ -590,9 +621,9 @@ export class Play extends Phaser.Scene {
     else if (gh.stopped) { ox = Math.sin(time * 18 + gh.id) * 2; sy *= 0.92 + 0.08 * Math.abs(Math.sin(time * 9 + gh.id)); }
     else if (gh.haunt) { ox = Math.sin(time * 7 + gh.id) * 8; oy = -10; }
     // 大入道: 力が減るほど小さくなる(数字は出さない)
-    const k = gh.kind === 'big' ? 0.6 + 0.25 * gh.hp : 1;
+    const k = gh.kind === 'big' ? 0.6 + 0.25 * gh.hp : gh.kind === 'giant' ? 0.55 + 0.08 * gh.hp : 1;
     s.setPosition(gh.x + ox, gh.y + oy + bob * k).setScale(sx * 0.66 * k, sy * 0.66 * k).setAlpha(alpha).setFlipX(gh.face < 0);
     // 唐傘は折れるたびに傘を傾ける / 鬼火は揺らめく
-    s.setAngle((gh.kind === 'kasa' ? gh.face * 10 : 0) + Math.sin(time * 3.5 + gh.id) * 8);
+    s.setAngle((gh.kind === 'kasa' ? gh.face * 10 : 0) + Math.sin((bp * Math.PI) / 2 + (gh.id % 2) * Math.PI) * 8);
   }
 }
