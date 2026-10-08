@@ -16,7 +16,7 @@ import { Bot } from '../src/game/bot';
 import { readParams } from '../src/game/params';
 export function run(seed: number, skill: number, lag = 0, lagOn = 'all') {
   const g = new Game(seed, readParams());
-  const bot = new Bot(skill, seed, lag); bot.noLead = (globalThis as any).NOLEAD === 1; bot.useHang = (globalThis as any).NOHANG !== 1;
+  const bot = new Bot(skill, seed, lag); bot.noLead = (globalThis as any).NOLEAD === 1;
   let breaks = 0, caught = 0, multi = 0, eaten = 0, saved = 0, lost = 0;
   while (!g.over && g.t < 900) {
     g.step(bot.decide(g));
@@ -28,7 +28,7 @@ export function run(seed: number, skill: number, lag = 0, lagOn = 'all') {
     }
   }
   return { seed, sec: Math.round(g.t), score: g.score, bestChain: g.bestChain, purified: g.purified, wave: g.wave,
-    perBreak: breaks ? caught / breaks : 0, multiRate: breaks ? multi / breaks : 0, eaten: breaks, saved, lost };
+    cleared: g.cleared ? 1 : 0, perBreak: breaks ? caught / breaks : 0, multiRate: breaks ? multi / breaks : 0, eaten: breaks, saved, lost };
 }
 /** bot の入力を記録 → 文字列 → 再生して、同じ結果になるか(?replay= の仕組みと同じ道) */
 export function replayCheck(seed: number) {
@@ -54,7 +54,7 @@ try {
   const deterministic = JSON.stringify(again) === JSON.stringify(rows[0]) && mod.replayCheck(4242);
   const med = (k) => rows.map((r) => r[k]).sort((a, b) => a - b)[Math.floor(rows.length / 2)];
   console.log(JSON.stringify({ ok: deterministic, deterministic, skill: SKILL, lag: LAG, runs: N,
-    medianWave: med('wave'), perBreak: +(rows.reduce((s, r) => s + r.perBreak, 0) / rows.length).toFixed(2),
+    medianWave: med('wave'), clearRate: +(rows.reduce((s, r) => s + r.cleared, 0) / rows.length).toFixed(2), medianLost: med('lost'), perBreak: +(rows.reduce((s, r) => s + r.perBreak, 0) / rows.length).toFixed(2),
     multi3Rate: +(rows.reduce((s, r) => s + r.multiRate, 0) / rows.length).toFixed(2), medianBreaks: med('eaten'), medianSaved: med('saved'),
     medianSec: med('sec'), medianScore: med('score'), medianBestChain: med('bestChain'),
     minSec: Math.min(...rows.map((r) => r.sec)), maxSec: Math.max(...rows.map((r) => r.sec)) }, null, 1));

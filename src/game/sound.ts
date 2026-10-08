@@ -1,6 +1,7 @@
 // この作品の効果音と BGM。
 // 効果音は WebAudio の合成(和の楽器に寄せる: 太鼓・鈴・拍子木・寺の鐘・篠笛の息)。core/audio の残響を通る。
-// BGM は 魔王魂「揺れる提灯」(民族09。CC BY 4.0、表記: 音楽：魔王魂)。読めない時は合成の爪弾きに切り替える。
+// BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。タイトル =「揺れる提灯」(民族09)、遊ぶ間 =「和bravery heart」(民族33、和風の戦闘曲)。
+// 読めない時は合成の爪弾きに切り替える。
 import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop } from '../core/audio';
 import { tune } from '../core/tuning';
 
@@ -77,9 +78,12 @@ export const snd = {
   ui: () => wood(1500, 0.05),
 };
 
-/** BGM: 魔王魂「揺れる提灯」。曲頭の無音(0.53 秒)を飛ばし、34 小節(1 拍 0.329 秒)でループ */
-const BGM_URL = './audio/bgm_chochin.mp3';
-const LOOP_START = 0.529, LOOP_END = 0.529 + 34 * 4 * 0.3293;
+/** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */
+const TRACKS = {
+  title: { url: './audio/bgm_chochin.mp3', start: 0.529, end: 0.529 + 34 * 4 * 0.3293, gain: 0.3 },
+  play: { url: './audio/bgm_battle.mp3', start: 0.338, end: 0.338 + 47 * 4 * 0.94785, gain: 0.28 },
+} as const;
+export type Track = keyof typeof TRACKS;
 let stopFile: (() => void) | null = null;
 let starting = false;
 let gen = 0;
@@ -89,15 +93,20 @@ let stepI = 0;
 let intensity = 0;
 const PHRASE = [0, 2, 3, 2, 5, 4, 3, -1, 2, 3, 5, 7, 6, 5, 3, -1];
 
-export function bgmStart() {
-  if (stopFile || starting || timer || !tune<boolean>('audio.bgm')) return;
+let current: Track | null = null;
+export function bgmStart(track: Track = 'play') {
+  if (current === track && (stopFile || starting || timer)) return;
+  bgmStop();
+  if (!tune<boolean>('audio.bgm')) return;
+  current = track;
   starting = true;
   const my = ++gen;
-  loadBuffer(BGM_URL).then((buf) => {
+  const tr = TRACKS[track];
+  loadBuffer(tr.url).then((buf) => {
     if (my !== gen) return; // 読んでいる間に止められた
     starting = false;
     if (stopFile || timer) return;
-    if (buf) stopFile = playLoop(buf, 0.32, LOOP_START, LOOP_END);
+    if (buf) stopFile = playLoop(buf, tr.gain, tr.start, tr.end);
     else synthStart();
   });
 }
@@ -125,7 +134,7 @@ function synthStart() {
 /** 0..1。夜が更けるほど(合成の時だけ)少し速く */
 export function bgmIntensity(v: number) { intensity = Math.max(0, Math.min(1, v)); }
 export function bgmStop() {
-  starting = false; gen++;
+  starting = false; gen++; current = null;
   if (stopFile) { stopFile(); stopFile = null; }
   if (timer) clearInterval(timer); timer = null;
 }

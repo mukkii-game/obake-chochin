@@ -8,7 +8,7 @@ export function readParams() {
     ammoPerHouse: tune('lantern.perHouse'),
     regenTime: tune('lantern.regen'),
     flySpeed: tune('lantern.speed'),
-    hangTime: tune('lantern.hang'),
+    fuse: tune('lantern.fuse'),
     catchR: tune('lantern.catch'),
     grabR: tune('lantern.grab'),
     queueGap: tune('ghost.queue'),
@@ -21,11 +21,11 @@ export function readParams() {
     basePts: tune('score.base'),
     hauntTime: tune('house.haunt'),
     ghostSpeed: tune('ghost.speed'),
-    speedRamp: tune('ghost.speedRamp'),
     zigLen: tune('ghost.zig'),
-    curveStart: tune('ghost.curveStart'),
-    curveTurn: tune('ghost.curveTurn'),
+    loopR: tune('ghost.loop'),
     waveBonus: tune('wave.bonus'),
+    chainBonus: tune('score.chain'),
+    formBonus: tune('score.formation'),
   };
 }
 export type Params = ReturnType<typeof readParams>;

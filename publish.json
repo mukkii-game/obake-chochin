@@ -1,7 +1,7 @@
 {
   "slug": "obake-chochin",
   "title": "おばけ提灯",
-  "tagline": "提灯を投げて、止めて、まとめて成仏。",
+  "tagline": "提灯を投げて、つないで、編隊ごと成仏。",
   "author": "MUKKII",
   "playUrl": "https://mukkii-game.github.io/obake-chochin/",
   "zipName": "obake-chochin-html5.zip",
@@ -15,37 +15,37 @@
     {
       "id": "catch",
       "label": "キャッチコピー(1行)",
-      "body": "ゆっくり飛ぶ提灯で、降りてくるおばけを縦と横の光でまとめて成仏。"
+      "body": "提灯を投げて、置いて、誘爆でつないで、おばけの編隊をまとめて成仏。"
     },
     {
       "id": "short",
       "label": "短い紹介(100字・概要欄向け)",
-      "body": "夜の都に、決まった動きのおばけが降りてくる。提灯を投げて、着いた所で縦か横に光らせる。飛んでいる提灯を下げて待てば、おばけは止まって詰まる。どこに、いつ、どの家から投げるかを読む和風ミサイルコマンド。"
+      "body": "夕暮れから夜の都に、決まった動きのおばけの編隊が降りてくる。提灯を投げると着いて 3 秒で弾け、光が届いた提灯も弾ける。縦・横・丸の光を読んでつなぎ、編隊を一度に全滅させる和風ミサイルコマンド。全 10 刻。"
     },
     {
       "id": "long",
       "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
-      "body": "夜の都に、空からおばけが降りてくる。灯りのついた家に入られると、中の人が逃げ出して灯りが消えてしまう。\n\n■ 遊び方(スマホ)\n・マスをタップすると、近くの家から提灯がゆっくり飛び、着いた所で弾ける\n・光の形は家の形: 縦長の楼は縦一列、横長の長屋は横一列\n・家をタップしてから投げると、その家の提灯をどこへでも投げられる\n・飛んでいる提灯をもう一度タップすると、弾けずに下がって待つ。たどり着いたおばけは見とれて止まり、後ろのおばけは詰まる。下がった提灯は少しして弾ける(タップですぐ)\n・光が届いた提灯も弾ける(誘爆)。1 回の光でたくさん巻き込むほど高得点\n・提灯は軒先に下がっている分だけ。使っても少しずつ戻る\n・縦持ちのままでも、画面が横向きに表示されます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち(動きを読もう)\n・幽霊 … 家へまっすぐ\n・唐傘 … ジグザグに折れながら\n・鬼火 … 大きく曲がって来る"
+      "body": "夕暮れの都に、空からおばけの編隊が降りてくる。灯りのついた家に入られると、中の人が逃げ出して灯りが消えてしまう。\n\n■ 遊び方(スマホ)\n・押した所へ、近くの家から提灯がゆっくり飛び、着いて 3 秒後に弾ける\n・光の形は家と提灯の形: 縦長 = 縦、横長 = 横、丸 = 丸\n・光が届いた提灯は、すぐ弾ける(誘爆)。並べて置けば遠くまで届く\n・置かれた提灯にたどり着いたおばけは見とれて止まり、後ろが詰まる\n・家をタップしてから投げると、その家の提灯を投げられる\n・一緒に来た編隊を一度に全部倒すと大きな得点\n・提灯は軒先に下がっている分だけ。使っても少しずつ戻る\n・全 10 刻を守り切ればクリア\n・縦持ちのままでも、画面が横向きに表示されます\n■ 遊び方(PC)\n・クリックで同じ操作。M キーで音の切り替え\n\n■ おばけたち(動きを読もう)\n・幽霊 … 縦に降りて、横へ渡り、また縦に\n・唐傘 … 斜めと縦のジグザグ\n・鬼火 … 輪を描いてから突っ込む(輪の間は丸が効く)\n\n音楽：魔王魂"
     },
     {
       "id": "short-en",
       "label": "Short description (English)",
-      "body": "Ghosts drift down on an old capital, each moving in its own fixed way. Throw slow lanterns that burst where they land, lighting a column or a row depending on the house they came from. Tap a flying lantern to hang it instead: ghosts stop at it and pile up behind. A Japanese-flavored Missile Command."
+      "body": "Ghost formations drift down on an old Japanese town at dusk. Lanterns burst 3 seconds after landing and set each other off; their light runs vertical, sideways or round depending on the house they came from. Read the formations, chain your lanterns, and wipe them out at once. 10 watches to clear. Music: MaouDamashii."
     },
     {
       "id": "controls-en",
       "label": "Controls (English)",
-      "body": "Tap / click a square: the nearest house throws a lantern that bursts on landing. Tap a house first to throw from it. Tap a flying lantern to hang it as a trap; tap a hung lantern to burst it. M toggles sound."
+      "body": "Tap / click anywhere: the nearest house throws a lantern there. It bursts 3 s after landing. Tap a house first to throw from it. M toggles sound."
     },
     {
       "id": "x-a",
       "label": "X: 公開告知",
-      "body": "和風ミサイルコマンド『おばけ提灯』を公開しました。\n降りてくるおばけを、ゆっくり飛ぶ提灯の縦と横の光でまとめて成仏。ブラウザですぐ遊べます。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #個人開発 #ブラウザゲーム"
+      "body": "和風ミサイルコマンド『おばけ提灯』を公開しました。\n提灯を投げて、置いて、誘爆でつないで、おばけの編隊をまとめて成仏。全 10 刻。ブラウザですぐ遊べます。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #個人開発 #ブラウザゲーム"
     },
     {
       "id": "x-b",
       "label": "X: 仕掛けで引く",
-      "body": "ミサイルコマンド × 平安京エイリアン × ディグダグ。\n着いたら弾ける提灯と、下げて待つ提灯。止めて詰まらせて、縦の光で一網打尽。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #インディーゲーム"
+      "body": "ミサイルコマンド × ボンバーマン × ギャラガ。\n着いて 3 秒で弾ける提灯を縦・横・丸でつないで、編隊を一度に全滅。\n\nhttps://mukkii-game.github.io/obake-chochin/\n\n#おばけ提灯 #インディーゲーム"
     }
   ],
   "sites": [

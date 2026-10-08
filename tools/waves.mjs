@@ -15,14 +15,14 @@ export const waves = OPENING_WAVES;
 export function run(wave: number, seed: number, kind: string) {
   const g = new Game(seed, readParams(), wave);
   const bot = new Bot(0.9, seed, kind === 'lag1' ? 1 : 0);
-  bot.noLead = kind === 'nolead'; bot.useHang = kind !== 'nohang'; if (kind === 'patient') bot.patience = 4;
+  bot.noLead = kind === 'nolead'; if (kind === 'patient') bot.patience = 4;
   let thrown = 0, hangs = 0, kills = 0, best = 0, lost = 0;
   while (!g.over && g.t < 120) {
     g.step(bot.decide(g));
     let end = false;
     for (const e of g.drainEvents()) {
       if (e.type === 'launch') thrown++;
-      if (e.type === 'hang') hangs++;
+      
       if (e.type === 'purify') kills++;
       if (e.type === 'chainEnd') best = Math.max(best, e.n);
       if (e.type === 'houseOut') lost++;
@@ -39,7 +39,7 @@ try {
     build: { write: false, lib: { entry, formats: ['es'], fileName: 'w' }, rollupOptions: { output: { inlineDynamicImports: true } } } });
   globalThis.location = { search: '' };
   const mod = await import('data:text/javascript,' + encodeURIComponent(out[0].output[0].code));
-  const kinds = (process.env.KINDS ?? 'lead,patient,nolead,nohang').split(',');
+  const kinds = (process.env.KINDS ?? 'lead,patient,nolead').split(',');
   const from = Number(process.env.FROM ?? 0), to = Number(process.env.TO ?? mod.waves);
   for (let w = from; w < to; w++) {
     const row = [];

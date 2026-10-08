@@ -19,6 +19,19 @@ export const PAPER = { x0: 52, y0: 28, x1: 908, y1: 512 };
 
 export function makeArt(scene: Phaser.Scene) {
   make(scene, 'bg', W, H, drawBackground);
+  // 夕焼け(夜の背景の上に足す。刻が進むほど薄くなって夜になる)
+  make(scene, 'dusk', W, H, (c) => {
+    const { x0, y0, x1 } = PAPER;
+    const g = c.createLinearGradient(0, y0, 0, 470);
+    g.addColorStop(0, 'rgba(70,30,80,0.35)'); g.addColorStop(0.45, 'rgba(170,60,50,0.32)');
+    g.addColorStop(0.68, 'rgba(220,110,50,0.45)'); g.addColorStop(1, 'rgba(200,90,50,0)');
+    c.fillStyle = g; c.fillRect(x0, y0, x1 - x0, 470 - y0);
+    // 山の端に沈む夕日
+    const sx = x0 + (x1 - x0) * 0.72, sy = 300;
+    const sg = c.createRadialGradient(sx, sy, 4, sx, sy, 110);
+    sg.addColorStop(0, 'rgba(255,220,150,0.95)'); sg.addColorStop(0.12, 'rgba(255,160,80,0.6)'); sg.addColorStop(1, 'rgba(220,100,40,0)');
+    c.fillStyle = sg; c.fillRect(sx - 130, sy - 130, 260, 260);
+  });
   make(scene, 'glow', 128, 128, (c) => {
     const g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
     g.addColorStop(0, 'rgba(255,255,255,1)');
@@ -30,6 +43,16 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'dot', 8, 8, (c) => { c.fillStyle = '#fff'; c.beginPath(); c.arc(4, 4, 3.5, 0, 7); c.fill(); });
   make(scene, 'shard', 10, 10, (c) => { c.fillStyle = '#e8452c'; c.beginPath(); c.moveTo(0, 0); c.lineTo(10, 3); c.lineTo(3, 10); c.fill(); });
   make(scene, 'lantern', 36, 52, drawLantern);
+  // 提灯の形 = 光の形(縦長 = 縦 / 横長 = 横 / 丸 = 丸)。置かれた提灯を見れば、どちらへ弾けるか分かる
+  make(scene, 'lantern_vline', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));
+  make(scene, 'lantern_hline', 60, 34, (c) => drawShapedLantern(c, 60, 34, 25, 10));
+  make(scene, 'lantern_area', 44, 48, (c) => drawShapedLantern(c, 44, 48, 18, 17));
+  make(scene, 'lantern_up', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));
+  make(scene, 'lantern_down', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));
+  make(scene, 'lantern_cross', 44, 48, (c) => drawShapedLantern(c, 44, 48, 18, 17));
+  // 逃げる人(小さなドット絵。2 コマで走る)
+  make(scene, 'px_run0', 18, 24, (c) => drawPixelPerson(c, 0));
+  make(scene, 'px_run1', 18, 24, (c) => drawPixelPerson(c, 1));
   make(scene, 'moon', 90, 90, (c) => {
     const g = c.createRadialGradient(45, 45, 10, 45, 45, 45);
     g.addColorStop(0, 'rgba(255,246,214,0.35)'); g.addColorStop(1, 'rgba(255,246,214,0)');
@@ -170,6 +193,41 @@ function drawBackground(c: Ctx) {
   }
 }
 
+/** 形のある提灯。rx, ry = 胴の半径(縦長・横長・丸)。上下の黒い枠、横の骨 */
+function drawShapedLantern(c: Ctx, w: number, h: number, rx: number, ry: number) {
+  const cx = w / 2, cy = h / 2 + 1;
+  c.fillStyle = '#1c1c1c';
+  c.fillRect(cx - rx * 0.55, cy - ry - 4, rx * 1.1, 5); c.fillRect(cx - rx * 0.55, cy + ry - 1, rx * 1.1, 5);
+  c.fillStyle = '#000'; c.fillRect(cx - 1, 0, 2, cy - ry - 3);
+  const g = c.createRadialGradient(cx - rx * 0.2, cy - ry * 0.2, 1, cx, cy, Math.max(rx, ry));
+  g.addColorStop(0, '#ffe8a0'); g.addColorStop(0.45, '#f05a2a'); g.addColorStop(1, '#9a1d16');
+  c.fillStyle = g;
+  c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(80,10,10,0.55)'; c.lineWidth = 1;
+  for (let y = -ry + 4; y < ry; y += 4) {
+    const ww = rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2));
+    c.beginPath(); c.moveTo(cx - ww, cy + y); c.lineTo(cx + ww, cy + y); c.stroke();
+  }
+}
+
+/** 小さなドット絵の人(着物・髷)。f = 走るコマ */
+function drawPixelPerson(c: Ctx, f: number) {
+  const P = 2; // 1 ドット = 2px
+  const px = (x: number, y: number, col: string) => { c.fillStyle = col; c.fillRect(x * P, y * P, P, P); };
+  const skin = '#f0c8a0', hair = '#1a1010', kimono = f ? '#4a6ab0' : '#4a6ab0', obi = '#c03030';
+  // 頭・髷
+  for (const [x, y] of [[4, 0], [3, 1], [4, 1], [5, 1]]) px(x, y, hair);
+  for (const [x, y] of [[3, 2], [4, 2], [5, 2], [3, 3], [4, 3], [5, 3]]) px(x, y, skin);
+  // 体
+  for (let y = 4; y <= 7; y++) for (let x = 3; x <= 5; x++) px(x, y, kimono);
+  px(3, 6, obi); px(4, 6, obi); px(5, 6, obi);
+  // 腕(振る)
+  if (f) { px(2, 4, skin); px(6, 5, skin); } else { px(2, 5, skin); px(6, 4, skin); }
+  // 足(交互)
+  if (f) { px(3, 8, kimono); px(2, 9, skin); px(5, 8, kimono); px(6, 9, skin); px(2, 10, hair); px(6, 10, hair); }
+  else { px(4, 8, kimono); px(4, 9, skin); px(4, 10, hair); px(5, 9, skin); px(5, 10, hair); }
+}
+
 function drawLantern(c: Ctx) {
   // 赤い提灯。上下の黒い枠、横の骨
   const cx = 18;
@@ -251,26 +309,37 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       break;
     }
     case 'area': {
-      // 丸い蔵: どっしり四角い白壁に、丸く低い屋根(周りを照らす)
-      c.fillStyle = lit ? '#cfc6b0' : '#5a5650'; c.fillRect(10, 28, 52, 38);
-      c.fillStyle = roof; c.beginPath(); c.ellipse(36, 28, 32, 16, 0, Math.PI, 0); c.fill();
-      c.fillRect(4, 26, 64, 5);
-      c.fillStyle = lit ? '#2a2a2a' : '#1a1a1a'; c.fillRect(10, 54, 52, 4);
-      shoji(28, 36, 16, 14);
+      // 丸い蔵: 白壁に丸い窓明かり = 丸く光る
+      c.fillStyle = lit ? '#cfc6b0' : '#5a5650'; c.fillRect(10, 26, 52, 42);
+      c.fillStyle = roof; c.beginPath(); c.ellipse(36, 26, 32, 16, 0, Math.PI, 0); c.fill();
+      c.fillRect(4, 24, 64, 5);
+      c.fillStyle = lit ? '#2a2a2a' : '#1a1a1a'; c.fillRect(10, 60, 52, 4);
+      c.fillStyle = win; c.beginPath(); c.arc(36, 44, 11, 0, 7); c.fill();
+      c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(36, 44, 11, 0, 7); c.moveTo(25, 44); c.lineTo(47, 44); c.moveTo(36, 33); c.lineTo(36, 55); c.stroke();
+      if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.beginPath(); c.arc(36, 44, 16, 0, 7); c.fill(); }
       break;
     }
     case 'hline': {
-      // 長屋: 横に長い
-      c.fillStyle = wall; c.fillRect(2, 34, 68, 30);
+      // 横の家(長屋): 横に 3 つつながった窓明かり = 横に光る
+      c.fillStyle = wall; c.fillRect(2, 34, 68, 32);
       gable(0, 72, 36, 18);
-      shoji(8, 42, 14, 12); shoji(29, 42, 14, 12); shoji(50, 42, 14, 12);
+      c.fillStyle = win; c.fillRect(8, 42, 56, 14);
+      c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
+      c.strokeRect(8, 42, 56, 14);
+      c.beginPath(); c.moveTo(26.7, 42); c.lineTo(26.7, 56); c.moveTo(45.3, 42); c.lineTo(45.3, 56); c.moveTo(8, 49); c.lineTo(64, 49); c.stroke();
+      if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.fillRect(4, 38, 64, 22); }
       break;
     }
     case 'vline': {
-      // 二階の楼: 縦に高い
-      c.fillStyle = wall; c.fillRect(20, 12, 32, 54);
-      gable(14, 58, 14, 0); gable(12, 60, 40, 30);
-      shoji(28, 18, 16, 10); shoji(28, 46, 16, 14);
+      // 縦の家(二階の楼): 縦に 3 つつながった窓明かり = 縦に光る
+      c.fillStyle = wall; c.fillRect(20, 10, 32, 58);
+      gable(12, 60, 14, 0);
+      c.fillStyle = win; c.fillRect(29, 18, 14, 44);
+      c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
+      c.strokeRect(29, 18, 14, 44);
+      c.beginPath(); c.moveTo(29, 32.7); c.lineTo(43, 32.7); c.moveTo(29, 47.3); c.lineTo(43, 47.3); c.moveTo(36, 18); c.lineTo(36, 62); c.stroke();
+      if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.fillRect(25, 14, 22, 52); }
       break;
     }
     case 'cross': {

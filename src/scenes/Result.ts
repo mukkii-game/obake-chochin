@@ -7,7 +7,7 @@ import { txt, watchName } from '../game/view';
 import { W } from '../game/logic';
 
 interface ResultData {
-  score: number; best: number; newBest: boolean; bestChain: number; purified: number; watch: number; seconds: number; replay: string;
+  score: number; best: number; newBest: boolean; bestChain: number; purified: number; watch: number; seconds: number; replay: string; cleared?: boolean; formations?: number;
 }
 
 export class Result extends Phaser.Scene {
@@ -17,7 +17,7 @@ export class Result extends Phaser.Scene {
     this.cameras.main.fadeIn(500, 5, 3, 10);
     this.add.image(0, 0, 'bg').setOrigin(0);
     this.add.rectangle(W / 2, 270, 560, 400, 0x07060c, 0.55);
-    this.add.text(W / 2, 110, t('result'), txt(36, '#e8d6ff')).setOrigin(0.5);
+    this.add.text(W / 2, 110, d.cleared ? t('clearTitle') : t('result'), txt(36, d.cleared ? '#ffe27a' : '#e8d6ff')).setOrigin(0.5);
     this.add.text(W / 2, 175, `${t('score')} ${d.score}`, txt(44, '#ffe27a')).setOrigin(0.5);
     if (d.newBest) {
       const nb = this.add.text(W / 2, 214, t('newBest'), txt(18, '#ffb0e0')).setOrigin(0.5);
@@ -26,6 +26,7 @@ export class Result extends Phaser.Scene {
     const rows = [
       `${t('bestChain')}  ${d.bestChain}${t('chain')}`,
       `${t('purified')}  ${d.purified}`,
+      `${t('formations')}  ${d.formations ?? 0}`,
       `${t('survived')}  ${watchName(d.watch)}(${d.seconds}s)`,
     ];
     this.add.text(W / 2, 248, rows.join('\n'), txt(18, '#f3e6c8', { align: 'center', lineSpacing: 8 })).setOrigin(0.5, 0);
