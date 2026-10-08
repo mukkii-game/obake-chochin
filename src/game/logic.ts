@@ -249,7 +249,7 @@ export class Game {
     const L = this.reach(piece), w = this.P.lightWidth / 2;
     const pts: Array<[number, number]> = [[x, y]];
     const line = (dx: number, dy: number) => {
-      for (const k of [0.25, 0.5, 0.75, 1]) for (const o of [-w, 0, w]) pts.push([x + dx * L * k + dy * o, y + dy * L * k + dx * o]);
+      for (const k of [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) for (const o of [-w, 0, w]) pts.push([x + dx * L * k + dy * o, y + dy * L * k + dx * o]);
     };
     switch (piece) {
       case 'vline': line(0, -1); line(0, 1); break;
@@ -257,16 +257,18 @@ export class Game {
       case 'up': line(0, -1); break;
       case 'down': line(0, 1); break;
       case 'cross': line(0, -1); line(0, 1); line(-1, 0); line(1, 0); break;
-      case 'area': for (let a = 0; a < 16; a++) for (const k of [0.5, 1]) pts.push([x + Math.cos((a * Math.PI) / 8) * L * k, y + Math.sin((a * Math.PI) / 8) * L * k]); break;
+      case 'area': for (let a = 0; a < 24; a++) for (const k of [0.5, 1]) pts.push([x + Math.cos((a * Math.PI) / 12) * L * k, y + Math.sin((a * Math.PI) / 12) * L * k]); break;
     }
     return pts;
   }
 
   /** 2 つの提灯の光の形が重なるか(= 片方が弾ければ、もう片方も連爆する) */
   touches(a: { piece: Piece; tx: number; ty: number }, b: { piece: Piece; tx: number; ty: number }) {
-    if (Math.hypot(a.tx - b.tx, a.ty - b.ty) > this.reach(a.piece) + this.reach(b.piece) + this.P.lightWidth) return false;
-    return this.shapePoints(b.piece, b.tx, b.ty).some(([x, y]) => this.along(a.piece, a.tx, a.ty, x, y, 2) >= 0)
-      || this.shapePoints(a.piece, a.tx, a.ty).some(([x, y]) => this.along(b.piece, b.tx, b.ty, x, y, 2) >= 0);
+    // 見えている外枠(ぼんやりした縁)が触れていれば連鎖する: chain.pad px の余裕
+    const pad = this.P.chainPad;
+    if (Math.hypot(a.tx - b.tx, a.ty - b.ty) > this.reach(a.piece) + this.reach(b.piece) + this.P.lightWidth + pad) return false;
+    return this.shapePoints(b.piece, b.tx, b.ty).some(([x, y]) => this.along(a.piece, a.tx, a.ty, x, y, pad) >= 0)
+      || this.shapePoints(a.piece, a.tx, a.ty).some(([x, y]) => this.along(b.piece, b.tx, b.ty, x, y, pad) >= 0);
   }
 
   /** 光がいま (x, y) を照らしているか */
@@ -547,7 +549,7 @@ export class Game {
       // 誘爆: 光が届いた提灯は、すぐ弾ける(置かれたものだけ。飛んでいるものは除く)
       // 連爆は、光がその提灯の光の範囲に触れるだけで起きる(提灯そのものに当たらなくてよい)
       for (const l of [...this.lanterns]) {
-        if (l.flying || l.fuseLit !== undefined || !this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, 4))) continue;
+        if (l.flying || l.fuseLit !== undefined || !this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, P.chainPad))) continue;
         // 誘爆は一気でなく、少し間をあけて順に(元の残り時間とは関係なく chainDelay 秒後)
         if (P.chainDelay <= 0) this.burst(l, chain);
         else { l.fuseLit = P.chainDelay; l.litChain = chain.id; this.events.push({ type: 'ignite', x: l.tx, y: l.ty }); }

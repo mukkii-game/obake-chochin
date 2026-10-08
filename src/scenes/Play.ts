@@ -609,7 +609,7 @@ export class Play extends Phaser.Scene {
     // お月さまの顔は日ごとに変わる(8/13 にこにこ → 8/14 わくわく → 8/15 大笑い)。拍に合わせてちょっと揺れる
     const moonKey = `moon_${Math.min(2, dayOf(nextW))}`;
     if (this.moon.texture.key !== moonKey) this.moon.setTexture(moonKey);
-    this.moon.setPosition(PAPER.x1 - 110 - k * 140, 130 - this.nightK * 66).setScale(0.8).setAlpha(this.nightK)
+    this.moon.setPosition(PAPER.x1 - 110 - k * 140, 130 - this.nightK * 66).setScale(0.8).setAlpha(Math.min(1, this.nightK * 1.6))
       .setAngle(Math.sin(beatPos(time) * Math.PI / 2) * 6);
 
     g.houses.forEach((h, i) => {
@@ -625,16 +625,21 @@ export class Play extends Phaser.Scene {
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
-    if (g.selected >= 0) {
-      // 選んだ家: 色つきの太い輪で囲む(この家から続けて投げられる)。下に小さな矢印
-      const h = g.houses[g.selected], r = 34 + 3 * Math.sin(time * 6);
-      this.selFx.lineStyle(9, 0xff7eb6, 0.25); this.selFx.strokeCircle(h.x, h.y - 4, r + 4);
-      this.selFx.lineStyle(4, 0xff7eb6, 0.95); this.selFx.strokeCircle(h.x, h.y - 4, r);
-      this.selFx.lineStyle(2, 0xffffff, 0.8); this.selFx.strokeCircle(h.x, h.y - 4, r - 4);
-      this.selFx.fillStyle(0xff7eb6, 0.95);
+    // カーソルを寄せた家: 押すと選ばれる(薄い輪が点滅)/ 選んだ家に寄せると、押すと外れる(はっきりした輪のまま点滅)
+    const hover = this.aim && !this.ended ? g.houses.findIndex((h) => h.lit && Math.hypot(h.x - this.aim!.x, h.y - this.aim!.y) < HOUSE_R * 1.3) : -1;
+    const ring = (i: number, a: number) => {
+      const h = g.houses[i], r = 34 + 3 * Math.sin(time * 6);
+      this.selFx.lineStyle(9, 0xff7eb6, 0.25 * a); this.selFx.strokeCircle(h.x, h.y - 4, r + 4);
+      this.selFx.lineStyle(4, 0xff7eb6, 0.95 * a); this.selFx.strokeCircle(h.x, h.y - 4, r);
+      this.selFx.lineStyle(2, 0xffffff, 0.8 * a); this.selFx.strokeCircle(h.x, h.y - 4, r - 4);
+      this.selFx.fillStyle(0xff7eb6, 0.95 * a);
       const ay = h.y - r - 14 + 3 * Math.sin(time * 8);
       this.selFx.fillTriangle(h.x - 8, ay, h.x + 8, ay, h.x, ay + 10);
-    }
+    };
+    const blink = Math.sin(time * 12) > 0 ? 1 : 0;
+    // 選んだ家: 色つきの太い輪で囲む(この家から続けて投げられる)。下に小さな矢印
+    if (g.selected >= 0) ring(g.selected, hover === g.selected ? (blink ? 1 : 0.15) : 1);
+    if (hover >= 0 && hover !== g.selected) ring(hover, blink ? 0.4 : 0.1);
 
     // 提灯: 飛んでいる間は軌跡と行き先の印、灯ったら縮んでいく灯り
     const seenL = new Set<number>();
@@ -749,9 +754,12 @@ export class Play extends Phaser.Scene {
       const low = inField && y > GROUND_Y, full = g.lanterns.length >= g.maxOnField;
       // カーソルを見ているだけで分かるように: 置けない所・いっぱいの時は赤い × と一言、置ける時は「あと N」
       if (inField && (low || full)) {
-        this.fx.lineStyle(3, 0xff6070, 0.9);
-        this.fx.lineBetween(x - 9, y - 9, x + 9, y + 9); this.fx.lineBetween(x - 9, y + 9, x + 9, y - 9);
-        this.aimTag.setText(low ? t('tooLow') : t('maxOnField').replace('{n}', String(g.maxOnField))).setColor('#ff9aa8').setPosition(x, y - 26).setVisible(true).setAlpha(1);
+        // 置けない: カーソルの赤い × と輪が点滅する
+        const on = Math.sin(time * 14) > 0;
+        this.fx.lineStyle(4, 0xff6070, on ? 1 : 0.25);
+        this.fx.lineBetween(x - 10, y - 10, x + 10, y + 10); this.fx.lineBetween(x - 10, y + 10, x + 10, y - 10);
+        this.fx.strokeCircle(x, y, 17);
+        this.aimTag.setText(low ? t('tooLow') : t('maxOnField').replace('{n}', String(g.maxOnField))).setColor('#ff9aa8').setPosition(x, y - 30).setVisible(true).setAlpha(on ? 1 : 0.35);
         if (low) { this.fx.lineStyle(1.5, 0xffb0b8, 0.35); for (let gx = PLAY.x0; gx < PLAY.x1; gx += 14) this.fx.lineBetween(gx, GROUND_Y, gx + 7, GROUND_Y); }
       } else if (inField && from >= 0) {
         this.aimTag.setText(`${t('left')} ${g.maxOnField - g.lanterns.length}`).setColor('#fff0d0').setPosition(x + 30, y + 18).setVisible(true).setAlpha(0.6);

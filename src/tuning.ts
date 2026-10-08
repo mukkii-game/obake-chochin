@@ -43,6 +43,7 @@ export const KNOBS: Knob[] = [
   { key: 'ghost.dash', label: '家に飛び込む速さ(倍)', value: 2.2, min: 1, max: 4, step: 0.1, unit: '倍', aim: '最後の一押しの勢い。大きいほど直前の救出が難しい' },
   { key: 'chain.delay', label: '誘爆の間(火が付いてから弾けるまで)', value: 0.2, min: 0, max: 0.6, step: 0.02, unit: '秒', aim: 'ぴん、ぽん、ぱーん! と 1 つずつ弾ける気持ちよさ。0 で一気に' },
   { key: 'chain.grow', label: 'コンボ 1 発ごとに光が大きくなる割合', value: 0.12, min: 0, max: 0.4, step: 0.02, unit: '倍', aim: 'つなぐほど光が広がる(4 段まで)。力は 3 発目で 2、5 発目で 3' },
+  { key: 'chain.pad', label: '連鎖の当たりの余裕(見えている縁)', value: 12, min: 0, max: 30, step: 1, unit: 'px', aim: '光の範囲の縁どうしが触れているだけで連鎖する' },
   { key: 'ghost.kaze', label: 'はやて(速いおばけ)の速さ', value: 2.1, min: 1, max: 4, step: 0.1, unit: '倍', aim: '先読みを強く求める' },
   { key: 'ghost.march', label: '行進が 1 段で下がる高さ', value: 46, min: 20, max: 120, step: 2, unit: 'px', aim: 'インベーダーのように、端で下がる' },
   // 刻

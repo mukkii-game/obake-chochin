@@ -53,16 +53,45 @@ export function makeArt(scene: Phaser.Scene) {
   // 逃げる人(小さなドット絵。2 コマで走る)
   make(scene, 'px_run0', 18, 24, (c) => drawPixelPerson(c, 0));
   make(scene, 'px_run1', 18, 24, (c) => drawPixelPerson(c, 1));
-  // お月さま: たのしい顔。日ごとに表情が変わる(0 = 8/13 にこにこ / 1 = 8/14 わくわく / 2 = 8/15 大笑い / 3 = エンディング)
-  const moonFaces: Array<[boolean, 'w' | 'smile' | 'grin']> = [[true, 'w'], [false, 'smile'], [true, 'grin'], [false, 'grin']];
-  moonFaces.forEach(([happy, mouth], i) => make(scene, `moon_${i}`, 120, 120, (c) => {
+  // お月さま: 8/13 三日月 → 8/14 ふくらむ → 8/15 満月(欠けた所が埋まっていく)。
+  // 満ちるまでは、目をぱっちり開けて町を見物している顔(物見遊山)。満月(8/15・エンディング)は笑顔。色は黄色め
+  const moonPhases: Array<{ cut: number | null; face: 'watch' | 'smile' | 'grin' }> = [
+    { cut: 13, face: 'watch' }, { cut: 40, face: 'watch' }, { cut: null, face: 'smile' }, { cut: null, face: 'grin' },
+  ];
+  moonPhases.forEach(({ cut, face }, i) => make(scene, `moon_${i}`, 120, 120, (c) => {
+    const R = 34;
     const g = c.createRadialGradient(60, 60, 14, 60, 60, 60);
-    g.addColorStop(0, 'rgba(255,246,214,0.4)'); g.addColorStop(1, 'rgba(255,246,214,0)');
+    g.addColorStop(0, `rgba(255,232,140,${cut === null ? 0.5 : 0.3})`); g.addColorStop(1, 'rgba(255,232,140,0)');
     c.fillStyle = g; c.fillRect(0, 0, 120, 120);
-    c.fillStyle = '#fbf1d2'; c.beginPath(); c.arc(60, 60, 34, 0, 7); c.fill();
-    c.fillStyle = 'rgba(214,200,160,0.3)';
-    for (const [x, y, r] of [[44, 44, 5], [80, 48, 4], [74, 80, 5]]) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
-    c.save(); c.translate(60, 58); c.scale(2, 2); cuteFace(c, 0, 0, 6.5, mouth, 2.4, happy); c.restore();
+    // 欠けている所: うっすら見える(顔はここにもかかる)
+    c.fillStyle = 'rgba(30,26,48,0.88)'; c.beginPath(); c.arc(60, 60, R, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(255,232,140,0.25)'; c.lineWidth = 1.5; c.stroke();
+    // 光っている所: 別の紙に満月を描いて、左から影の丸で切り取る(右が光る)
+    const cv = document.createElement('canvas'); cv.width = 120; cv.height = 120;
+    const m = cv.getContext('2d')!;
+    m.fillStyle = '#ffe58a'; m.beginPath(); m.arc(60, 60, R, 0, 7); m.fill();
+    m.fillStyle = 'rgba(214,180,90,0.35)';
+    for (const [x, y, r] of [[46, 46, 5], [80, 48, 4], [74, 80, 5]]) { m.beginPath(); m.arc(x, y, r, 0, 7); m.fill(); }
+    if (cut !== null) { m.globalCompositeOperation = 'destination-out'; m.fillStyle = '#000'; m.beginPath(); m.arc(60 - cut, 60, R + 1, 0, 7); m.fill(); }
+    c.drawImage(cv, 0, 0);
+    c.save(); c.translate(60, 60);
+    if (face === 'watch') {
+      // じっと見物: 白目つきのまんまる目で、町(左下)をのぞきこむ。口は「ほー」
+      c.lineWidth = 1.6; c.strokeStyle = '#3a2a2a';
+      for (const sx of [-11, 11]) {
+        c.fillStyle = '#fffaf0'; c.beginPath(); c.ellipse(sx, -4, 7, 8, 0, 0, 7); c.fill(); c.stroke();
+        c.fillStyle = '#2b2020'; c.beginPath(); c.arc(sx - 2.5, -1, 3.8, 0, 7); c.fill();
+        c.fillStyle = '#fff'; c.beginPath(); c.arc(sx - 1.2, -2.6, 1.3, 0, 7); c.fill();
+      }
+      c.beginPath(); c.moveTo(-17, -16); c.quadraticCurveTo(-11, -20, -5, -16); c.stroke();
+      c.beginPath(); c.moveTo(5, -16); c.quadraticCurveTo(11, -20, 17, -16); c.stroke();
+      c.fillStyle = '#7a3a3a'; c.beginPath(); c.ellipse(-2, 13, 3.2, 4, 0, 0, 7); c.fill();
+      c.fillStyle = 'rgba(255,140,120,0.45)';
+      for (const sx of [-1, 1]) { c.beginPath(); c.ellipse(sx * 19, 6, 5, 3, 0, 0, 7); c.fill(); }
+    } else {
+      c.scale(2, 2); cuteFace(c, 0, 0, 6.5, face === 'grin' ? 'grin' : 'smile', 2.4, true);
+    }
+    c.restore();
   }));
   make(scene, 'moon', 120, 120, (c) => c.drawImage(scene.textures.get('moon_0').getSourceImage() as CanvasImageSource, 0, 0));
   make(scene, 'house_lit', 72, 64, (c) => drawHouse(c, true));

@@ -41,7 +41,7 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   // おばけのセリフ(| で区切って、順番に使う)
   wave: { ja: 'ウェーブ', en: 'Wave' },
   maxOnField: { ja: '{n}こまで!', en: 'Only {n}!' },
-  maxUp: { ja: 'ちょうちんは がめんに {n}こまで おけるよ!', en: 'Up to {n} lanterns on screen!' },
+  maxUp: { ja: 'ちょうちんは {n}つまで おけるよ!  れんさで パワーUP!', en: 'Up to {n} lanterns! Chain them to POWER UP!' },
   power: { ja: 'パワー', en: 'POWER' },
   tooLow: { ja: 'いえより したは だめ', en: 'Not below the roofs' },
   left: { ja: 'あと', en: 'left' },

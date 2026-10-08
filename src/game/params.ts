@@ -17,6 +17,7 @@ export function readParams() {
     dashR: tune('ghost.dashR'),
     dashMult: tune('ghost.dash'),
     chainGrow: tune('chain.grow'),
+    chainPad: tune('chain.pad'),
     kazeSpeed: tune('ghost.kaze'),
     marchDrop: tune('ghost.march'),
     lineReach: tune('light.line'),
