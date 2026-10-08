@@ -75,12 +75,18 @@ export const snd = {
    * 連爆の n 個目ほど、都節の音階で高くなる(5 個目で 1 オクターブ上)。読めない時は合成だけ
    */
   break: (n: number) => {
-    const step = MIYAKO[Math.min(n - 1, MIYAKO.length - 1)];
-    if (boomBuf) playSample(boomBuf, n > 1 ? 0.3 : 0.42, 2 ** (step / 12));
-    else noise({ dur: 0.25, gain: 0.07, freq: 3200, slide: 1500, q: 0.6 });
-    taiko(n > 1 ? 0.08 : 0.12, 0, 95 * 2 ** (step / 12));
-    // 連爆: ピン・ポン・パーン…と、高くてきれいな鐘が明るい音階で上がっていく
-    if (n > 1) chime(brightNote(n - 2), 0.07, 0, 1.1);
+    // コンボの爆発: ピン・ポン・パン…と、爆発の音そのものが明るい長調の音階で上がり、だんだん軽く高くなる
+    const step = BRIGHT[Math.min(n - 1, BRIGHT.length - 1)];
+    const rate = Math.min(2.6, 2 ** (step / 12));
+    if (boomBuf) playSample(boomBuf, Math.max(0.16, 0.42 - (n - 1) * 0.05), rate);
+    else noise({ dur: 0.25, gain: 0.07, freq: 3200 * rate, slide: 1500, q: 0.6 });
+    if (n <= 3) taiko(0.12 - (n - 1) * 0.03, 0, 95 * rate);
+    // 鐘も同じ音で重ねて、つなぐほど大きく明るく(4 発目からきらめきを足す)
+    if (n > 1) {
+      const f = brightNote(n - 1);
+      chime(f, 0.06 + Math.min(n, 6) * 0.008, 0, 1.1);
+      if (n >= 4) { tone({ freq: f * 2, dur: 0.18, type: 'triangle', gain: 0.025, delay: 0.04 }); tone({ freq: f * 3, dur: 0.12, type: 'triangle', gain: 0.018, delay: 0.08 }); }
+    }
   },
   burnout: () => noise({ dur: 0.4, gain: 0.06, freq: 600, q: 2 }),
   /** n 体目の成仏: 鈴が音階を上っていく */
@@ -120,7 +126,6 @@ export const snd = {
 };
 
 /** 都節音階の半音(0 = 元の高さ、12 = 1 オクターブ上) */
-const MIYAKO = [0, 1, 5, 7, 8, 12, 13, 17, 19, 20, 24];
 let boomBuf: AudioBuffer | null = null;
 let voObake: AudioBuffer | null = null;
 /** やられた時のおばけの声(Open JTalk + Mei、高め) */

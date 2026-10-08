@@ -84,10 +84,11 @@ export const DAYS = 3;
 // 足りない型(はやて・行進・お供つきの大入道)
 const Q: Record<string, Pattern> = {
   kazeLine: (m) => [{ t: 0, kind: 'kaze', cols: [X(3, m)], n: 5, gap: 0.7, to: T(1, m), turn: 0.5 }],
-  kazeSide: (m) => [{ t: 0, kind: 'kaze', cols: [0], n: 3, gap: 0.6, to: T(4, m), edge: m ? 1 : -1, turn: 0.4 }],
+  kazeSide: (m) => [{ t: 0, kind: 'kaze', cols: [0], n: 3, gap: 0.45, to: T(4, m), edge: m ? 1 : -1, turn: 0.4 }],
   kazeRow: (m) => [{ t: 0, kind: 'kaze', cols: [X(6, m), X(7, m), X(8, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 }],
   // いなずま: すごく速いが、斜めと横に曲がりながら長く走ってから家へ
-  zig: (m) => [{ t: 0, kind: 'inazuma', cols: [X(2, m)], n: 2, gap: 2.5, to: T(3, m), side: m ? -1 : 1 }],
+  // 3 体以上が詰めて同じ道を走る(まとめて倒せる)
+  zig: (m) => [{ t: 0, kind: 'inazuma', cols: [X(2, m)], n: 3, gap: 0.45, to: T(3, m), side: m ? -1 : 1 }],
   marchL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 6, gap: 0.8, to: T(2, m), edge: m ? 1 : -1, turn: 0.1, march: true }],
   marchK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 5, gap: 0.75, to: T(4, m), edge: m ? -1 : 1, turn: 0.15, march: true }],
   // お供つきの大入道: 幽霊の群れが大入道のまわりを一緒に来る → まとめてコンボで(コンボほど力が上がり、大入道に効く)
@@ -117,7 +118,7 @@ export const WAVE_NAMES: Array<{ ja: string; en: string }> = [
 const WAVES: Group[][] = [
   // 8/13 迎え盆: 1 種類ずつ顔見世(縦の幽霊 → 横の唐傘 → 輪と大入道)
   [...few(P.line(false), 4), ...shift(few(P.row(false), 1).map((g) => ({ ...g, cols: g.cols.slice(1, 4) })), 5), ...shift(few(P.line(true), 3), 9), ...shift(P.big(false), 13)],
-  [...few(P.sweep(false), 3), ...shift(P.sideK(false), 4), ...shift(P.sideL(true), 9), ...shift(few(Q.zig(false), 1), 12)],
+  [...few(P.sweep(false), 3), ...shift(P.sideK(false), 4), ...shift(P.sideL(true), 9), ...shift(Q.zig(false), 12)],
   [...P.loop(false), ...shift(P.big(true), 3), ...shift(P.sideL(false), 8), ...shift(few(P.step(false), 3), 11)],
   // 8/14: はやて(先読み)→ 行進(横の提灯)→ 大入道とお供(コンボ)
   [...Q.kazeLine(false), ...shift(Q.kazeSide(true), 5), ...shift(Q.kazeRow(false), 10), ...shift(few(P.line(true), 3), 12), ...shift(Q.kazeSide(false), 14)],
