@@ -47,7 +47,7 @@ export class Play extends Phaser.Scene {
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private gGlows = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peek?: Phaser.GameObjects.Image }> = [];
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peek?: Phaser.GameObjects.Image; back: Phaser.GameObjects.Shape }> = [];
   /** 家に入り込んだおばけ(家ごと)と、入ったおばけの id(跳ね返る絵を出さない) */
   private peek: Array<GhostKind | undefined> = [];
   private entered = new Set<number>();
@@ -80,6 +80,7 @@ export class Play extends Phaser.Scene {
   private pauseOff: (() => void) | null = null;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeTick = 0;
+  private slotFx!: Phaser.GameObjects.Graphics;
   private jet!: Phaser.GameObjects.Particles.ParticleEmitter;
   private prevPos = new Map<number, [number, number]>();
   private bloom!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -130,9 +131,13 @@ export class Play extends Phaser.Scene {
       // 形ごとに重なり具合を変える(横長は広め、縦長は詰める)
       const step = h.piece === 'hline' ? 17 : h.piece === 'vline' ? 13 : 14;
       const hang = HANG.map(([, dy], k) => this.add.image(h.x + 40 + k * step, h.y + dy, `lantern_${h.piece}`).setScale(0.56).setDepth(4 + k * 0.01));
-      this.houseImgs.push({ img, glow, hang, key });
+      // 窓の向こうの暗がり(暗い家の窓は穴なので、その後ろに置く)
+      const back = h.piece === 'area' ? this.add.circle(h.x, h.y + 4, 13, 0x15131c) : h.piece === 'vline' ? this.add.rectangle(h.x, h.y - 3, 21, 26, 0x15131c) : this.add.rectangle(h.x, h.y + 9, 40, 19, 0x15131c);
+      back.setDepth(1.5).setVisible(false);
+      this.houseImgs.push({ img, glow, hang, key, back });
     }
     this.fx = this.add.graphics().setDepth(5);
+    this.slotFx = this.add.graphics().setDepth(4.5);
     this.glowFx = this.add.graphics().setDepth(19).setBlendMode(Phaser.BlendModes.ADD);
 
     this.sparks = this.add.particles(0, 0, 'dot', {
@@ -628,6 +633,7 @@ export class Play extends Phaser.Scene {
     this.moon.setPosition(PAPER.x1 - 110 - k * 140, 130 - this.nightK * 66).setScale(0.8).setAlpha(Math.min(1, this.nightK * 1.6))
       .setAngle(Math.sin(beatPos(time) * Math.PI / 2) * 6);
 
+    this.slotFx.clear();
     g.houses.forEach((h, i) => {
       const o = this.houseImgs[i];
       // おばけが入り込んだ家: 中の人が騒いで灯りが揺れ、家が震える(消えるまでの間が、そのまま助けに行ける猶予)
@@ -639,14 +645,33 @@ export class Play extends Phaser.Scene {
       o.img.setScale(0.8 * (1 + h.flash * 0.25));
       // 入り込んだおばけ: 暗くなった家の窓から顔を出して、ゆらゆら(大きいのは目だけ)
       const pk = this.peek[i];
+      // 暗い家: 窓は穴になっていて、後ろの暗がりが見える。入り込んだおばけは大きさそのまま窓の向こうにいて、
+      // 窓から見える所だけ見える(大きいおばけは目のあたりだけ)
+      const wy = h.y + (o.key.endsWith('vline') ? -3 : o.key.endsWith('hline') ? 9 : 4);
+      o.back.setVisible(!h.lit);
       if (!h.lit && pk) {
-        const big = pk === 'big' || pk === 'giant' || pk === 'mega';
-        const wy = h.y + (o.key.endsWith('vline') ? -3 : o.key.endsWith('hline') ? 9 : 4);
-        if (!o.peek) o.peek = this.add.image(h.x, wy, 'peek_eyes').setDepth(3);
-        o.peek.setTexture(big ? 'peek_eyes' : GHOST_TEX[pk]).setScale(big ? 0.7 : 0.3).setTint(big ? 0xffffff : (GHOST_TINT[pk] ?? 0xffffff))
-          .setPosition(h.x + Math.sin(time * 1.7 + i) * 3, wy + Math.sin(time * 2.3 + i) * 1.5).setVisible(true).setAlpha(big ? 0.6 + 0.4 * Math.abs(Math.sin(time * 1.2 + i)) : 1);
+        const k = pk === 'big' ? 1.35 : pk === 'giant' ? 1.03 : 1;
+        if (!o.peek) o.peek = this.add.image(h.x, wy, GHOST_TEX[pk]).setDepth(1.6);
+        o.peek.setTexture(GHOST_TEX[pk]).setScale(0.66 * k).setTint(GHOST_TINT[pk] ?? 0xffffff)
+          .setPosition(h.x + Math.sin(time * 1.3 + i) * 5, wy + 2 + Math.sin(time * 2.1 + i) * 2).setVisible(true);
       } else if (o.peek) { o.peek.setVisible(false); if (h.lit) this.peek[i] = undefined; }
-      o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setY(h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2));
+      // 軒先の提灯: ある分は灯る。無い分は点々の輪郭だけ。次に戻る 1 つは、下から灯りが溜まっていく(戻るまでのゲージ)
+      const regenK = Math.min(1, h.regen / P.regenTime);
+      o.hang.forEach((hg, k) => {
+        const y = h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2;
+        hg.setY(y);
+        if (!h.lit) { hg.setVisible(false); return; }
+        const fw = hg.frame.width, fh = hg.frame.height;
+        if (k < h.ammo) { hg.setVisible(true).setAlpha(1).setCrop(); return; }
+        // 輪郭(点々)
+        const rx = (fw * 0.56) / 2 * 0.9, ry = (fh * 0.56) / 2 * 0.9;
+        this.slotFx.fillStyle(0xffd8a0, 0.55);
+        for (let a = 0; a < 14; a++) this.slotFx.fillCircle(hg.x + Math.cos((a / 14) * Math.PI * 2) * rx, y + Math.sin((a / 14) * Math.PI * 2) * ry, 1);
+        if (k === h.ammo && regenK > 0) {
+          const ch = Math.max(1, Math.round(fh * regenK));
+          hg.setVisible(true).setAlpha(0.85).setCrop(0, fh - ch, fw, ch);
+        } else hg.setVisible(false);
+      });
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
@@ -760,7 +785,9 @@ export class Play extends Phaser.Scene {
       if (this.entered.has(id)) {
         // 家に入った: くるっと回らず、すうっと窓へ吸い込まれる
         this.entered.delete(id);
-        this.tweens.add({ targets: s, scale: 0.05, alpha: 0, y: s.y + 8, duration: 260, ease: 'Quad.In', onComplete: () => s.destroy() });
+        // 大きさはそのまま、家の後ろ(窓の向こう)へ入る。あとは窓から一部だけ見える
+        s.setDepth(1.6);
+        this.tweens.add({ targets: s, alpha: 0, duration: 200, delay: 120, onComplete: () => s.destroy() });
         continue;
       }
       const ko = `${s.texture.key.replace(/_(worry|cry)$/, '')}_ko`;

@@ -379,6 +379,7 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       c.fillRect(4, 24, 64, 5);
       c.fillStyle = lit ? '#2a2a2a' : '#1a1a1a'; c.fillRect(10, 60, 52, 4);
       c.fillStyle = win; c.beginPath(); c.arc(36, 44, 15, 0, 7); c.fill();
+      if (!lit) { c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000'; c.beginPath(); c.arc(36, 44, 15, 0, 7); c.fill(); c.restore(); }
       c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
       c.beginPath(); c.arc(36, 44, 15, 0, 7); c.stroke();
       if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.beginPath(); c.arc(36, 44, 16, 0, 7); c.fill(); }
@@ -390,6 +391,7 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       gable(0, 72, 36, 18);
       // 大きな窓 1 つ(おばけが入ると、ここから顔を出す)
       c.fillStyle = win; c.fillRect(12, 39, 48, 22);
+      if (!lit) c.clearRect(12, 39, 48, 22); // 暗い家の窓は穴(後ろの暗がりと、入り込んだおばけが見える)
       c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
       c.strokeRect(12, 39, 48, 22);
       c.beginPath(); c.moveTo(36, 39); c.lineTo(36, 61); c.stroke();
@@ -401,6 +403,7 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       c.fillStyle = wall; c.fillRect(20, 10, 32, 58);
       gable(12, 60, 14, 0);
       c.fillStyle = win; c.fillRect(24, 20, 24, 30);
+      if (!lit) c.clearRect(24, 20, 24, 30);
       c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
       c.strokeRect(24, 20, 24, 30);
       c.beginPath(); c.moveTo(24, 35); c.lineTo(48, 35); c.stroke();
