@@ -1,6 +1,7 @@
 // この作品の効果音と BGM。
 // 効果音は WebAudio の合成(和の楽器に寄せる: 太鼓・鈴・拍子木・寺の鐘・篠笛の息)。core/audio の残響を通る。
-// BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。タイトル =「ネオ・ユートピア」(ネオロック57、明るく元気)、遊ぶ間 =「Speed Rush」(ネオロック74、生演奏ギター)。
+// BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。遊ぶ間 = サイバー16(アイドル・ダンスの曲)。タイトルは無音。
+// 始まりの声「おばけが、くるぞー!」は Open JTalk + HTS Voice「Mei」(happy, CC BY 3.0)で作った。
 // 読めない時は合成の爪弾きに切り替える。
 import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice, playSample, setVolumes } from '../core/audio';
 import { tune } from '../core/tuning';
@@ -81,6 +82,8 @@ export const snd = {
   watch: () => kane(note(0) / 2, 0.08),
   over: () => { kane(note(0) / 2, 0.09, 0, 4); kane(note(0) / 2, 0.07, 1.6, 4); },
   ui: () => wood(1500, 0.05),
+  /** 大入道に光が当たった: ぼよん */
+  hurt: () => { tone({ freq: 180, slide: 320, dur: 0.18, type: 'sine', gain: 0.1 }); tone({ freq: 320, slide: 160, dur: 0.22, type: 'triangle', gain: 0.06, delay: 0.12 }); },
   /** 逃げる人の叫び声(合成)。kind: 0 = キャー(高い)/ 1 = ワー(低め)/ 2 = ひぃ〜(息まじり) */
   scream: (kind: number, delay = 0, pitch = 1) => {
     if (kind === 0) voice({ delay, dur: 0.75, gain: 0.05, consonant: 0.04, vibrato: 18,
@@ -98,14 +101,18 @@ export const snd = {
 /** 都節音階の半音(0 = 元の高さ、12 = 1 オクターブ上) */
 const MIYAKO = [0, 1, 5, 7, 8, 12, 13, 17, 19, 20, 24];
 let boomBuf: AudioBuffer | null = null;
+let voObake: AudioBuffer | null = null;
 /** 効果音のファイルを読んでおく(遊ぶ前に 1 回) */
-export function preloadSfx() { if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; }); }
+export function preloadSfx() {
+  if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; });
+  if (!voObake) loadBuffer('./audio/vo_obake.mp3').then((b) => { voObake = b; });
+}
+/** 始まりの声「おばけが、くるぞー!」 */
+export function sayObake() { if (voObake) playSample(voObake, 0.9); }
 
 /** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */
 const TRACKS = {
-  title: { url: './audio/bgm_title.mp3', start: 0.52, end: 76.87, gain: 0.3 },
-  // 繰り返しの切れ目が見つからなかったので、曲の終わり(後ろの無音の手前)から頭へ戻る
-  play: { url: './audio/bgm_rock.mp3', start: 0.73, end: 85.64, gain: 0.3 },
+  play: { url: './audio/bgm_play.mp3', start: 0.52, end: 57.985, gain: 0.3 },
 } as const;
 export type Track = keyof typeof TRACKS;
 let stopFile: (() => void) | null = null;

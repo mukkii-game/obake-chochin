@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { expose } from '../core/demo';
 import { META } from '../core/meta';
 import { makeArt } from '../game/art';
+import { allText } from '../core/i18n';
 
 /**
  * 絵は src/game/art.ts で手続き的に描く。public/art/manifest.json に { "キー": "ファイル名" } を書くと、
@@ -17,6 +18,13 @@ export class Boot extends Phaser.Scene {
     expose('version', META.version);
     expose('scene', 'Boot');
     makeArt(this);
+    // 文字(Web フォント)が読めるまで少し待つ(読めなくても 1.5 秒で進む)
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    const ready = fonts ? Promise.race([Promise.all(['40px "Mochiy Pop One"', '800 20px "M PLUS Rounded 1c"'].map((f) => fonts.load(f, allText()))), new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
+    ready.catch(() => {}).then(() => this.afterFonts());
+  }
+
+  private afterFonts() {
     const manifest = (this.cache.json.get('artManifest') ?? {}) as Record<string, string>;
     const keys = Object.keys(manifest).filter((k) => this.textures.exists(k));
     if (!keys.length) { this.scene.start('Title'); return; }

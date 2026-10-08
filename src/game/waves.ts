@@ -8,6 +8,7 @@
 //   交差     … 左右から来て真ん中で交わる → 交わる所と時に、丸で
 //   ジグザグ … 斜めと縦を交互に → 縦に降りる所を縦で
 //   輪       … 輪を描いてから突っ込む(ギャラガ)→ 輪の真ん中に丸
+//   大入道   … 大きくてゆっくり、光 3 回で成仏 → 誘爆で何度も光を当てる。止めて詰まらせて重ねる
 //   せき止め … 間をあけて長く続く → 先頭の前に置いて止め、詰まった所を縦で(置いた提灯は 3 秒後に弾ける)
 import type { GhostKind } from './logic';
 import type { Rng } from '../core/rng';
@@ -46,6 +47,7 @@ export const PATTERNS: Record<string, Pattern> = {
   zigzag: (m) => [{ t: 0, kind: 'kasa', cols: [X(8, m)], n: 4, gap: 2.0, to: T(3, m), side: 1 }],
   loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.9, to: T(3, m), side: m ? -1 : 1 }],
   dam: (m) => [{ t: 0, kind: 'fuwa', cols: [X(10, m)], n: 7, gap: 2.2, to: T(5, m) }],
+  big: (m) => [{ t: 0, kind: 'big', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 }],
 };
 
 const P = PATTERNS;
@@ -56,13 +58,13 @@ const WAVES: Group[][] = [
   P.line(false),
   [...P.row(false), ...shift(P.line(true), 6)],
   [...P.stair(false), ...shift(P.cross(true), 5)],
-  [...P.zigzag(false), ...shift(P.zigzag(true), 3), ...shift(P.line(false), 8)],
+  [...P.zigzag(false), ...shift(P.zigzag(true), 3), ...shift(P.line(false), 8), ...shift(P.big(false), 4)],
   [...P.loop(false), ...shift(P.row(true), 7)],
-  [...P.dam(false), ...shift(P.zigzag(true), 4), ...shift(P.stair(true), 10)],
+  [...P.dam(false), ...shift(P.zigzag(true), 4), ...shift(P.stair(true), 10), ...shift(P.big(true), 6)],
   [...P.loop(false), ...shift(P.loop(true), 5), ...shift(P.cross(false), 10)],
-  [...P.row(false), ...shift(P.row(true), 4), ...shift(P.zigzag(false), 8), ...shift(P.line(true), 12)],
+  [...P.row(false), ...shift(P.row(true), 4), ...shift(P.zigzag(false), 8), ...shift(P.line(true), 12), ...shift(P.big(false), 2)],
   [...P.cross(false), ...shift(P.loop(true), 3), ...shift(P.dam(false), 6), ...shift(P.stair(true), 11)],
-  [...P.loop(false), ...shift(P.row(true), 3), ...shift(P.zigzag(false), 6), ...shift(P.cross(true), 9), ...shift(P.loop(true), 13)],
+  [...P.loop(false), ...shift(P.row(true), 3), ...shift(P.zigzag(false), 6), ...shift(P.cross(true), 9), ...shift(P.loop(true), 13), ...shift(P.big(false), 1), ...shift(P.big(true), 10)],
 ];
 
 export const WAVE_COUNT = WAVES.length;

@@ -4,8 +4,8 @@ import { isMuted, toggleMuted } from '../core/audio';
 import { load } from '../core/save';
 import { DemoDriver, expose } from '../core/demo';
 import { onTap } from '../ui/taps';
-import { snd, bgmStart } from '../game/sound';
-import { txt } from '../game/view';
+import { snd, preloadSfx } from '../game/sound';
+import { txt, pop } from '../game/view';
 import { PAPER } from '../game/art';
 import { W, H, PIECE_SETS } from '../game/logic';
 import { readParams } from '../game/params';
@@ -21,7 +21,6 @@ export class Title extends Phaser.Scene {
     // タイトルは夕暮れ(遊び始めと同じ空)
     this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD);
     this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8);
-    this.add.rectangle(W / 2, 300, 720, 160, 0x1a0c18, 0.3);
 
     // 飾り: 漂うおばけと提灯
     const deco: Array<[string, number, number]> = [['g_fuwa', 140, 430], ['g_oni', 215, 470], ['g_kasa', 760, 460], ['g_oni', 830, 410], ['g_fuwa', 690, 480]];
@@ -29,19 +28,34 @@ export class Title extends Phaser.Scene {
       const s = this.add.image(x, y, k).setAlpha(0.85);
       this.tweens.add({ targets: s, y: y - 10, x: x + (i % 2 ? 12 : -12), yoyo: true, repeat: -1, duration: 1400 + i * 230, ease: 'Sine.InOut' });
     });
-    const lg = this.add.image(W / 2, 112, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setScale(2.4).setAlpha(0.5);
-    this.tweens.add({ targets: lg, alpha: 0.35, yoyo: true, repeat: -1, duration: 900 });
-    this.add.image(W / 2, 112, 'lantern').setScale(1.5);
+    // ロゴ: ポップで大きく、1 文字ずつぴょこぴょこ弾む
+    const lg = this.add.image(W / 2, 128, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setScale(3.2).setAlpha(0.45);
+    this.tweens.add({ targets: lg, alpha: 0.3, yoyo: true, repeat: -1, duration: 900 });
+    const title = t('title');
+    const size = [...title].length > 6 ? 62 : 84;
+    // 影(少し下にずらした濃い色の文字)と、本体。ぴょこぴょこ弾む
+    const shadow = this.add.text(W / 2, 126, title, pop(size, '#1a0818', { stroke: '#1a0818', strokeThickness: 14 })).setOrigin(0.5);
+    const logo = this.add.text(W / 2, 120, title, pop(size, '#ffb347', { stroke: '#3a1838', strokeThickness: 12 })).setOrigin(0.5);
+    // 文字ごとに色を変える(縦のグラデーションの代わりに、横に虹色)
+    const grad = logo.context.createLinearGradient(0, 0, logo.width, 0);
+    ['#ffb347', '#ff7eb6', '#ffe066', '#8fe3c8', '#c8a0ff', '#ff7eb6'].forEach((c, i, arr) => grad.addColorStop(i / (arr.length - 1), c));
+    logo.setFill(grad);
+    this.tweens.add({ targets: [logo, shadow], y: '-=10', scaleX: 1.03, scaleY: 0.97, yoyo: true, repeat: -1, duration: 560, ease: 'Sine.InOut' });
+    const total = logo.width;
+    this.add.image(W / 2 - total / 2 - 26, 92, 'lantern').setScale(0.9).setAngle(-12);
 
-    this.add.text(W / 2, 178, t('title'), txt(58, '#fff1d0', { strokeThickness: 8 })).setOrigin(0.5);
-    this.add.text(W / 2, 222, t('subtitle'), txt(17, '#e8d6ff')).setOrigin(0.5);
-    const lines = ['how1', 'how2', 'how3', 'how4'].map((k) => t(k));
-    this.add.text(W / 2, 252, lines.join('\n'), txt(16, '#f3e6c8', { align: 'center', lineSpacing: 6 })).setOrigin(0.5, 0);
-    this.add.text(W / 2, 372, t('kinds'), txt(13, '#b9b0d0')).setOrigin(0.5);
+    // ひとこと(アーケードの軽さ)と、操作だけをはっきり
+    this.add.text(W / 2, 190, t('catch'), pop(22, '#fff6d8')).setOrigin(0.5);
+    this.add.text(W / 2, 228, `${t('rule1')}   ${t('rule2')}`, txt(16, '#ffe9c0')).setOrigin(0.5);
+    const box = this.add.rectangle(W / 2, 294, 560, 76, 0x2a1430, 0.55).setStrokeStyle(2, 0xffd890, 0.4);
+    void box;
+    this.add.text(W / 2 - 260, 272, t('ctrlPhone'), txt(15, '#ffffff')).setOrigin(0, 0.5);
+    this.add.text(W / 2 - 260, 294, t('ctrlPhone2'), txt(13, '#e0d0f0')).setOrigin(0, 0.5);
+    this.add.text(W / 2 - 260, 316, t('ctrlPC'), txt(15, '#ffffff')).setOrigin(0, 0.5);
     // 家の形 = 光の形(絵で見せる)。小さなマス目に光る形を描く
     const pieces = PIECE_SETS[readParams().pieceSet] ?? PIECE_SETS['縦・横'];
     pieces.forEach((p, i) => {
-      const x = W / 2 + (i - (pieces.length - 1) / 2) * 130, y = 420;
+      const x = W / 2 + (i - (pieces.length - 1) / 2) * 130, y = 386;
       this.add.image(x - 26, y + 22, `house_${p}_lit`).setOrigin(0.5, 0.92).setScale(0.62);
       const g = this.add.graphics();
       const cs = 9, cx = x + 26, cy = y;
@@ -59,8 +73,7 @@ export class Title extends Phaser.Scene {
     });
 
     this.add.text(PAPER.x0 + 14, H - 30, t('musicCredit'), txt(11, '#8a84a0')).setOrigin(0, 0.5);
-    bgmStart('title');
-    const start = this.add.text(W / 2, 470, t('tapToStart'), txt(22, '#ffe066')).setOrigin(0.5);
+    const start = this.add.text(W / 2, 462, t('tapToStart'), pop(26, '#ffe066')).setOrigin(0.5);
     this.tweens.add({ targets: start, alpha: 0.35, yoyo: true, repeat: -1, duration: 700 });
     const best = load().best;
     if (best > 0) this.add.text(W / 2, 500, `${t('best')} ${best}`, txt(14, '#cccccc')).setOrigin(0.5);
@@ -71,6 +84,7 @@ export class Title extends Phaser.Scene {
     const hit = (o: Phaser.GameObjects.Text, x: number, y: number) => o.getBounds().contains(x, y) || Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 10, 6), x, y);
 
     let gone = false;
+    preloadSfx();
     const go = () => { if (gone) return; gone = true; snd.ui(); this.scene.start('Play'); };
     const off = onTap((x, y) => {
       if (hit(langBtn, x, y)) { snd.ui(); toggleLang(); this.scene.restart(); return; }

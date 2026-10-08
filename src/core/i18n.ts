@@ -6,8 +6,14 @@ export type Lang = 'ja' | 'en';
 
 const TABLE: Record<string, { ja: string; en: string }> = {
   title: { ja: 'おばけ提灯', en: 'Obake Chochin' },
+  catch: { ja: 'ちょうちん投げて、おばけをまとめて成仏!', en: 'Toss lanterns. Blast ghosts. Chain it up!' },
+  rule1: { ja: '3びょうでドカン! となりもドカン!', en: 'Boom in 3 s, and the next one goes too!' },
+  rule2: { ja: '家のかたち = 光のかたち(たて・よこ・まる)', en: 'House shape = light shape' },
+  ctrlPhone: { ja: 'スマホ: なげたい所をタップ(はなした所へ飛ぶ)', en: 'Phone: tap where to throw (it flies where you let go)' },
+  ctrlPhone2: { ja: '　　　家から指をすべらせると、その家の提灯をなげる', en: '        Slide from a house to throw its lantern' },
+  ctrlPC: { ja: 'PC: クリックでなげる・マウスで光る所が見える・M で音', en: 'PC: click to throw, hover to preview, M for sound' },
   subtitle: { ja: '〜 夜の村の灯り守り 〜', en: '~ Lantern Keeper of the Night Village ~' },
-  tapToStart: { ja: 'タップ / クリックではじめる', en: 'Tap or click to start' },
+  tapToStart: { ja: 'タップでスタート!', en: 'Tap to start!' },
   score: { ja: 'スコア', en: 'Score' },
   best: { ja: 'ベスト', en: 'Best' },
   result: { ja: '村の灯りが消えた', en: 'The village went dark' },
@@ -16,11 +22,6 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   lang: { ja: 'EN', en: '日本語' },
   mute: { ja: '音: ON', en: 'Sound: ON' },
   unmute: { ja: '音: OFF', en: 'Sound: OFF' },
-  how1: { ja: 'おばけは上から、決まった動き(階段・ジグザグ・輪)で灯りの家へ来る', en: 'Ghosts come down toward the lit houses in fixed ways (steps, zigzag, loops).' },
-  how2: { ja: '押した所へ近くの家から提灯が飛ぶ。家と提灯の形 = 光の形(縦長 = 縦、横長 = 横、丸 = 丸)', en: 'Tap anywhere: a lantern flies from a nearby house. Its shape is the light: tall, wide or round.' },
-  how3: { ja: '置かれた提灯は 3 秒で弾け、光が届いた提灯もすぐ弾ける。着いたおばけは止まり、後ろが詰まる', en: 'Lanterns burst 3 s after landing and set each other off. Ghosts stop at a lantern and pile up.' },
-  how4: { ja: '家をタップしてから投げると、その家の提灯を投げられる。編隊を一度に全部倒すと大きな得点。全 10 刻', en: 'Tap a house first to throw its lantern. Wipe out a whole formation at once for big points. 10 watches.' },
-  kinds: { ja: '階段の幽霊(縦・横)・ ジグザグの唐傘 ・ 輪を描く鬼火(丸が有利)', en: 'Ghost: steps · Umbrella: zigzag · Onibi: loops (round light works best)' },
   chain: { ja: '連', en: ' chain' },
   watch: { ja: '刻', en: 'Watch' },
   houses: { ja: '灯り', en: 'Lights' },
@@ -36,12 +37,13 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   waveClear: { ja: '刻を越えた', en: 'Watch survived' },
   demo: { ja: 'デモ', en: 'Demo' },
   screams: { ja: 'キャー!|ワー!|ひぃ〜!|わぁっ!', en: 'Eek!|Aaah!|Help!|Waah!' },
+  obakeComing: { ja: 'おばけが、くるぞー!', en: 'Here come the ghosts!' },
   hiScore: { ja: 'ハイスコア', en: 'HI' },
   formation: { ja: '編隊全滅', en: 'Formation wiped' },
   chainBonus: { ja: '連鎖ボーナス', en: 'Chain bonus' },
   clearTitle: { ja: '夜を守り切った', en: 'You kept the lights on' },
   formations: { ja: '編隊全滅', en: 'Formations wiped' },
-  musicCredit: { ja: '音楽：魔王魂', en: 'Music: MaouDamashii' },
+  musicCredit: { ja: '音楽：魔王魂 / 声：HTS Voice Mei(名古屋工業大学, CC BY 3.0)', en: 'Music: MaouDamashii / Voice: HTS Voice Mei (Nagoya Inst. of Tech., CC BY 3.0)' },
 };
 
 let current: Lang = detect();
@@ -76,3 +78,6 @@ export function t(key: string): string {
 export function addStrings(extra: Record<string, { ja: string; en: string }>) {
   Object.assign(TABLE, extra);
 }
+
+/** 使う文字のすべて(Web フォントを先に読んでおくため) */
+export function allText(): string { return Object.values(TABLE).map((v) => v.ja + v.en).join('') + '0123456789+!連刻'; }

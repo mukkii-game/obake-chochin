@@ -1,10 +1,16 @@
 // 共通の見た目の部品(文字の書式、夜の刻の名前)
 import { lang } from '../core/i18n';
 
-export const FONT = '"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP","MS PMincho",serif';
+/** 文字: 丸くてかわいいゴシック(アーケードの軽さ)。大きな見出しはポップな太字 */
+export const FONT = '"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Arial Rounded MT Bold",sans-serif';
+export const POP = '"Mochiy Pop One","M PLUS Rounded 1c","Hiragino Maru Gothic ProN",sans-serif';
 
 export function txt(size: number, color = '#f3e6c8', extra: Record<string, unknown> = {}) {
-  return { fontFamily: FONT, fontSize: `${size}px`, color, stroke: '#0b0810', strokeThickness: Math.max(2, size / 8), ...extra };
+  return { fontFamily: FONT, fontStyle: '800', fontSize: `${size}px`, color, stroke: '#2a1430', strokeThickness: Math.max(3, size / 7), padding: { x: 2, y: Math.ceil(size / 6) }, ...extra };
+}
+/** ポップな見出し(タイトル・連鎖・ボーナス) */
+export function pop(size: number, color = '#ffe27a', extra: Record<string, unknown> = {}) {
+  return { fontFamily: POP, fontSize: `${size}px`, color, stroke: '#2a1430', strokeThickness: Math.max(4, size / 6), padding: { x: Math.ceil(size / 5), y: Math.ceil(size / 4) }, ...extra };
 }
 
 const HOURS_JA = ['戌', '亥', '子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉'];

@@ -23,6 +23,8 @@ export function readParams() {
     ghostSpeed: tune('ghost.speed'),
     zigLen: tune('ghost.zig'),
     loopR: tune('ghost.loop'),
+    bigHp: tune('ghost.bigHp'),
+    bigPts: tune('score.big'),
     waveBonus: tune('wave.bonus'),
     chainBonus: tune('score.chain'),
     formBonus: tune('score.formation'),

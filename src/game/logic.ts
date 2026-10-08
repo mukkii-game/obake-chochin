@@ -34,9 +34,11 @@ export const HOUSE_R = 26;
 const HOME_R = 6;
 /** おばけの体の大きさ(光に触れたかの判定) */
 export const GHOST_R = 13;
+/** 大入道は大きい(力が減るほど小さくなる) */
+export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * (1 + 0.35 * g.hp) : GHOST_R);
 
-/** おばけの動き: 階段(縦・横・縦)/ ジグザグ(斜めと縦)/ 輪(ギャラガ) */
-export type GhostKind = 'fuwa' | 'kasa' | 'oni';
+/** おばけの動き: 階段(縦・横・縦)/ ジグザグ(斜めと縦)/ 輪(ギャラガ)/ 大入道(大きくてゆっくり。光 3 回で成仏) */
+export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big';
 
 /** 提灯の形 = 光の形 = 家の形 */
 export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross';
@@ -54,6 +56,8 @@ export interface Ghost {
   speed: number; target: number; age: number; face: number;
   /** 編隊(一緒に出たもの)の番号 */
   form: number;
+  /** 残りの力(大入道は 3。光 1 回ごとに 1 減って、小さくなる)と、当たった光 */
+  hp: number; hitBy: number[];
   /** 止まっている(置かれた提灯に見とれている / 前がつかえている) */
   stopped: boolean;
   /** 置かれた提灯で見とれている */
@@ -75,7 +79,7 @@ export interface Lantern {
 }
 export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
-export interface Blast { x: number; y: number; piece: Piece; ext: number; chain: number }
+export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number }
 export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number>; bursts: number }
 
 export type GameEvent =
@@ -85,6 +89,7 @@ export type GameEvent =
   | { type: 'deny'; x: number; y: number }
   | { type: 'break'; x: number; y: number; chained: boolean; n: number }
   | { type: 'caught'; x: number; y: number }
+  | { type: 'hurt'; x: number; y: number; hp: number }
   | { type: 'purify'; x: number; y: number; n: number; pts: number; kind: GhostKind }
   | { type: 'chainEnd'; x: number; y: number; n: number; pts: number; bonus: number }
   | { type: 'formation'; x: number; y: number; size: number; bonus: number }
@@ -258,7 +263,7 @@ export class Game {
   /** 提灯が弾ける。chain があれば誘爆(同じ連鎖として数える) */
   private burst(l: Lantern, chain: Chain | null) {
     const c = chain ?? this.newChain(l.tx, l.ty);
-    this.blasts.push({ x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id });
+    this.blasts.push({ id: this.nextId++, x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id });
     this.lanterns = this.lanterns.filter((q) => q !== l);
     c.bursts++;
     this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain, n: c.bursts });
@@ -362,13 +367,13 @@ export class Game {
 
   addGhost(gr: Group, x: number, form = 0) {
     const kind = gr.kind;
-    const mult = { fuwa: 1, kasa: 1, oni: 1.3 }[kind];
+    const mult = { fuwa: 1, kasa: 1, oni: 1.3, big: 0.65 }[kind];
     const y = SPAWN_Y;
     let target = gr.to !== undefined && this.houses[gr.to]?.lit ? gr.to : this.nearestLit(x, y);
     if (target < 0) target = 0;
     const g: Ghost = {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
-      speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, stopped: false, caught: false, haunt: false, dead: false,
+      speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
     g.path = this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? 0.45);
     this.ghosts.push(g);
@@ -386,7 +391,7 @@ export class Game {
     const P = this.P;
     const pts: Array<[number, number]> = [[sx, sy]];
     const top = Math.max(sy, PLAY.y0);
-    if (kind === 'fuwa') {
+    if (kind === 'fuwa' || kind === 'big') {
       if (Math.abs(h.x - sx) > 4) {
         const ty = top + (h.y - 40 - top) * turn;
         pts.push([sx, ty], [h.x, ty]);
@@ -499,11 +504,13 @@ export class Game {
       // 連爆は、光がその提灯の光の範囲に触れるだけで起きる(提灯そのものに当たらなくてよい)
       for (const l of [...this.lanterns]) if (!l.flying && this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, 4))) this.burst(l, chain);
       for (const g of this.ghosts) {
-        if (g.dead || g.y < PLAY.y0 || !this.lit(b, g.x, g.y, GHOST_R)) continue;
+        if (g.dead || g.y < PLAY.y0 || g.hitBy.includes(b.id) || !this.lit(b, g.x, g.y, ghostR(g))) continue;
+        g.hitBy.push(b.id);
+        if (--g.hp > 0) { this.events.push({ type: 'hurt', x: g.x, y: g.y, hp: g.hp }); continue; }
         g.dead = true;
         chain.count++;
         chain.forms.set(g.form, (chain.forms.get(g.form) ?? 0) + 1);
-        const pts = P.basePts * chain.count;
+        const pts = P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : 1);
         chain.pts += pts; this.score += pts; this.purified++;
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });

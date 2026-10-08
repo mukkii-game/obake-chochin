@@ -69,6 +69,8 @@ export function makeArt(scene: Phaser.Scene) {
     make(scene, `house_${p}_dark`, 72, 72, (c) => drawShapedHouse(c, p, false));
   }
   make(scene, 'g_fuwa', 64, 68, drawFuwa);
+  // 大入道: 幽霊を大きく描いたもの(色は Play で桃色にする)
+  make(scene, 'g_big', 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c); });
   make(scene, 'g_oni', 64, 68, drawOnibi);
   make(scene, 'g_kasa', 64, 72, drawKarakasa);
   make(scene, 'g_kirai', 50, 56, drawKage);
@@ -193,21 +195,34 @@ function drawBackground(c: Ctx) {
   }
 }
 
-/** 形のある提灯。rx, ry = 胴の半径(縦長・横長・丸)。上下の黒い枠、横の骨 */
+/** 形のある提灯(ポップでかわいく: 平らな色・太いふち・白いつや・にっこり顔)。rx, ry = 胴の半径(縦長・横長・丸) */
 function drawShapedLantern(c: Ctx, w: number, h: number, rx: number, ry: number) {
-  const cx = w / 2, cy = h / 2 + 1;
-  c.fillStyle = '#1c1c1c';
-  c.fillRect(cx - rx * 0.55, cy - ry - 4, rx * 1.1, 5); c.fillRect(cx - rx * 0.55, cy + ry - 1, rx * 1.1, 5);
-  c.fillStyle = '#000'; c.fillRect(cx - 1, 0, 2, cy - ry - 3);
-  const g = c.createRadialGradient(cx - rx * 0.2, cy - ry * 0.2, 1, cx, cy, Math.max(rx, ry));
-  g.addColorStop(0, '#ffe8a0'); g.addColorStop(0.45, '#f05a2a'); g.addColorStop(1, '#9a1d16');
-  c.fillStyle = g;
-  c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(80,10,10,0.55)'; c.lineWidth = 1;
-  for (let y = -ry + 4; y < ry; y += 4) {
-    const ww = rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2));
-    c.beginPath(); c.moveTo(cx - ww, cy + y); c.lineTo(cx + ww, cy + y); c.stroke();
+  const cx = w / 2, cy = h / 2 + 1, ol = '#5a1a2a';
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  // ひも
+  c.strokeStyle = ol; c.lineWidth = 2; c.beginPath(); c.moveTo(cx, 0); c.lineTo(cx, cy - ry - 2); c.stroke();
+  // 胴
+  c.fillStyle = '#ff6a5a'; c.strokeStyle = ol; c.lineWidth = 2.5;
+  c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill(); c.stroke();
+  // 横のしま(2 本だけ、やわらかく)
+  c.strokeStyle = 'rgba(160,30,40,0.45)'; c.lineWidth = 1.5;
+  for (const k of [-0.45, 0.45]) {
+    const yy = cy + ry * k, ww = rx * Math.sqrt(1 - k * k) - 1.5;
+    c.beginPath(); c.moveTo(cx - ww, yy); c.quadraticCurveTo(cx, yy + 1.5, cx + ww, yy); c.stroke();
   }
+  // つや
+  c.fillStyle = 'rgba(255,255,255,0.55)';
+  c.beginPath(); c.ellipse(cx - rx * 0.45, cy - ry * 0.4, Math.max(1.5, rx * 0.18), Math.max(2, ry * 0.25), -0.4, 0, 7); c.fill();
+  // 上下のふた(丸い黒)
+  c.fillStyle = '#3a2030';
+  c.beginPath(); c.roundRect(cx - Math.max(5, rx * 0.5), cy - ry - 4, Math.max(10, rx), 5, 2.5); c.fill();
+  c.beginPath(); c.roundRect(cx - Math.max(5, rx * 0.5), cy + ry - 1, Math.max(10, rx), 5, 2.5); c.fill();
+  // にっこり顔(小さく)
+  const fy = cy + ry * 0.1, sp = Math.min(rx, ry) * 0.38;
+  c.strokeStyle = '#5a1a2a'; c.lineWidth = 1.4;
+  for (const s2 of [-1, 1]) { c.beginPath(); c.arc(cx + s2 * sp, fy, 1.8, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+  c.fillStyle = 'rgba(255,190,200,0.8)';
+  for (const s2 of [-1, 1]) { c.beginPath(); c.ellipse(cx + s2 * (sp + 3.5), fy + 3, 2.2, 1.4, 0, 0, 7); c.fill(); }
 }
 
 /** 小さなドット絵の人(着物・髷)。f = 走るコマ */
@@ -229,23 +244,7 @@ function drawPixelPerson(c: Ctx, f: number) {
 }
 
 function drawLantern(c: Ctx) {
-  // 赤い提灯。上下の黒い枠、横の骨
-  const cx = 18;
-  c.fillStyle = '#222'; c.fillRect(cx - 7, 2, 14, 6); c.fillRect(cx - 7, 44, 14, 6);
-  c.fillStyle = '#000'; c.fillRect(cx - 1, 0, 2, 3);
-  const g = c.createRadialGradient(cx - 3, 22, 2, cx, 26, 20);
-  g.addColorStop(0, '#ffe08a'); g.addColorStop(0.45, '#f05a2a'); g.addColorStop(1, '#a3201a');
-  c.fillStyle = g;
-  c.beginPath(); c.ellipse(cx, 26, 15, 19, 0, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(80,10,10,0.55)'; c.lineWidth = 1;
-  for (let y = 12; y <= 40; y += 4) {
-    const w = 15 * Math.sqrt(Math.max(0, 1 - ((y - 26) / 19) ** 2));
-    c.beginPath(); c.moveTo(cx - w, y); c.lineTo(cx + w, y); c.stroke();
-  }
-  // 「灯」の代わりに、丸い紋
-  c.strokeStyle = 'rgba(40,0,0,0.7)'; c.lineWidth = 1.6;
-  c.beginPath(); c.arc(cx, 26, 6, 0, 7); c.stroke();
-  c.beginPath(); c.moveTo(cx, 20); c.lineTo(cx, 32); c.stroke();
+  drawShapedLantern(c, 36, 52, 15, 19);
 }
 
 function drawHouse(c: Ctx, lit: boolean) {
