@@ -70,6 +70,8 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private comboText?: Phaser.GameObjects.Text;
+  private fullShown = false;
   private flashUntil = new Map<number, number>();
   private hoverHouse = -1;
   private aimTag!: Phaser.GameObjects.Text;
@@ -189,7 +191,7 @@ export class Play extends Phaser.Scene {
     this.watchText = this.add.text(W / 2, 18, '', txt(24, '#e8d6ff')).setOrigin(0.5).setDepth(50);
     this.hiText = this.add.text(PAPER.x1 - 84, 18, '', txt(22, '#ffb0e0')).setOrigin(1, 0.5).setDepth(50);
     const mute = this.add.text(PAPER.x1 - 8, 4, isMuted() ? '♪×' : '♪', txt(24, '#cfe')).setOrigin(1, 0).setDepth(50);
-    this.shownScore = 0; this.scorePunch = false; this.rushId = -1;
+    this.shownScore = 0; this.scorePunch = false; this.rushId = -1; this.comboText = undefined; this.fullShown = false;
     this.aimTag = this.add.text(0, 0, '', pop(15, '#fff0d0', { strokeThickness: 4 })).setOrigin(0.5).setDepth(63).setVisible(false);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
     else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
@@ -351,7 +353,9 @@ export class Play extends Phaser.Scene {
       case 'deny': {
         snd.deny();
         // 画面に置ける数がいっぱい: その場に「3こまで!」
-        if (e.full) {
+        // 「3こまで!」は 1 回だけ(置ける数が空くまで、もう出さない)
+        if (e.full && !this.fullShown) {
+          this.fullShown = true;
           const o = this.add.text(Phaser.Math.Clamp(e.x, 120, W - 120), Phaser.Math.Clamp(e.y - 30, 70, H - 80), t('maxOnField').replace('{n}', String(e.full)), pop(24, '#ffb0b0')).setOrigin(0.5).setDepth(62).setScale(0.4);
           this.tweens.add({ targets: o, scale: 1, duration: 180, ease: 'Back.Out' });
           this.tweens.add({ targets: o, angle: { from: -6, to: 6 }, yoyo: true, repeat: 2, duration: 90 });
@@ -507,15 +511,24 @@ export class Play extends Phaser.Scene {
   }
 
   /** コンボの瞬間: 倒すたびに「2コンボ!」「3コンボ!」…と、その場で勢いよく弾む(数が増えるほど大きく、色が変わる) */
+  /** コンボの瞬間: 1 つの文字を書き換えていく(2コンボ → 3コンボ…)。増やさず、その場で弾んで色が変わる */
   private showChain(n: number, x: number, y: number) {
     const cols = ['#fff3c0', '#ffe27a', '#9ff0ff', '#b8ffb0', '#ffb0e0', '#c8a0ff'];
-    const size = Math.min(24 + n * 2.5, 50);
-    const o = this.add.text(Phaser.Math.Clamp(x, 120, W - 120), Phaser.Math.Clamp(y - 48, 60, H - 60), `${n}${t('combo')}!`, pop(size, cols[n % cols.length], { strokeThickness: 6 }))
-      .setOrigin(0.5).setDepth(61).setScale(1.6).setAngle(n % 2 ? -8 : 8);
-    this.tweens.add({ targets: o, scale: 1, angle: 0, duration: 170, ease: 'Back.Out' });
-    this.tweens.add({ targets: o, y: o.y - 34, alpha: 0, delay: 480, duration: 420, ease: 'Quad.In', onComplete: () => o.destroy() });
+    const size = Math.min(26 + n * 2.5, 52);
+    let o = this.comboText;
+    if (!o || !o.active) {
+      o = this.add.text(Phaser.Math.Clamp(x, 120, W - 120), Phaser.Math.Clamp(y - 48, 60, H - 60), '', pop(size, cols[n % cols.length], { strokeThickness: 6 })).setOrigin(0.5).setDepth(61);
+      this.comboText = o;
+    }
+    this.tweens.killTweensOf(o);
+    o.setText(`${n}${t('combo')}!`).setFontSize(size).setColor(cols[n % cols.length]).setAlpha(1).setScale(1.5).setAngle(n % 2 ? -8 : 8);
+    // 新しく倒した所の方へ少し寄る(遠くへ飛ばない)
+    const tx = Phaser.Math.Clamp(Phaser.Math.Linear(o.x, x, 0.35), 120, W - 120), ty = Phaser.Math.Clamp(Phaser.Math.Linear(o.y, y - 48, 0.35), 60, H - 60);
+    this.tweens.add({ targets: o, x: tx, y: ty, scale: 1, angle: 0, duration: 170, ease: 'Back.Out' });
+    this.tweens.add({ targets: o, y: ty - 30, alpha: 0, delay: 750, duration: 400, ease: 'Quad.In', onComplete: () => { o!.destroy(); if (this.comboText === o) this.comboText = undefined; } });
     if (n >= 4) this.cameras.main.shake(80, 0.002 + Math.min(n, 10) * 0.0004);
   }
+
 
 
   /** 灯りが消えた家から、家の人が逃げ出す(小さなドット絵が、画面の端まで走っていく) */
@@ -647,6 +660,7 @@ export class Play extends Phaser.Scene {
       .setAngle(Math.sin(beatPos(time) * Math.PI / 2) * 6);
 
     this.slotFx.clear();
+    if (g.lanterns.length < g.maxOnField) this.fullShown = false;
     g.houses.forEach((h, i) => {
       const o = this.houseImgs[i];
       // おばけが入り込んだ家: 中の人が騒いで灯りが揺れ、家が震える(消えるまでの間が、そのまま助けに行ける猶予)
