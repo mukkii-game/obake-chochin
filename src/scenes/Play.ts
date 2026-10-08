@@ -77,6 +77,8 @@ export class Play extends Phaser.Scene {
   private pauseOff: (() => void) | null = null;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeTick = 0;
+  private jet!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private prevPos = new Map<number, [number, number]>();
   private bloom!: Phaser.GameObjects.Particles.ParticleEmitter;
   /** 狙いから連爆する提灯の id(前の 1 コマで決めたもの) */
   private chainTargets = new Set<number>();
@@ -147,6 +149,11 @@ export class Play extends Phaser.Scene {
       scale: { start: 1.6, end: 0.2 }, alpha: { start: 1, end: 0 }, blendMode: 'ADD', emitting: false,
       tint: [0xff5e8a, 0xffd23f, 0x5ee0ff, 0x9dff7a, 0xc77dff, 0xff9f40],
     }).setDepth(31);
+    this.jet = this.add.particles(0, 0, 'glow', {
+      lifespan: { min: 220, max: 380 }, speed: { min: 5, max: 20 }, angle: { min: 0, max: 360 },
+      scale: { start: 0.16, end: 0.02 }, alpha: { start: 0.75, end: 0 }, blendMode: 'ADD', emitting: false,
+    }).setDepth(14);
+    this.prevPos.clear();
     this.smoke = this.add.particles(0, 0, 'glow', {
       lifespan: { min: 550, max: 800 }, speed: { min: 4, max: 14 }, angle: { min: 0, max: 360 }, gravityY: -14,
       scale: { start: 0.12, end: 0.42 }, alpha: { start: 0.32, end: 0 }, tint: [0xe8dcf0, 0xffd8b0, 0xd0c8e0], emitting: false,
@@ -702,6 +709,18 @@ export class Play extends Phaser.Scene {
         this.gSprites.set(gh.id, s);
       }
       this.drawGhost(s, gh, time);
+      // 速いおばけ: 進む向きの反対へ、噴き出すような光の粒(上下に動いても自然に)
+      if (gh.kind === 'kaze' || gh.kind === 'inazuma') {
+        const pv = this.prevPos.get(gh.id);
+        if (pv) {
+          const vx = gh.x - pv[0], vy = gh.y - pv[1], d = Math.hypot(vx, vy);
+          if (d > 0.3 && (Math.floor(time * 60) + gh.id) % 2 === 0) {
+            this.jet.setParticleTint(gh.kind === 'kaze' ? 0xffe070 : 0x70e8ff);
+            this.jet.emitParticleAt(gh.x - (vx / d) * 16, gh.y - (vy / d) * 16, 1);
+          }
+        }
+        this.prevPos.set(gh.id, [gh.x, gh.y]);
+      }
       // 最後の一匹: 急ぎだす時に一言
       if (g.rush() > 1 && this.rushId !== gh.id && !gh.dead) { this.rushId = gh.id; this.say(gh.x, gh.y - 34, t('rush'), '#ffb0b0', true, s); }
       // ときどき、種類ごとのセリフをしゃべる(画面にたくさん出すぎないよう 3 つまで)
@@ -721,6 +740,7 @@ export class Play extends Phaser.Scene {
     for (const [id, s] of this.gSprites) {
       if (seenG.has(id)) continue;
       this.gSprites.delete(id);
+      this.prevPos.delete(id);
       // やられた: 目が ＞＜(唐傘は ×)になって、くるっと回りながらぴょんと跳ね、昇って消える
       const ko = `${s.texture.key.replace(/_(worry|cry)$/, '')}_ko`;
       if (this.textures.exists(ko)) s.setTexture(ko);

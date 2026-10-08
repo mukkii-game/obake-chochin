@@ -110,9 +110,8 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_mega', 256, 272, (c) => { c.scale(4, 4); drawFuwa(c); });
   // はやて: 小さめの幽霊に、うしろへ流れる風の線(色は Play で黄色にする)
   const drawKaze = (c: Ctx, ko = false) => {
-    c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 2.5; c.lineCap = 'round';
-    for (const [y, l] of [[26, 14], [36, 20], [46, 12]]) { c.beginPath(); c.moveTo(4, y); c.lineTo(4 + l, y); c.stroke(); }
-    c.save(); c.translate(14, 6); c.scale(0.85, 0.85); drawFuwa(c, ko); c.restore();
+    // 風の線は絵に描かない(動く向きの反対に、Play で噴き出す光の粒を出す)
+    c.save(); c.translate(9, 6); c.scale(0.85, 0.85); drawFuwa(c, ko); c.restore();
   };
   make(scene, 'g_kaze', 72, 68, (c) => drawKaze(c));
   make(scene, 'g_kaze_ko', 72, 68, (c) => drawKaze(c, true));
