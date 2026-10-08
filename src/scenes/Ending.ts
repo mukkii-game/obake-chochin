@@ -24,7 +24,8 @@ export class Ending extends Phaser.Scene {
     expose('scene', 'Ending');
     this.cameras.main.fadeIn(800, 5, 3, 10);
     this.add.image(0, 0, 'bg').setOrigin(0);
-    this.add.image(W - 160, 90, 'moon').setScale(0.6);
+    const moon = this.add.image(W - 160, 90, 'moon_3').setScale(0.9);
+    this.tweens.add({ targets: moon, angle: { from: -8, to: 8 }, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.InOut' });
     const ja = lang() === 'ja';
 
     // おばけたち: にこにこ揺れながら、ゆっくり空へ昇って帰っていく

@@ -53,14 +53,18 @@ export function makeArt(scene: Phaser.Scene) {
   // 逃げる人(小さなドット絵。2 コマで走る)
   make(scene, 'px_run0', 18, 24, (c) => drawPixelPerson(c, 0));
   make(scene, 'px_run1', 18, 24, (c) => drawPixelPerson(c, 1));
-  make(scene, 'moon', 90, 90, (c) => {
-    const g = c.createRadialGradient(45, 45, 10, 45, 45, 45);
-    g.addColorStop(0, 'rgba(255,246,214,0.35)'); g.addColorStop(1, 'rgba(255,246,214,0)');
-    c.fillStyle = g; c.fillRect(0, 0, 90, 90);
-    c.fillStyle = '#f6edcf'; c.beginPath(); c.arc(45, 45, 22, 0, 7); c.fill();
-    c.fillStyle = 'rgba(200,190,160,0.35)';
-    for (const [x, y, r] of [[38, 40, 5], [52, 50, 4], [46, 56, 3]]) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
-  });
+  // お月さま: たのしい顔。日ごとに表情が変わる(0 = 8/13 にこにこ / 1 = 8/14 わくわく / 2 = 8/15 大笑い / 3 = エンディング)
+  const moonFaces: Array<[boolean, 'w' | 'smile' | 'grin']> = [[true, 'w'], [false, 'smile'], [true, 'grin'], [false, 'grin']];
+  moonFaces.forEach(([happy, mouth], i) => make(scene, `moon_${i}`, 120, 120, (c) => {
+    const g = c.createRadialGradient(60, 60, 14, 60, 60, 60);
+    g.addColorStop(0, 'rgba(255,246,214,0.4)'); g.addColorStop(1, 'rgba(255,246,214,0)');
+    c.fillStyle = g; c.fillRect(0, 0, 120, 120);
+    c.fillStyle = '#fbf1d2'; c.beginPath(); c.arc(60, 60, 34, 0, 7); c.fill();
+    c.fillStyle = 'rgba(214,200,160,0.3)';
+    for (const [x, y, r] of [[44, 44, 5], [80, 48, 4], [74, 80, 5]]) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+    c.save(); c.translate(60, 58); c.scale(2, 2); cuteFace(c, 0, 0, 6.5, mouth, 2.4, happy); c.restore();
+  }));
+  make(scene, 'moon', 120, 120, (c) => c.drawImage(scene.textures.get('moon_0').getSourceImage() as CanvasImageSource, 0, 0));
   make(scene, 'house_lit', 72, 64, (c) => drawHouse(c, true));
   make(scene, 'house_dark', 72, 64, (c) => drawHouse(c, false));
   // 家の形 = 光の形。上 = 火の見櫓(上へ高い)/ 下 = 軒の長い提灯屋(下へ垂れる)/ 周り = 丸い蔵 / 横 = 長屋 / 縦 = 二階の楼 / 十字 = 辻の祠

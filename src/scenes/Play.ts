@@ -103,7 +103,7 @@ export class Play extends Phaser.Scene {
     this.add.image(0, 0, 'bg').setOrigin(0);
     // 夕方から始まり、刻が進むほど暗くなって夜になる
     this.dusk = this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD);
-    this.moon = this.add.image(0, 0, 'moon').setAlpha(0);
+    this.moon = this.add.image(0, 0, 'moon_0').setAlpha(0);
     this.hi = load().best;
     this.selFx = this.add.graphics().setDepth(27);
     for (const h of this.game2.houses) {
@@ -509,7 +509,11 @@ export class Play extends Phaser.Scene {
     this.nightK += (night - this.nightK) * Math.min(1, dt * 0.5);
     this.dusk.setAlpha(1 - this.nightK);
     const k = this.nightK;
-    this.moon.setPosition(PAPER.x1 - 80 - k * (PAPER.x1 - PAPER.x0 - 160), 120 - this.nightK * 66).setScale(0.6).setAlpha(this.nightK);
+    // お月さまの顔は日ごとに変わる(8/13 にこにこ → 8/14 わくわく → 8/15 大笑い)。拍に合わせてちょっと揺れる
+    const moonKey = `moon_${Math.min(2, dayOf(nextW))}`;
+    if (this.moon.texture.key !== moonKey) this.moon.setTexture(moonKey);
+    this.moon.setPosition(PAPER.x1 - 110 - k * 140, 130 - this.nightK * 66).setScale(0.8).setAlpha(this.nightK)
+      .setAngle(Math.sin(beatPos(time) * Math.PI / 2) * 6);
 
     g.houses.forEach((h, i) => {
       const o = this.houseImgs[i];
