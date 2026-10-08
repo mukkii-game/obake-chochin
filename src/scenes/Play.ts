@@ -654,6 +654,12 @@ export class Play extends Phaser.Scene {
         }
         // どの家から飛ぶか: 家がほんのり明るい
         const h = g.houses[from];
+        // 家を選んでいない時は、飛び出す家から狙いまで細い点線(さりげなく)
+        if (this.aim.from < 0 && g.selected < 0) {
+          const d = Math.hypot(x - h.x, y - (h.y - 20)), n = Math.floor(d / 9);
+          this.fx.fillStyle(0xfff0d0, 0.35);
+          for (let i = 1; i < n; i++) this.fx.fillCircle(h.x + ((x - h.x) * i) / n, h.y - 20 + ((y - h.y + 20) * i) / n, 1.2);
+        }
         this.glowFx.fillStyle(0xffe0a0, 0.12); this.glowFx.fillCircle(h.x, h.y, 30);
       }
     }
