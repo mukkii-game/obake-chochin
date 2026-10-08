@@ -5,7 +5,7 @@ import { Game, DT, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type G
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
-import { txt, pop, dayName, waveLabel } from '../game/view';
+import { txt, pop, dayName, waveLabel, hourName } from '../game/view';
 import { dayOf, waveInDay, WAVES_PER_DAY, WAVE_NAMES } from '../game/waves';
 import { PAPER } from '../game/art';
 import { onTap, onAim, onCancel } from '../ui/taps';
@@ -65,6 +65,7 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private flashUntil = new Map<number, number>();
   private hoverHouse = -1;
   private aimTag!: Phaser.GameObjects.Text;
   private lastDmgShown = 1;
@@ -397,7 +398,7 @@ export class Play extends Phaser.Scene {
         this.popup(e.x, e.y - 40, e.dmg > 1 ? `-${e.dmg}!` : '!', '#ffb0e0', 30 + (e.dmg - 1) * 6);
         const big = this.game2.ghosts.find((q) => (q.kind === 'big' || q.kind === 'giant' || q.hp > 1) && Math.hypot(q.x - e.x, q.y - e.y) < 2);
         const sp = big ? [big.id, this.gSprites.get(big.id)!] as const : undefined;
-        if (sp && sp[1] && big) { sp[1].setTint(0xffffff); this.time.delayedCall(140, () => { if (sp[1].active) sp[1].setTint(GHOST_TINT[big.kind] ?? 0xffffff); }); }
+        if (sp && sp[1] && big) { sp[1].setTint(0xffffff); this.flashUntil.set(big.id, this.time.now + 140); }
         break;
       }
       case 'caught':
@@ -439,7 +440,7 @@ export class Play extends Phaser.Scene {
           this.tweens.add({ targets: v, alpha: 0, delay: 1600, duration: 400, onComplete: () => v.destroy() });
         }
         // 日の始まりは日付を大きく、ほかは「ウェーブ 2/3」
-        const s = this.add.text(W / 2, H / 2 - 64, first ? dayName(dayOf(e.n)) : `${t('wave')} ${waveInDay(e.n) + 1}/3`, first ? pop(46, '#ffe27a') : pop(32, '#e8d6ff')).setOrigin(0.5).setDepth(55).setAlpha(0).setScale(0.6);
+        const s = this.add.text(W / 2, H / 2 - 64, first ? `${dayName(dayOf(e.n))}  ${hourName(0)}` : hourName(waveInDay(e.n)), first ? pop(46, '#ffe27a') : pop(32, '#e8d6ff')).setOrigin(0.5).setDepth(55).setAlpha(0).setScale(0.6);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
         this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: first ? 1300 : 800, duration: 400, onComplete: () => s.destroy() });
         // ウェーブの題(何が来るか)。総力戦は赤く大きく、揺らして
@@ -492,8 +493,8 @@ export class Play extends Phaser.Scene {
       const dir = i % 2 ? 1 : -1;
       const p = this.add.image(x, y - 4, 'px_run0').setDepth(26).setFlipX(dir < 0).setScale(1.6).setAlpha(0);
       // びっくりして家から大きく跳び出す(家より高く)→ 着地して走って逃げる
-      const landX = x + dir * (26 + (i >> 1) * 18), groundY = y + 10;
-      const jumpH = 70 + (i >> 1) * 22 + (i % 2) * 10, delay = i * 130, up = 320, down = 300;
+      const landX = x + dir * (40 + (i >> 1) * 28), groundY = y + 10;
+      const jumpH = 150 + (i >> 1) * 40 + (i % 2) * 20, delay = i * 130, up = 460, down = 420;
       this.tweens.add({ targets: p, alpha: 1, duration: 60, delay });
       this.tweens.add({ targets: p, x: landX, duration: up + down, delay, ease: 'Linear' });
       this.tweens.add({ targets: p, angle: dir * 360, duration: up + down, delay, ease: 'Quad.Out' });
@@ -720,7 +721,7 @@ export class Play extends Phaser.Scene {
       if (seenG.has(id)) continue;
       this.gSprites.delete(id);
       // やられた: 目が ＞＜(唐傘は ×)になって、くるっと回りながらぴょんと跳ね、昇って消える
-      const ko = `${s.texture.key}_ko`;
+      const ko = `${s.texture.key.replace(/_(worry|cry)$/, '')}_ko`;
       if (this.textures.exists(ko)) s.setTexture(ko);
       const sc = s.scaleX;
       this.tweens.add({ targets: s, scaleX: sc * 1.25, scaleY: sc * 0.8, duration: 70, yoyo: true });
@@ -751,7 +752,7 @@ export class Play extends Phaser.Scene {
       const k = l.flying ? 0.5 : 1;
       this.drawShape(l.piece, l.tx, l.ty, L, 0, linked[i] ? 0xffc870 : 0xffb060, (linked[i] ? 0.05 : 0.025) * k);
       this.softEdge(l.piece, l.tx, l.ty, linked[i] ? 0xffd890 : 0xffb070, (linked[i] ? 0.08 : 0.04) * k);
-      if (linked[i] && !l.flying) this.outlineShape(l.piece, l.tx, l.ty, 0xffffff, 0.22, 1.5);
+      if (linked[i]) this.outlineShape(l.piece, l.tx, l.ty, 0xffffff, 0.22, 1.5);
     });
     // 狙い: 離せばここへ飛ぶ。どの家の形の光が、どこまで届くか。連爆する提灯も、ほんのり光る
     if (this.aim && !this.ended) {
@@ -764,23 +765,21 @@ export class Play extends Phaser.Scene {
       if (this.hoverHouse >= 0) { /* 家の一言(ロック / 解除)を出している */ }
       else if (low) this.aimTag.setVisible(false); // 家より下: 何も出さない(投げられないだけ)
       else if (inField && full) {
-        // 置けない: カーソルの赤い × と輪が点滅する
-        const on = Math.sin(time * 14) > 0;
-        this.fx.lineStyle(4, 0xff6070, on ? 1 : 0.25);
-        this.fx.lineBetween(x - 10, y - 10, x + 10, y + 10); this.fx.lineBetween(x - 10, y + 10, x + 10, y - 10);
-        this.fx.strokeCircle(x, y, 17);
-        this.aimTag.setText(t('maxOnField').replace('{n}', String(g.maxOnField))).setColor('#ff9aa8').setPosition(x, y - 30).setVisible(true).setAlpha(on ? 1 : 0.35);
+        // いっぱい: × や文字は出さない。置き場所の大きさの枠が点滅するだけ(下で描く)
+        this.aimTag.setVisible(false);
       } else if (inField && from >= 0) {
         this.aimTag.setText(`${t('left')} ${g.maxOnField - g.lanterns.length}`).setColor('#fff0d0').setPosition(x + 30, y + 18).setVisible(true).setAlpha(0.6);
       } else this.aimTag.setVisible(false);
-      if (from >= 0 && inField && !low && !full) {
+      const fullBlink = full && Math.sin(time * 12) < 0;
+      if (from >= 0 && inField && !low && !fullBlink) {
         const piece = g.houses[from].piece, me = { piece, tx: x, ty: y };
-        const ok = true;
+        const ok = !full;
         this.drawShape(piece, x, y, g.reach(piece), 0, ok ? 0xfff0c0 : 0x8080a0, 0.035);
         this.softEdge(piece, x, y, ok ? 0xfff0c0 : 0x8080a0, 0.07);
         // 連爆する提灯: 真っ白にはっきり光る(輪郭も白く脈打つ)。ここに置けばつながる、が一目でわかる
         const pulse = 0.5 + 0.5 * Math.sin(time * 10);
-        for (const l of g.lanterns) if (!l.flying && g.touches(me, l)) {
+        // まだ飛んでいる提灯も、着く所で判定して光らせる(コンボになりうる所が先に分かる)
+        for (const l of g.lanterns) if (g.touches(me, l)) {
           this.chainTargets.add(l.id);
           this.drawShape(l.piece, l.tx, l.ty, g.reach(l.piece), 0, 0xffffff, 0.07 + 0.05 * pulse);
           this.outlineShape(l.piece, l.tx, l.ty, 0xffffff, 0.45 + 0.4 * pulse, 2.5);
@@ -898,8 +897,16 @@ export class Play extends Phaser.Scene {
     if (gh.caught) { ox = Math.cos(orbit) * 12; oy = Math.sin(orbit) * 7 - 5; }
     else if (gh.stopped) { ox = Math.sin(time * 18 + gh.id) * 2; sy *= 0.92 + 0.08 * Math.abs(Math.sin(time * 9 + gh.id)); }
     else if (gh.haunt) { ox = Math.sin(time * 7 + gh.id) * 8; oy = -10; }
-    // 大入道: 力が減るほど小さくなる(数字は出さない)
-    const k = gh.kind === 'big' ? 0.6 + 0.25 * gh.hp : gh.kind === 'giant' ? 0.55 + 0.08 * gh.hp : 1;
+    // 大入道・大大入道: 大きさはそのまま。力が減るほど顔と色が変わる(焦る → もうやられそう。数字は出さない)
+    const k = gh.kind === 'big' ? 1.35 : gh.kind === 'giant' ? 1.03 : 1;
+    if (gh.kind === 'big' || gh.kind === 'giant') {
+      const max = gh.kind === 'big' ? this.game2.P.bigHp : this.game2.P.giantHp, r = gh.hp / max;
+      const stage = r > 0.67 ? 0 : r > 0.34 ? 1 : 2;
+      const key = stage === 0 ? GHOST_TEX[gh.kind] : `${GHOST_TEX[gh.kind]}_${stage === 1 ? 'worry' : 'cry'}`;
+      if (s.texture.key !== key) s.setTexture(key);
+      const tints = gh.kind === 'big' ? [0xffd6ea, 0xffb48a, 0xff7a7a] : [0xd8c8ff, 0xffa8d0, 0xff7070];
+      if ((this.flashUntil.get(gh.id) ?? 0) < this.time.now) s.setTint(tints[stage]);
+    }
     s.setPosition(gh.x + ox, gh.y + oy + bob * k).setScale(sx * 0.66 * k, sy * 0.66 * k).setAlpha(alpha).setFlipX(gh.face < 0);
     // 唐傘は折れるたびに傘を傾ける / 鬼火は揺らめく
     s.setAngle((gh.kind === 'kasa' ? gh.face * 10 : 0) + Math.sin((bp * Math.PI) / 2 + (gh.id % 2) * Math.PI) * 8);

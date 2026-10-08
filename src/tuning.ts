@@ -45,6 +45,7 @@ export const KNOBS: Knob[] = [
   { key: 'chain.grow', label: 'コンボ 1 発ごとに光が大きくなる割合', value: 0.12, min: 0, max: 0.4, step: 0.02, unit: '倍', aim: 'つなぐほど光が広がる(4 段まで)。力は 3 発目で 2、5 発目で 3' },
   { key: 'chain.pad', label: '連鎖の当たりの余裕(見えている縁)', value: 12, min: 0, max: 30, step: 1, unit: 'px', aim: '光の範囲の縁どうしが触れているだけで連鎖する' },
   { key: 'ghost.kaze', label: 'はやて(速いおばけ)の速さ', value: 2.1, min: 1, max: 4, step: 0.1, unit: '倍', aim: '先読みを強く求める' },
+  { key: 'ghost.side', label: '横から来る組の速さ', value: 1.3, min: 1, max: 3, step: 0.1, unit: '倍', aim: '家までの道のりが長いぶん速く' },
   { key: 'ghost.march', label: '行進が 1 段で下がる高さ', value: 46, min: 20, max: 120, step: 2, unit: 'px', aim: 'インベーダーのように、端で下がる' },
   // 刻
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },

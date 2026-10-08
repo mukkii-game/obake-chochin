@@ -37,7 +37,8 @@ const HOME_R = 6;
 /** おばけの体の大きさ(光に触れたかの判定) */
 export const GHOST_R = 13;
 /** 大入道は大きい(力が減るほど小さくなる) */
-export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * (1 + 0.35 * g.hp) : g.kind === 'giant' ? GHOST_R * (1.6 + 0.3 * g.hp) : GHOST_R);
+/** 当たりの大きさ。大入道・大大入道は力が減っても大きいまま */
+export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * 2.05 : g.kind === 'giant' ? GHOST_R * 3.4 : GHOST_R);
 
 /**
  * おばけの動き(どれも途中で 1〜2 回だけ向きが変わる):
@@ -398,6 +399,8 @@ export class Game {
     g.path = gr.edge && kind !== 'oni'
       ? (gr.march ? this.marchPath(x, y, gr.edge, this.houses[target]) : [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]]) // 横に渡って、家の真上で降りる
       : this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
+    // 横から来る組は家までの道のりが長いので、そのぶん速く(行進は除く)
+    if (gr.edge && !gr.march) g.speed *= this.P.sideSpeed;
     this.ghosts.push(g);
     this.events.push({ type: 'spawn', x, y, kind });
     return g;

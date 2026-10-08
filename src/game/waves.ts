@@ -53,8 +53,8 @@ export const PATTERNS: Record<string, Pattern> = {
     { t: 0, kind: 'kasa', cols: [X(12, m)], n: 3, gap: 1.3, to: T(1, m), turn: 0.35 },
   ],
   // 横から(左右の端から横一列に渡ってくる → 横の提灯を並んだ高さへ)
-  sideL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 4, gap: 1.0, to: T(3, m), edge: m ? 1 : -1, turn: 0.45 }],
-  sideK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 4, gap: 0.9, to: T(1, m), edge: m ? -1 : 1, turn: 0.3 }],
+  sideL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(3, m), edge: m ? 1 : -1, turn: 0.45 }],
+  sideK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 3, gap: 0.9, to: T(1, m), edge: m ? -1 : 1, turn: 0.3 }],
   sides: (m) => [
     { t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(4, m), edge: m ? 1 : -1, turn: 0.3 },
     { t: 0.5, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(1, m), edge: m ? -1 : 1, turn: 0.6 },
@@ -79,7 +79,7 @@ export const DAYS = 3;
 // 足りない型(はやて・行進・お供つきの大入道)
 const Q: Record<string, Pattern> = {
   kazeLine: (m) => [{ t: 0, kind: 'kaze', cols: [X(3, m)], n: 5, gap: 0.7, to: T(1, m), turn: 0.5 }],
-  kazeSide: (m) => [{ t: 0, kind: 'kaze', cols: [0], n: 4, gap: 0.6, to: T(4, m), edge: m ? 1 : -1, turn: 0.4 }],
+  kazeSide: (m) => [{ t: 0, kind: 'kaze', cols: [0], n: 3, gap: 0.6, to: T(4, m), edge: m ? 1 : -1, turn: 0.4 }],
   kazeRow: (m) => [{ t: 0, kind: 'kaze', cols: [X(6, m), X(7, m), X(8, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 }],
   marchL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 6, gap: 0.8, to: T(2, m), edge: m ? 1 : -1, turn: 0.1, march: true }],
   marchK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 5, gap: 0.75, to: T(4, m), edge: m ? -1 : 1, turn: 0.15, march: true }],
@@ -117,7 +117,7 @@ const WAVES: Group[][] = [
   [...Q.marchL(false), ...shift(P.big(false), 3), ...shift(Q.marchK(true), 7), ...shift(P.sideL(false), 11)],
   [...Q.escort(false), ...shift(Q.escort(true), 7), ...shift(few(P.loop(false), 3), 12), ...shift(P.big(false), 10)],
   // 8/15 お盆: はさみうち → 大入道まつり → 総力戦(ぜんぶ出る)
-  [...P.sides(false), ...shift(Q.marchL(true), 4), ...shift(Q.kazeSide(false), 10), ...shift(P.sideK(true), 13)],
+  [...P.sides(false), ...shift(Q.marchL(true), 4), ...shift(Q.kazeSide(false), 10)],
   [...Q.giantEscort(false), ...shift(Q.escort(true), 5), ...shift(Q.kazeLine(false), 8), ...shift(P.big(false), 10)],
   [...P.line(false), ...shift(P.loop(true), 2), ...shift(P.sides(false), 5), ...shift(Q.kazeRow(true), 8), ...shift(Q.marchK(false), 10),
     ...shift(Q.escort(false), 12), ...shift(P.giant(true), 14), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22)],

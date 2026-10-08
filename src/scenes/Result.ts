@@ -51,17 +51,12 @@ export class Result extends Phaser.Scene {
     const goContinue = () => { snd.ui(); this.scene.start('Play', { continueWave: day * WAVES_PER_DAY, continues: (d.continues ?? 0) + 1 }); };
     const retry = this.add.text(W / 2 - 110, 446, t('retry'), txt(24, '#9cf')).setOrigin(0.5);
     const title = this.add.text(W / 2 + 110, 446, t('toTitle'), txt(20, '#9cf')).setOrigin(0.5);
-    const copy = this.add.text(W / 2, 482, t('copyReplay'), txt(14, '#889')).setOrigin(0.5);
     const near = (o: Phaser.GameObjects.Text, x: number, y: number) => Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 20, 12), x, y);
 
     let ready = false;
     this.time.delayedCall(600, () => { ready = true; }); // 連打でうっかり再開しない
     const off = onTap((x, y) => {
       if (!ready) return;
-      if (near(copy, x, y)) {
-        try { navigator.clipboard?.writeText(location.href.split('?')[0] + '?replay=' + d.replay).catch(() => {}); } catch { /* 無視 */ }
-        copy.setText(t('copied')); snd.ui(); return;
-      }
       if (cont && near(cont, x, y)) { goContinue(); return; }
       if (near(title, x, y)) { snd.ui(); this.scene.start('Title'); return; }
       if (near(retry, x, y)) { snd.ui(); this.scene.start('Play'); }

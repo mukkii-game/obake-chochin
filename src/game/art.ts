@@ -121,6 +121,11 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_oni_ko', 64, 68, (c) => drawOnibi(c, true));
   make(scene, 'g_kasa_ko', 64, 72, (c) => drawKarakasa(c, true));
   make(scene, 'g_big_ko', 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c, true); });
+  // 大入道・大大入道は大きさはそのまま、力が減るほど顔が変わる(焦る → もうやられそう)
+  for (const f of ['worry', 'cry'] as const) {
+    make(scene, `g_big_${f}`, 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c, false, f); });
+    make(scene, `g_giant_${f}`, 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c, false, f); });
+  }
   make(scene, 'g_giant_ko', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c, true); });
   make(scene, 'g_kirai', 50, 56, drawKage);
   make(scene, 'wisp', 32, 40, drawWisp);
@@ -438,7 +443,8 @@ function cuteFace(c: Ctx, cx: number, cy: number, spread: number, mouth: 'w' | '
 }
 
 /** 幽霊: ころんと丸い白いおもち。小さい天冠と、ちょろっとしたしっぽ */
-function drawFuwa(c: Ctx, ko = false) {
+/** face: happy = いつもの / worry = 力が減って焦る(目ぱっちり・汗)/ cry = もうやられそう(＞＜・涙) */
+function drawFuwa(c: Ctx, ko = false, face: 'happy' | 'worry' | 'cry' = 'happy') {
   const ol = '#4a3c46';
   c.lineWidth = 2; c.strokeStyle = ol; c.lineJoin = 'round';
   c.fillStyle = '#fbfaff';
@@ -458,7 +464,17 @@ function drawFuwa(c: Ctx, ko = false) {
   // 影でふんわり
   c.fillStyle = 'rgba(170,190,240,0.25)';
   c.beginPath(); c.ellipse(36, 48, 12, 5, 0, 0, 7); c.fill();
-  cuteFace(c, 32, 33, 8, 'grin', 2.6, true, ko);
+  if (face === 'worry') {
+    cuteFace(c, 32, 33, 8, 'o', 2.6, false, false);
+    // 汗
+    c.fillStyle = '#9fd8ff'; c.strokeStyle = '#4a7aa0'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(47, 18); c.quadraticCurveTo(51, 25, 47, 27); c.quadraticCurveTo(43, 25, 47, 18); c.fill(); c.stroke();
+  } else if (face === 'cry') {
+    cuteFace(c, 32, 33, 8, 'o', 2.6, false, true);
+    // 涙
+    c.fillStyle = 'rgba(140,210,255,0.9)';
+    for (const sx of [-1, 1]) { c.beginPath(); c.ellipse(32 + sx * 10, 41, 1.8, 3.2, 0, 0, 7); c.fill(); }
+  } else cuteFace(c, 32, 33, 8, 'grin', 2.6, true, ko);
 }
 
 /** 鬼火: ぷっくりした青緑の火の玉。ゆらっとした炎の先 */

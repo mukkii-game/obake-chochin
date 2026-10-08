@@ -32,5 +32,9 @@ export function dayName(day: number) {
 }
 /** HUD・結果の「どこまで来たか」: 8月13日 2/3 */
 export function waveLabel(n: number) {
-  return `${dayName(dayOf(n))}  ${waveInDay(n) + 1}/${WAVES_PER_DAY}`;
+  return `${dayName(dayOf(n))}  ${hourName(waveInDay(n))}`;
+}
+/** その日の何番目の刻か: 第一刻・第二刻・第三刻(英語は Hour 1/3) */
+export function hourName(i: number) {
+  return lang() === 'ja' ? `第${'一二三四五'[i] ?? i + 1}刻` : `Hour ${i + 1}/${WAVES_PER_DAY}`;
 }
