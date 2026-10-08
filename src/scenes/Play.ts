@@ -5,7 +5,8 @@ import { Game, DT, W, H, PLAY, HOUSE_R, encodeTaps, decodeTaps, type Ghost, type
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
-import { txt, pop, watchName } from '../game/view';
+import { txt, pop, dayName, waveLabel } from '../game/view';
+import { dayOf, waveInDay } from '../game/waves';
 import { PAPER } from '../game/art';
 import { onTap, onAim, onCancel } from '../ui/taps';
 import { DemoDriver, expose } from '../core/demo';
@@ -207,10 +208,12 @@ export class Play extends Phaser.Scene {
     bgmStop();
     if (g.cleared) snd.relight(); else snd.over();
     this.cameras.main.fadeOut(1400, 5, 3, 10);
-    this.time.delayedCall(1500, () => this.scene.start('Result', {
+    const res = {
       score: g.score, best, newBest: g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
       watch: g.wave, seconds: Math.floor(g.t), replay: this.rec.toString(), cleared: g.cleared, formations: g.formations,
-    }));
+    };
+    // 3 日を凌いだらエンディングとスタッフロール、その後に結果
+    this.time.delayedCall(1500, () => this.scene.start(g.cleared ? 'Ending' : 'Result', res));
   }
 
   private onEvent(e: GameEvent) {
@@ -310,7 +313,8 @@ export class Play extends Phaser.Scene {
       }
       case 'watch': {
         snd.watch();
-        if (e.n === 0) {
+        const first = waveInDay(e.n) === 0;
+        if (first) {
           // 始まり: かわいい声で「おばけが、くるぞー!」
           sayObake();
           const v = this.add.text(W / 2, H / 2 + 10, t('obakeComing'), txt(30, '#fff6c0', { strokeThickness: 7 })).setOrigin(0.5).setDepth(56).setScale(0.4);
@@ -318,14 +322,25 @@ export class Play extends Phaser.Scene {
           this.tweens.add({ targets: v, angle: { from: -4, to: 4 }, yoyo: true, repeat: 3, duration: 160 });
           this.tweens.add({ targets: v, alpha: 0, delay: 1600, duration: 400, onComplete: () => v.destroy() });
         }
-        const s = this.add.text(W / 2, H / 2 - 60, watchName(e.n), txt(36, '#e8d6ff')).setOrigin(0.5).setDepth(55).setAlpha(0);
-        this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: 900, duration: 500, onComplete: () => s.destroy() });
+        // 日の始まりは日付を大きく、ほかは「ウェーブ 2/3」
+        const s = this.add.text(W / 2, H / 2 - 64, first ? dayName(dayOf(e.n)) : `${t('wave')} ${waveInDay(e.n) + 1}/3`, first ? pop(46, '#ffe27a') : pop(32, '#e8d6ff')).setOrigin(0.5).setDepth(55).setAlpha(0).setScale(0.6);
+        this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
+        this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: first ? 1300 : 800, duration: 400, onComplete: () => s.destroy() });
         break;
       }
       case 'waveEnd': {
         snd.relight();
         const s = this.add.text(W / 2, H / 2 - 20, `${t('waveClear')}  +${e.bonus}`, txt(28, '#ffe27a')).setOrigin(0.5).setDepth(55).setAlpha(0);
         this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: 1100, duration: 350, onComplete: () => s.destroy() });
+        break;
+      }
+      case 'dayEnd': {
+        // その晩を凌いだ: 家がみんな灯り直す
+        snd.chainEnd(5);
+        const d = this.add.text(W / 2, H / 2 + 30, `${dayName(e.day)}  ${t('daySurvived')}`, pop(34, '#ffb0e0')).setOrigin(0.5).setDepth(56).setScale(0.3);
+        this.tweens.add({ targets: d, scale: 1, duration: 300, ease: 'Back.Out' });
+        this.tweens.add({ targets: d, alpha: 0, delay: 2200, duration: 500, onComplete: () => d.destroy() });
+        for (const h of this.game2.houses) this.fireworks.explode(12, h.x, h.y - 30);
         break;
       }
       case 'over':
@@ -434,7 +449,7 @@ export class Play extends Phaser.Scene {
       this.shownScore = gain > 0 ? Math.min(g.score, this.shownScore + Math.max(1, Math.ceil(gain * 0.18))) : g.score;
     }
     this.scoreText.setText(`${t('score')} ${this.shownScore}`);
-    this.watchText.setText(`${watchName(g.wave)}  ${Math.min(g.wave + 1, g.waveCount)} / ${g.waveCount}`);
+    this.watchText.setText(waveLabel(Math.min(g.wave, g.waveCount - 1)));
     this.hiText.setText(`${t('hiScore')} ${Math.max(this.hi, g.score)}`);
     expose('score', g.score); expose('lanterns', g.lanterns.length); expose('ammo', g.ammo);
   }
@@ -444,11 +459,12 @@ export class Play extends Phaser.Scene {
     const g = this.game2, P = g.P;
     const time = this.time.now / 1000;
 
-    // 夕方 → 夜: 1 刻目は夕焼け、5 刻目までに夜になる。月は暗くなるにつれて昇る
-    const night = Math.min(1, (g.wave + (g.pause > 0 ? 0 : 0.5)) / 5);
+    // 夕方 → 夜: 毎日 1 ウェーブ目は夕焼け、3 ウェーブ目で夜になる(次の日はまた夕方から)。月は暗くなるにつれて昇る
+    const nextW = g.pause > 0 && g.begun ? g.wave + 1 : g.wave;
+    const night = Math.min(1, (waveInDay(nextW) + (g.pause > 0 ? 0 : 0.6)) / 2.4);
     this.nightK += (night - this.nightK) * Math.min(1, dt * 0.5);
     this.dusk.setAlpha(1 - this.nightK);
-    const k = Math.min(g.t / 400, 1);
+    const k = this.nightK;
     this.moon.setPosition(PAPER.x1 - 80 - k * (PAPER.x1 - PAPER.x0 - 160), 120 - this.nightK * 66).setScale(0.6).setAlpha(this.nightK);
 
     g.houses.forEach((h, i) => {

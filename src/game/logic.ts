@@ -13,7 +13,7 @@
 // マス目は描画の目安だけ。位置はすべて px(アナログ)。
 import { Rng } from '../core/rng';
 import type { Params } from './params';
-import { waveGroups, WAVE_COUNT, type Group } from './waves';
+import { waveGroups, WAVE_COUNT, dayOf, type Group } from './waves';
 
 export const W = 960;
 export const H = 540;
@@ -105,6 +105,7 @@ export type GameEvent =
   | { type: 'watch'; n: number }
   | { type: 'waveEnd'; n: number; bonus: number }
   | { type: 'clear' }
+  | { type: 'dayEnd'; day: number }
   | { type: 'over' };
 
 /** 刻の前の一息 */
@@ -136,7 +137,7 @@ export class Game {
   pause = WAVE_PAUSE;
   readonly pieces: Piece[];
   private nextId = 1;
-  private begun = false;
+  begun = false;
   private queue: Array<{ at: number; g: Group; form: number }> = [];
   private groups: Group[];
   /** 編隊ごとの数 */
@@ -347,6 +348,13 @@ export class Game {
       this.events.push({ type: 'waveEnd', n: this.wave, bonus });
       if (this.wave + 1 >= this.waveCount) { this.cleared = true; this.over = true; this.events.push({ type: 'clear' }); return; }
       this.pause = WAVE_PAUSE;
+      // 日が変わる時(次の晩): 家はみんな灯り直し、提灯も満タン
+      if (dayOf(this.wave + 1) !== dayOf(this.wave)) {
+        this.pause = WAVE_PAUSE + 1.5;
+        for (const h of this.houses) { h.lit = true; h.ammo = this.P.ammoPerHouse; h.regen = 0; h.flash = 0.4; }
+        this.selected = -1;
+        this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
+      }
       this.groups = waveGroups(this.wave + 1, this.rng);
     }
   }

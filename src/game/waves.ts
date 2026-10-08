@@ -1,4 +1,4 @@
-// 刻ごとのおばけの出方(全 10 刻でクリア)。1 刻目は型を 1 つだけ、2 刻目からは型を重ねて忙しくする。
+// ウェーブごとのおばけの出方(3 日 × 3 ウェーブ = 全 9 ウェーブでクリア)。1 刻目は型を 1 つだけ、2 刻目からは型を重ねて忙しくする。
 // 説明の文字は出さない。出方そのものが「こういう時はこう」を教える。
 //
 // 型(と、その答えの一例)。どのおばけも途中で 1〜2 回だけ向きが変わる:
@@ -60,8 +60,8 @@ function shift(gs: Group[], dt: number): Group[] { return gs.map((g) => ({ ...g,
 /** 数を減らした型(1・2 刻目の顔見世用) */
 function few(gs: Group[], n: number): Group[] { return gs.map((g) => ({ ...g, n: Math.min(g.n, n) })); }
 
-/** 全 10 刻(決まった出方)。1・2 刻目は少なめでサクサク、いろんなおばけの顔見世 */
-const WAVES: Group[][] = [
+/** 旧 10 刻の出方(このうち 9 つを 3 日 × 3 ウェーブに並べる) */
+const OLD: Group[][] = [
   [...few(P.line(false), 3), ...shift(few(P.sweep(true), 2), 3), ...shift(few(P.loop(false), 3), 6), ...shift(P.big(false), 8)],
   [...few(P.row(false), 1).map((g) => ({ ...g, cols: g.cols.slice(1, 4) })), ...shift(few(P.cross(false), 2), 3), ...shift(P.big(true), 5)],
   [...P.step(false), ...shift(P.sweep(true), 4), ...shift(P.giant(false), 5)],
@@ -74,7 +74,18 @@ const WAVES: Group[][] = [
   [...P.loop(false), ...shift(P.row(true), 3), ...shift(P.sweep(false), 6), ...shift(P.cross(true), 9), ...shift(P.loop(true), 13), ...shift(P.giant(false), 1), ...shift(P.giant(true), 11), ...shift(P.big(false), 6)],
 ];
 
+/** 1 日 = 最大 3 ウェーブ。8/13(迎え盆)・8/14・8/15(お盆)の 3 日を凌げばクリア */
+export const WAVES_PER_DAY = 3;
+export const DAYS = 3;
+const WAVES: Group[][] = [
+  OLD[0], OLD[1], OLD[2], // 8/13: 顔見世、サクサク
+  OLD[3], OLD[5], OLD[6], // 8/14: 型を重ねる
+  OLD[7], OLD[8], OLD[9], // 8/15: お盆の本番
+];
 export const WAVE_COUNT = WAVES.length;
+/** n ウェーブ目が何日目か(0 = 8/13)と、その日の何番目か */
+export const dayOf = (n: number) => Math.floor(n / WAVES_PER_DAY);
+export const waveInDay = (n: number) => n % WAVES_PER_DAY;
 export const OPENING_WAVES = WAVES.length;
 
 /** n 刻目の出方(10 刻より先は、型を混ぜて毎回変わる。いまは 10 刻でクリア) */

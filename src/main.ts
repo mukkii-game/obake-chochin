@@ -3,6 +3,7 @@ import { Boot } from './scenes/Boot';
 import { Title } from './scenes/Title';
 import { Play } from './scenes/Play';
 import { Result } from './scenes/Result';
+import { Ending } from './scenes/Ending';
 import { installTuning } from './core/tuning';
 import { installTaps } from './ui/taps';
 import { installOverlay } from './ui/overlay';
@@ -22,7 +23,7 @@ const config: Phaser.Types.Core.GameConfig = {
   // 縮尺と向きは src/ui/orient.ts が決める(縦持ちのスマホでは 90 度回して全面に出す)
   scale: { mode: Phaser.Scale.NONE },
   input: { gamepad: false, activePointers: 3 },
-  scene: [Boot, Title, Play, Result],
+  scene: [Boot, Title, Play, Ending, Result],
 };
 
 const game = new Phaser.Game(config);

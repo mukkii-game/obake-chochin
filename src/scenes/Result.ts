@@ -3,7 +3,7 @@ import { t } from '../core/i18n';
 import { DemoDriver, expose } from '../core/demo';
 import { onTap } from '../ui/taps';
 import { snd } from '../game/sound';
-import { txt, watchName } from '../game/view';
+import { txt, waveLabel } from '../game/view';
 import { W } from '../game/logic';
 
 interface ResultData {
@@ -27,7 +27,7 @@ export class Result extends Phaser.Scene {
       `${t('bestChain')}  ${d.bestChain}${t('chain')}`,
       `${t('purified')}  ${d.purified}`,
       `${t('formations')}  ${d.formations ?? 0}`,
-      `${t('survived')}  ${watchName(d.watch)}(${d.seconds}s)`,
+      `${t('survived')}  ${waveLabel(Math.min(d.watch, 8))}(${d.seconds}s)`,
     ];
     this.add.text(W / 2, 248, rows.join('\n'), txt(18, '#f3e6c8', { align: 'center', lineSpacing: 8 })).setOrigin(0.5, 0);
 
