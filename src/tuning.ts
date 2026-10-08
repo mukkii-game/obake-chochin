@@ -58,5 +58,5 @@ export const KNOBS: Knob[] = [
   { key: 'juice.hitstop', label: '大連鎖の一瞬の止まり', value: 60, min: 0, max: 200, step: 10, unit: 'ms', aim: '6 連以上で効く' },
   { key: 'audio.bgm', label: 'BGM', value: true },
   { key: 'audio.sfx', label: '効果音の音量', value: 0.45, min: 0, max: 1, step: 0.05, aim: 'AI は聴かずに音量を決めるので大きめになりがち。控えめから' },
-  { key: 'audio.music', label: 'BGM の音量', value: 0.45, min: 0, max: 1, step: 0.05 },
+  { key: 'audio.music', label: 'BGM の音量', value: 0.28, min: 0, max: 1, step: 0.05 },
 ];
