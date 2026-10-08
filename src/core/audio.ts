@@ -199,3 +199,15 @@ export function voice(o: {
   src.stop(t0 + o.dur + 0.05); lfo.stop(t0 + o.dur + 0.05);
   if (o.consonant) noise({ dur: o.consonant, gain: gain * 1.2, freq: 3500, q: 1.5, delay: o.delay });
 }
+
+/** 読み込んだ効果音を 1 回鳴らす。rate = 再生の速さ(2 で 1 オクターブ上) */
+export function playSample(buf: AudioBuffer, gain = 0.5, rate = 1, delay = 0) {
+  if (muted) return;
+  const c = ensure();
+  if (!c) return;
+  const src = c.createBufferSource();
+  src.buffer = buf; src.playbackRate.value = rate;
+  const g = c.createGain(); g.gain.value = gain;
+  src.connect(g).connect(out(c));
+  src.start(c.currentTime + delay);
+}

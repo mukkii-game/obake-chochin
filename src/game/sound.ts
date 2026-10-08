@@ -2,7 +2,7 @@
 // 効果音は WebAudio の合成(和の楽器に寄せる: 太鼓・鈴・拍子木・寺の鐘・篠笛の息)。core/audio の残響を通る。
 // BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。タイトル =「揺れる提灯」(民族09)、遊ぶ間 =「和bravery heart」(民族33、和風の戦闘曲)。
 // 読めない時は合成の爪弾きに切り替える。
-import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice } from '../core/audio';
+import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice, playSample } from '../core/audio';
 import { tune } from '../core/tuning';
 
 // 都節音階(D E♭ G A B♭)。和の夜の響き
@@ -56,10 +56,15 @@ export const snd = {
   },
   saved: () => [0, 2, 4].forEach((k, i) => rin(note(7 + k), 0.04, i * 0.07, 1)),
   deny: () => wood(500, 0.05),
-  /** 提灯が弾けた: 太鼓 + 和紙が裂ける。誘爆は高めの太鼓 */
-  break: (chained: number) => {
-    taiko(0.15, 0, chained ? 130 : 95);
-    noise({ dur: 0.25, gain: 0.07, freq: 3200, slide: 1500, q: 0.6 });
+  /**
+   * 提灯が弾けた: ばしゅーん(Kenney の CC0 音を 2 つ重ねたもの)+ 太鼓。
+   * 連爆の n 個目ほど、都節の音階で高くなる(5 個目で 1 オクターブ上)。読めない時は合成だけ
+   */
+  break: (n: number) => {
+    const step = MIYAKO[Math.min(n - 1, MIYAKO.length - 1)];
+    if (boomBuf) playSample(boomBuf, 0.55, 2 ** (step / 12));
+    else noise({ dur: 0.25, gain: 0.07, freq: 3200, slide: 1500, q: 0.6 });
+    taiko(0.12, 0, 95 * 2 ** (step / 12));
   },
   burnout: () => noise({ dur: 0.4, gain: 0.06, freq: 600, q: 2 }),
   /** n 体目の成仏: 鈴が音階を上っていく */
@@ -89,6 +94,12 @@ export const snd = {
         pitch: [[0, 700 * pitch], [0.6, 480 * pitch]], f1: [[0, 300], [0.6, 300]], f2: [[0, 2400], [0.6, 2200]] }); }
   },
 };
+
+/** 都節音階の半音(0 = 元の高さ、12 = 1 オクターブ上) */
+const MIYAKO = [0, 1, 5, 7, 8, 12, 13, 17, 19, 20, 24];
+let boomBuf: AudioBuffer | null = null;
+/** 効果音のファイルを読んでおく(遊ぶ前に 1 回) */
+export function preloadSfx() { if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; }); }
 
 /** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */
 const TRACKS = {

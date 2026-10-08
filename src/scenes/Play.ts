@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { Game, DT, W, H, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
-import { snd, bgmStart, bgmStop, bgmIntensity } from '../game/sound';
+import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx } from '../game/sound';
 import { txt, watchName } from '../game/view';
 import { PAPER } from '../game/art';
 import { onTap } from '../ui/taps';
@@ -19,7 +19,7 @@ import { isMuted, toggleMuted } from '../core/audio';
 const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa' } as const;
 const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff } as const;
 /** 軒先の提灯の位置(家の中心から) */
-const HANG: ReadonlyArray<[number, number]> = [[-21, -4], [21, -4], [-21, 8]];
+const HANG: ReadonlyArray<[number, number]> = [[27, -14], [27, -1], [27, 12]];
 
 export class Play extends Phaser.Scene {
   private game2!: Game;
@@ -80,7 +80,7 @@ export class Play extends Phaser.Scene {
       const key = `house_${h.piece}`;
       const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(0.68).setDepth(2);
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
-      const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, `lantern_${h.piece}`).setScale(0.3).setDepth(3));
+      const hang = HANG.map(([dx, dy]) => this.add.image(h.x + dx, h.y + dy, `lantern_${h.piece}`).setScale(0.22).setDepth(3));
       this.houseImgs.push({ img, glow, hang, key });
     }
     this.fx = this.add.graphics().setDepth(5);
@@ -115,6 +115,7 @@ export class Play extends Phaser.Scene {
     this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; bgmStop(); });
 
     bgmStart();
+    preloadSfx();
     this.updateHud();
   }
 
@@ -172,7 +173,7 @@ export class Play extends Phaser.Scene {
         break;
       }
       case 'break':
-        snd.break(e.chained ? 1 : 0);
+        snd.break(e.n);
         this.shards.explode(14, e.x, e.y);
         this.sparks.explode(12, e.x, e.y);
         break;
@@ -319,7 +320,7 @@ export class Play extends Phaser.Scene {
       o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y + 22);
       o.glow.setVisible(h.lit).setAlpha(panic ? (flick ? 0.5 : 0.15) : 0.45 + 0.1 * Math.sin(time * 3 + i));
       o.img.setScale(0.68 * (1 + h.flash * 0.25));
-      o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setAngle(Math.sin(time * 1.5 + k + i) * 6));
+      o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setAngle(Math.sin(time * 1.5 + k + i) * 4));
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
     this.selFx.clear();
@@ -405,11 +406,23 @@ export class Play extends Phaser.Scene {
       this.fx.lineBetween(tx - 6, ty + 6, tx + 6, ty - 6);
     }
     this.glowFx.clear();
-    // 下がった提灯の明かりが、模様の形にうっすらこぼれる(弾けたら光がここを伸びる。印ではなく提灯の明かり)
-    for (const l of g.lanterns) {
-      if (l.flying) continue;
-      this.drawShape(l.piece, l.tx, l.ty, g.reach(l.piece), 0, 0xffb060, 0.05 + 0.06 * Math.min(1, l.age / P.fuse));
-    }
+    // 置かれた提灯の光の範囲: うっすら塗って、輪郭を引く(弾けたら光がここを伸びる)。
+    // 範囲が重なって連爆する提灯どうしは、輪郭が金色に光り、線でつながる(飛んでいる提灯は着く所で)
+    const ls = g.lanterns;
+    const linked = ls.map((a, i) => ls.some((b, j) => j !== i && g.touches(a, b)));
+    const pulse = 0.65 + 0.35 * Math.sin(time * 6);
+    ls.forEach((l, i) => {
+      const L = g.reach(l.piece);
+      if (!l.flying) this.drawShape(l.piece, l.tx, l.ty, L, 0, 0xffb060, 0.05 + 0.06 * Math.min(1, l.age / P.fuse));
+      if (linked[i]) this.outlineShape(l.piece, l.tx, l.ty, 0xffd860, 0.85 * pulse, 2.5);
+      else this.outlineShape(l.piece, l.tx, l.ty, 0xffb060, l.flying ? 0.22 : 0.4, 1.2);
+      for (let j = i + 1; j < ls.length; j++) {
+        if (!g.touches(l, ls[j])) continue;
+        this.fx.lineStyle(2, 0xffe080, 0.7 * pulse);
+        const n = 10, dx = (ls[j].tx - l.tx) / n, dy = (ls[j].ty - l.ty) / n;
+        for (let k = 0; k < n; k += 2) this.fx.lineBetween(l.tx + dx * k, l.ty + dy * k, l.tx + dx * (k + 1), l.ty + dy * (k + 1));
+      }
+    });
     // 光: 家の形どおりに、帯になって伸びる
     for (const b of g.blasts) this.drawBlast(b);
 
@@ -444,6 +457,21 @@ export class Play extends Phaser.Scene {
       case 'down': seg(0, 1); break;
       case 'cross': seg(0, -1); seg(0, 1); seg(-1, 0); seg(1, 0); break;
       case 'area': fx.fillCircle(x, y, to); break;
+    }
+  }
+
+  /** 光の形の輪郭(連爆の届く範囲を見せる) */
+  private outlineShape(piece: Piece, x: number, y: number, col: number, a: number, lw: number) {
+    const g = this.game2, fx = this.fx, w = g.P.lightWidth / 2, L = g.reach(piece);
+    fx.lineStyle(lw, col, a);
+    const box = (l: number, t: number, ww: number, hh: number) => fx.strokeRoundedRect(l, t, ww, hh, Math.min(8, w));
+    switch (piece) {
+      case 'vline': box(x - w, y - L, w * 2, L * 2); break;
+      case 'hline': box(x - L, y - w, L * 2, w * 2); break;
+      case 'up': box(x - w, y - L, w * 2, L + w); break;
+      case 'down': box(x - w, y - w, w * 2, L + w); break;
+      case 'cross': box(x - w, y - L * 0.7, w * 2, L * 1.4); box(x - L * 0.7, y - w, L * 1.4, w * 2); break;
+      case 'area': fx.strokeCircle(x, y, L); break;
     }
   }
 

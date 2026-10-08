@@ -5,7 +5,7 @@
 // ミサイルコマンド(時限・アナログな位置)× ボンバーマン(置いて少しして爆発・誘爆)× ギャラガ(編隊・輪):
 //   - 投げる: 押した所へ、家から提灯がゆっくり飛び、着いて 3 秒後に弾ける(飛ぶ時間 + 3 秒を読む)。
 //   - 光は家の形どおり: 縦の家 = 縦 / 横の家 = 横 / 丸い蔵 = 周り。提灯の形も同じ(縦長 / 横長 / 丸)。
-//   - 光が届いた提灯は、すぐ弾ける(誘爆)。つなぐために置く手もある。おばけどうしは連鎖しない。
+//   - 光が、置かれた提灯の光の範囲に触れたら、その提灯もすぐ弾ける(誘爆)。つなぐために置く手もある。おばけどうしは連鎖しない。
 //   - 置かれた提灯にたどり着いたおばけは見とれて止まり、後ろはつかえて詰まる(せき止め。弾けるまで)。
 //   - おばけは決まった道筋で来る: 幽霊 = 縦・横・縦の階段 / 唐傘 = 斜めと縦のジグザグ / 鬼火 = 輪を描いてから突っ込む。
 //   - 1 回の光と誘爆の n 体目は 基本点 × n。3 連以上は連鎖ボーナス、編隊を一度に全部倒すと編隊ボーナス。
@@ -76,14 +76,14 @@ export interface Lantern {
 export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
 export interface Blast { x: number; y: number; piece: Piece; ext: number; chain: number }
-export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number> }
+export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number>; bursts: number }
 
 export type GameEvent =
   | { type: 'launch'; sx: number; sy: number; x: number; y: number; house: number }
   | { type: 'select'; house: number }
   | { type: 'light'; x: number; y: number }
   | { type: 'deny'; x: number; y: number }
-  | { type: 'break'; x: number; y: number; chained: boolean }
+  | { type: 'break'; x: number; y: number; chained: boolean; n: number }
   | { type: 'caught'; x: number; y: number }
   | { type: 'purify'; x: number; y: number; n: number; pts: number; kind: GhostKind }
   | { type: 'chainEnd'; x: number; y: number; n: number; pts: number; bonus: number }
@@ -224,6 +224,31 @@ export class Game {
     }
   }
 
+  /** 光の形の上の代表点(連爆の判定と、つながりの表示に使う) */
+  shapePoints(piece: Piece, x: number, y: number): Array<[number, number]> {
+    const L = this.reach(piece), w = this.P.lightWidth / 2;
+    const pts: Array<[number, number]> = [[x, y]];
+    const line = (dx: number, dy: number) => {
+      for (const k of [0.25, 0.5, 0.75, 1]) for (const o of [-w, 0, w]) pts.push([x + dx * L * k + dy * o, y + dy * L * k + dx * o]);
+    };
+    switch (piece) {
+      case 'vline': line(0, -1); line(0, 1); break;
+      case 'hline': line(-1, 0); line(1, 0); break;
+      case 'up': line(0, -1); break;
+      case 'down': line(0, 1); break;
+      case 'cross': line(0, -1); line(0, 1); line(-1, 0); line(1, 0); break;
+      case 'area': for (let a = 0; a < 16; a++) for (const k of [0.5, 1]) pts.push([x + Math.cos((a * Math.PI) / 8) * L * k, y + Math.sin((a * Math.PI) / 8) * L * k]); break;
+    }
+    return pts;
+  }
+
+  /** 2 つの提灯の光の形が重なるか(= 片方が弾ければ、もう片方も連爆する) */
+  touches(a: { piece: Piece; tx: number; ty: number }, b: { piece: Piece; tx: number; ty: number }) {
+    if (Math.hypot(a.tx - b.tx, a.ty - b.ty) > this.reach(a.piece) + this.reach(b.piece) + this.P.lightWidth) return false;
+    return this.shapePoints(b.piece, b.tx, b.ty).some(([x, y]) => this.along(a.piece, a.tx, a.ty, x, y, 2) >= 0)
+      || this.shapePoints(a.piece, a.tx, a.ty).some(([x, y]) => this.along(b.piece, b.tx, b.ty, x, y, 2) >= 0);
+  }
+
   /** 光がいま (x, y) を照らしているか */
   lit(b: Blast, x: number, y: number, r = 0) {
     const a = this.along(b.piece, b.x, b.y, x, y, r);
@@ -235,7 +260,8 @@ export class Game {
     const c = chain ?? this.newChain(l.tx, l.ty);
     this.blasts.push({ x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id });
     this.lanterns = this.lanterns.filter((q) => q !== l);
-    this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain });
+    c.bursts++;
+    this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain, n: c.bursts });
   }
 
   /** 1/60 秒進める */
@@ -298,7 +324,7 @@ export class Game {
   }
 
   private newChain(x: number, y: number): Chain {
-    const c: Chain = { id: this.nextId++, count: 0, pts: 0, lx: x, ly: y, forms: new Map() };
+    const c: Chain = { id: this.nextId++, count: 0, pts: 0, lx: x, ly: y, forms: new Map(), bursts: 0 };
     this.chains.set(c.id, c);
     return c;
   }
@@ -470,7 +496,8 @@ export class Game {
       if (b.ext - this.band > this.reach(b.piece) + GHOST_R) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
       const chain = this.chains.get(b.chain)!;
       // 誘爆: 光が届いた提灯は、すぐ弾ける(置かれたものだけ。飛んでいるものは除く)
-      for (const l of [...this.lanterns]) if (!l.flying && this.lit(b, l.tx, l.ty, 6)) this.burst(l, chain);
+      // 連爆は、光がその提灯の光の範囲に触れるだけで起きる(提灯そのものに当たらなくてよい)
+      for (const l of [...this.lanterns]) if (!l.flying && this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, 4))) this.burst(l, chain);
       for (const g of this.ghosts) {
         if (g.dead || g.y < PLAY.y0 || !this.lit(b, g.x, g.y, GHOST_R)) continue;
         g.dead = true;
