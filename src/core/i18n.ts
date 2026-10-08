@@ -40,6 +40,9 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   obakeComing: { ja: 'おばけが、くるぞー!', en: 'Here come the ghosts!' },
   // おばけのセリフ(| で区切って、順番に使う)
   wave: { ja: 'ウェーブ', en: 'Wave' },
+  continue: { ja: 'コンティニュー', en: 'CONTINUE' },
+  continueFrom: { ja: ' のはじめから(スコアは 0 から)', en: ' from the start (score resets)' },
+  continueCount: { ja: 'コンティニュー', en: 'Continues' },
   daySurvived: { ja: 'しのいだ!', en: 'survived!' },
   ending1: { ja: '8月15日の夜が、明けた。', en: 'The night of August 15th is over.' },
   ending2: { ja: 'おばけたちは たのしそうに\nあの世へ かえっていった。', en: 'The ghosts went home to the other side,\nhappy as can be.' },

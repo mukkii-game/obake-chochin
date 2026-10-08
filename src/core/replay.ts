@@ -6,11 +6,12 @@
 import { query } from './meta';
 
 export type InputFrame = [frame: number, input: string];
-export interface Recording { v: 1; seed: number; inputs: InputFrame[] }
+/** wave: 始めたウェーブ(コンティニューはその日の頭から。省略 = 0) */
+export interface Recording { v: 1; seed: number; inputs: InputFrame[]; wave?: number }
 
 export class Recorder {
   readonly rec: Recording;
-  constructor(seed: number) { this.rec = { v: 1, seed, inputs: [] }; }
+  constructor(seed: number, wave = 0) { this.rec = { v: 1, seed, inputs: [] }; if (wave > 0) this.rec.wave = wave; }
   /** 入力があったフレームだけ記録する(無入力のフレームは持たない) */
   push(frame: number, input: string) { if (input) this.rec.inputs.push([frame, input]); }
   toString() { return encodeRecording(this.rec); }

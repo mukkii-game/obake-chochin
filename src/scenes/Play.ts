@@ -65,6 +65,7 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private continues = 0;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeTick = 0;
   private bloom!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -81,18 +82,21 @@ export class Play extends Phaser.Scene {
 
   constructor() { super('Play'); }
 
-  create() {
+  /** data.continueWave: コンティニュー(その日の頭のウェーブから。スコアは 0 から)。continues: これまでのコンティニュー回数 */
+  create(data?: { continueWave?: number; continues?: number }) {
     expose('scene', 'Play');
+    this.continues = data?.continues ?? 0;
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = []; this.bubbles = []; this.talked = new Set();
     this.gSprites.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
     const seed = replay ? replay.seed : startSeed();
     this.player = replay ? new Player(replay) : null;
-    this.rec = new Recorder(seed);
-    // ?wave=4 でその刻から(確かめ用)
-    const startWave = Math.max(0, Math.min(9, (Number(new URLSearchParams(location.search).get('wave')) || 1) - 1));
-    this.game2 = new Game(seed, readParams(), replay ? 0 : startWave);
+    // ?wave=4 でそのウェーブから(確かめ用)。コンティニューはその日の頭から
+    const urlWave = Math.max(0, Math.min(8, (Number(new URLSearchParams(location.search).get('wave')) || 1) - 1));
+    const startWave = replay ? replay.wave ?? 0 : data?.continueWave ?? urlWave;
+    this.rec = new Recorder(seed, startWave);
+    this.game2 = new Game(seed, readParams(), startWave);
     this.bot = DemoDriver.enabled && !replay ? new Bot(0.8, seed) : null;
     expose('seed', seed); expose('score', 0);
 
@@ -230,7 +234,7 @@ export class Play extends Phaser.Scene {
     this.cameras.main.fadeOut(1400, 5, 3, 10);
     const res = {
       score: g.score, best, newBest: g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
-      watch: g.wave, seconds: Math.floor(g.t), replay: this.rec.toString(), cleared: g.cleared, formations: g.formations,
+      watch: g.wave, seconds: Math.floor(g.t), replay: this.rec.toString(), cleared: g.cleared, formations: g.formations, continues: this.continues,
     };
     // 3 日を凌いだらエンディングとスタッフロール、その後に結果
     this.time.delayedCall(1500, () => this.scene.start(g.cleared ? 'Ending' : 'Result', res));
