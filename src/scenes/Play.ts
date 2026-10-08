@@ -47,7 +47,7 @@ export class Play extends Phaser.Scene {
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private gGlows = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peek?: Phaser.GameObjects.Image; back: Phaser.GameObjects.Shape }> = [];
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peek?: Phaser.GameObjects.Image; back: Phaser.GameObjects.Shape; aura: Phaser.GameObjects.Image; wisps: Phaser.GameObjects.Image[] }> = [];
   /** 家に入り込んだおばけ(家ごと)と、入ったおばけの id(跳ね返る絵を出さない) */
   private peek: Array<GhostKind | undefined> = [];
   private entered = new Set<number>();
@@ -134,7 +134,10 @@ export class Play extends Phaser.Scene {
       // 窓の向こうの暗がり(暗い家の窓は穴なので、その後ろに置く)
       const back = h.piece === 'area' ? this.add.circle(h.x, h.y + 4, 13, 0x15131c) : h.piece === 'vline' ? this.add.rectangle(h.x, h.y - 3, 21, 26, 0x15131c) : this.add.rectangle(h.x, h.y + 9, 40, 19, 0x15131c);
       back.setDepth(1.5).setVisible(false);
-      this.houseImgs.push({ img, glow, hang, key, back });
+      // のっとられた家の青い魂のオーラと人魂(灯りのついた家・提灯の暖かい色と対比)
+      const aura = this.add.image(h.x, h.y - 6, 'glow').setTint(0x4f7dff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.6).setVisible(false);
+      const wisps = [0, 1, 2].map(() => this.add.image(h.x, h.y, 'wisp').setTint(0x8fd8ff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.7).setScale(0.55).setVisible(false));
+      this.houseImgs.push({ img, glow, hang, key, back, aura, wisps });
     }
     this.fx = this.add.graphics().setDepth(5);
     this.slotFx = this.add.graphics().setDepth(4.5);
@@ -649,6 +652,17 @@ export class Play extends Phaser.Scene {
       // 窓から見える所だけ見える(大きいおばけは目のあたりだけ)
       const wy = h.y + (o.key.endsWith('vline') ? -3 : o.key.endsWith('hline') ? 9 : 4);
       o.back.setVisible(!h.lit);
+      // のっとられた家: 家を覆う青白い魂がゆらゆら、まわりを人魂が回る
+      o.aura.setVisible(!h.lit);
+      if (!h.lit) {
+        o.aura.setPosition(h.x + Math.sin(time * 0.9 + i) * 3, h.y - 10 + Math.sin(time * 1.4 + i) * 4)
+          .setScale(1.35 + 0.12 * Math.sin(time * 2.2 + i), 1.6 + 0.15 * Math.sin(time * 1.7 + i)).setAlpha(0.45 + 0.15 * Math.sin(time * 3.1 + i));
+        o.wisps.forEach((w, k) => {
+          const a = time * (0.9 + k * 0.25) + (k * Math.PI * 2) / 3 + i;
+          w.setVisible(true).setPosition(h.x + Math.cos(a) * 34, h.y - 14 + Math.sin(a) * 16 - Math.abs(Math.sin(time * 2 + k)) * 6)
+            .setAlpha(0.55 + 0.35 * Math.sin(time * 4 + k + i)).setFlipX(Math.cos(a + Math.PI / 2) < 0);
+        });
+      } else o.wisps.forEach((w) => w.setVisible(false));
       if (!h.lit && pk) {
         const k = pk === 'big' ? 1.35 : pk === 'giant' ? 1.03 : 1;
         if (!o.peek) o.peek = this.add.image(h.x, wy, GHOST_TEX[pk]).setDepth(1.6);
@@ -844,7 +858,7 @@ export class Play extends Phaser.Scene {
       } else if (inField && from >= 0) {
         this.aimTag.setText(`${t('left')} ${g.maxOnField - g.lanterns.length}`).setColor('#fff0d0').setPosition(x + 30, y + 18).setVisible(true).setAlpha(0.6);
       } else this.aimTag.setVisible(false);
-      const fullBlink = full && Math.sin(time * 12) < 0;
+      const fullBlink = full && Math.sin(time * 30) < 0; // いっぱい: 速く点滅
       if (from >= 0 && inField && !low && !fullBlink) {
         const piece = g.houses[from].piece, me = { piece, tx: x, ty: y };
         const ok = !full;
