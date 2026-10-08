@@ -49,9 +49,9 @@ export class Play extends Phaser.Scene {
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private gGlows = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peek?: Phaser.GameObjects.Image; back: Phaser.GameObjects.Shape; aura: Phaser.GameObjects.Image; wisps: Phaser.GameObjects.Image[] }> = [];
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peeks: Phaser.GameObjects.Image[]; back: Phaser.GameObjects.Shape; aura: Phaser.GameObjects.Image; wisps: Phaser.GameObjects.Image[] }> = [];
   /** 家に入り込んだおばけ(家ごと)と、入ったおばけの id(跳ね返る絵を出さない) */
-  private peek: Array<GhostKind | undefined> = [];
+  private peek: Array<GhostKind[] | undefined> = [];
   private entered = new Set<number>();
   private selFx!: Phaser.GameObjects.Graphics;
   private portalImgs: Phaser.GameObjects.Image[] = [];
@@ -140,7 +140,7 @@ export class Play extends Phaser.Scene {
       // のっとられた家の青い魂のオーラと人魂(灯りのついた家・提灯の暖かい色と対比)
       const aura = this.add.image(h.x, h.y - 6, 'glow').setTint(0x4f7dff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.6).setVisible(false);
       const wisps = [0, 1, 2].map(() => this.add.image(h.x, h.y, 'wisp').setTint(0x8fd8ff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.7).setScale(0.55).setVisible(false));
-      this.houseImgs.push({ img, glow, hang, key, back, aura, wisps });
+      this.houseImgs.push({ img, glow, hang, key, back, aura, wisps, peeks: [] });
     }
     this.fx = this.add.graphics().setDepth(5);
     this.slotFx = this.add.graphics().setDepth(4.5);
@@ -433,10 +433,16 @@ export class Play extends Phaser.Scene {
         snd.saved();
         this.sparks.explode(10, e.x, e.y - 10);
         break;
+      case 'enter':
+        // 仲間も同じ家へ入っていく(窓の中が、にぎやかになる)
+        this.entered.add(e.ghost);
+        (this.peek[e.house] ??= []).push(e.kind);
+        snd.catch();
+        break;
       case 'houseOut':
         // おばけは家に入り込んだ(跳ね返らない): 窓から顔を出す。大きいのは目だけ見える
         if (e.ghost !== undefined) this.entered.add(e.ghost);
-        this.peek[e.house] = e.kind ?? 'fuwa';
+        this.peek[e.house] = [e.kind ?? 'fuwa'];
         snd.houseOut();
         this.cameras.main.shake(260, tune<number>('juice.shake'));
         this.puff(e.x, e.y);
@@ -667,17 +673,23 @@ export class Play extends Phaser.Scene {
             .setAlpha(0.55 + 0.35 * Math.sin(time * 4 + k + i)).setFlipX(Math.cos(a + Math.PI / 2) < 0);
         });
       } else o.wisps.forEach((w) => w.setVisible(false));
-      if (!h.lit && pk) {
-        const k = pk === 'big' ? 1.35 : pk === 'giant' ? 1.03 : 1;
-        if (!o.peek) o.peek = this.add.image(h.x, wy, GHOST_TEX[pk]).setDepth(1.6);
-        const sc = 0.66 * k, px = h.x + Math.sin(time * 1.3 + i) * 5, py = wy + 2 + Math.sin(time * 2.1 + i) * 2;
-        o.peek.setTexture(GHOST_TEX[pk]).setScale(sc).setTint(GHOST_TINT[pk] ?? 0xffffff).setPosition(px, py).setVisible(true);
+      const list = !h.lit && pk ? pk : [];
+      if (h.lit) this.peek[i] = undefined;
+      list.forEach((kind, j) => {
+        const k = kind === 'big' ? 1.35 : kind === 'giant' ? 1.03 : 1;
+        let im = o.peeks[j];
+        if (!im) { im = this.add.image(h.x, wy, GHOST_TEX[kind]).setDepth(1.6 - j * 0.001); o.peeks[j] = im; }
+        // 何匹も入ったら、窓の中で横に並んでゆらゆら
+        const n = list.length, spread = Math.min(16, 40 / Math.max(1, n - 1));
+        const sc = 0.66 * k, px = h.x + (j - (n - 1) / 2) * spread + Math.sin(time * 1.3 + i + j) * 4, py = wy + 2 + Math.sin(time * 2.1 + i + j * 1.7) * 2.5;
+        im.setTexture(GHOST_TEX[kind]).setScale(sc).setTint(GHOST_TINT[kind] ?? 0xffffff).setPosition(px, py).setVisible(true);
         // 窓の外にはみ出す所は切る(おばけは窓からしか見えない)
-        const b = o.back.getBounds(), fw = o.peek.frame.width, fh = o.peek.frame.height;
+        const b = o.back.getBounds(), fw = im.frame.width, fh = im.frame.height;
         const cx0 = Math.max(0, (b.x - px) / sc + fw / 2), cy0 = Math.max(0, (b.y - py) / sc + fh / 2);
         const cx1 = Math.min(fw, (b.right - px) / sc + fw / 2), cy1 = Math.min(fh, (b.bottom - py) / sc + fh / 2);
-        if (cx1 > cx0 && cy1 > cy0) o.peek.setCrop(cx0, cy0, cx1 - cx0, cy1 - cy0); else o.peek.setVisible(false);
-      } else if (o.peek) { o.peek.setVisible(false); if (h.lit) this.peek[i] = undefined; }
+        if (cx1 > cx0 && cy1 > cy0) im.setCrop(cx0, cy0, cx1 - cx0, cy1 - cy0); else im.setVisible(false);
+      });
+      for (let j = list.length; j < o.peeks.length; j++) o.peeks[j].setVisible(false);
       // 軒先の提灯: ある分は灯る。無い分は点々の輪郭だけ。次に戻る 1 つは、下から灯りが溜まっていく(戻るまでのゲージ)
       const regenK = Math.min(1, h.regen / P.regenTime);
       o.hang.forEach((hg, k) => {

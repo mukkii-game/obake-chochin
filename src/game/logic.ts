@@ -86,7 +86,8 @@ export interface Lantern {
   /** 誘爆の火が付いた: あと何秒で弾けるか(ぴん、ぽん、ぱーん と間をあけて弾ける)と、つながる連鎖 */
   fuseLit?: number; litChain?: number;
 }
-export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
+/** takenForm: この家をのっとった隊列(仲間は向かい直さず、同じ家へ入っていく) */
+export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece; takenForm?: number }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
 /** grow: 光の大きさの倍率、dmg: 当たった時の力(どちらもコンボの何発目かで増える) */
 export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number; grow: number; dmg: number }
@@ -111,6 +112,7 @@ export type GameEvent =
   | { type: 'watch'; n: number }
   | { type: 'waveEnd'; n: number; bonus: number }
   | { type: 'clear' }
+  | { type: 'enter'; x: number; y: number; house: number; kind: GhostKind; ghost: number }
   | { type: 'ignite'; x: number; y: number }
   | { type: 'dayEnd'; day: number }
   | { type: 'over' };
@@ -373,7 +375,7 @@ export class Game {
       // 日が変わる時(次の晩): 家はみんな灯り直し、提灯も満タン
       if (dayOf(this.wave + 1) !== dayOf(this.wave)) {
         this.pause = WAVE_PAUSE + 1.5;
-        for (const h of this.houses) { h.lit = true; h.ammo = this.P.ammoPerHouse; h.regen = 0; h.flash = 0.4; }
+        for (const h of this.houses) { h.lit = true; h.ammo = this.P.ammoPerHouse; h.regen = 0; h.flash = 0.4; h.takenForm = undefined; }
         this.selected = -1;
         this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
       }
@@ -495,7 +497,7 @@ export class Game {
       if (g.dead) continue;
       g.age += dt;
       if (g.haunt) continue;
-      if (!this.houses[g.target].lit) this.retarget(g);
+      { const th = this.houses[g.target]; if (!th.lit && th.takenForm !== g.form) this.retarget(g); }
       if (placed.some((l) => Math.hypot(l.tx - g.x, l.ty - g.y) < P.catchR)) {
         if (!g.caught) { g.caught = true; this.events.push({ type: 'caught', x: g.x, y: g.y }); }
         g.stopped = true;
@@ -514,8 +516,12 @@ export class Game {
       if (h.lit && g.seg >= g.path.length - 1 && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
         // 家に触れたら、その場で家はやられる(待ち時間なし)
         g.dead = true; g.x = h.x; g.y = h.y;
-        h.lit = false; h.ammo = 0; h.flash = 0.6; h.haunt = 0;
+        h.lit = false; h.ammo = 0; h.flash = 0.6; h.haunt = 0; h.takenForm = g.form;
         this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount, kind: g.kind, ghost: g.id });
+      } else if (!h.lit && h.takenForm === g.form && g.seg >= g.path.length - 1 && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
+        // 同じ隊列の仲間: 先にのっとった家へ、みんな入っていく
+        g.dead = true; g.x = h.x; g.y = h.y;
+        this.events.push({ type: 'enter', x: h.x, y: h.y, house: g.target, kind: g.kind, ghost: g.id });
       }
     }
   }
@@ -647,7 +653,7 @@ export class Game {
       const dark = this.houses.filter((h) => !h.lit);
       if (!dark.length) continue;
       dark.sort((a, b) => Math.hypot(a.x - last[0], a.y - last[1]) - Math.hypot(b.x - last[0], b.y - last[1]));
-      dark[0].lit = true; dark[0].flash = 0.8; dark[0].ammo = 1;
+      dark[0].lit = true; dark[0].flash = 0.8; dark[0].ammo = 1; dark[0].takenForm = undefined;
       this.events.push({ type: 'relight', x: dark[0].x, y: dark[0].y, from: last });
     }
   }
