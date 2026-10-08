@@ -5,7 +5,7 @@ import { Game, DT, W, H, PLAY, HOUSE_R, encodeTaps, decodeTaps, type Ghost, type
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
-import { txt, watchName } from '../game/view';
+import { txt, pop, watchName } from '../game/view';
 import { PAPER } from '../game/art';
 import { onTap, onAim, onCancel } from '../ui/taps';
 import { DemoDriver, expose } from '../core/demo';
@@ -51,9 +51,14 @@ export class Play extends Phaser.Scene {
   private hiText!: Phaser.GameObjects.Text;
   private nightK = 0;
   private banners: Phaser.GameObjects.Text[] = [];
+  private bubbles: Phaser.GameObjects.Text[] = [];
+  private talked = new Set<number>();
   private scoreText!: Phaser.GameObjects.Text;
   private watchText!: Phaser.GameObjects.Text;
   private chainText!: Phaser.GameObjects.Text;
+  private shownScore = 0;
+  private scorePunch = false;
+  private rushId = -1;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   private fireworks!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -67,7 +72,7 @@ export class Play extends Phaser.Scene {
 
   create() {
     expose('scene', 'Play');
-    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = [];
+    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = []; this.bubbles = []; this.talked = new Set();
     this.gSprites.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
@@ -121,11 +126,13 @@ export class Play extends Phaser.Scene {
     }).setDepth(31);
 
     // HUD(巻物の上の縁に)
-    this.scoreText = this.add.text(PAPER.x0 + 14, 6, '', txt(20)).setDepth(50);
-    this.watchText = this.add.text(W / 2 + 60, 6, '', txt(18, '#e8d6ff')).setOrigin(0.5, 0).setDepth(50);
-    this.hiText = this.add.text(PAPER.x0 + 230, 8, '', txt(16, '#ffb0e0')).setDepth(50);
-    const mute = this.add.text(PAPER.x1 - 14, 6, isMuted() ? '♪×' : '♪', txt(18, '#cfe')).setOrigin(1, 0).setDepth(50);
-    this.chainText = this.add.text(W / 2, H / 2, '', txt(44, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
+    // HUD: 左にスコア(入るたびに跳ねる)、真ん中に刻、右にハイスコアと音
+    this.scoreText = this.add.text(PAPER.x0 + 8, 18, '', txt(28)).setOrigin(0, 0.5).setDepth(50);
+    this.watchText = this.add.text(W / 2, 18, '', txt(24, '#e8d6ff')).setOrigin(0.5).setDepth(50);
+    this.hiText = this.add.text(PAPER.x1 - 50, 18, '', txt(22, '#ffb0e0')).setOrigin(1, 0.5).setDepth(50);
+    const mute = this.add.text(PAPER.x1 - 8, 4, isMuted() ? '♪×' : '♪', txt(24, '#cfe')).setOrigin(1, 0).setDepth(50);
+    this.shownScore = 0; this.scorePunch = false; this.rushId = -1;
+    this.chainText = this.add.text(W / 2, H / 2, '', pop(40, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
     else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
 
@@ -249,7 +256,9 @@ export class Play extends Phaser.Scene {
       }
       case 'purify': {
         snd.purify(e.n);
-        cry(e.n);
+        // やられた: 声と同じ言葉を吹き出しで(声が重なって鳴らない時は、種類ごとの言葉)
+        const said = cry(e.n);
+        this.say(e.x, e.y - 34, said ? t(`cry_${said}`) : t(`cry_kind_${e.kind}`), '#ffd0e8', true);
         this.sparks.explode(5, e.x, e.y);
         this.popup(e.x, e.y - 14, `${e.pts}`, e.n >= 3 ? '#ffe27a' : '#f3e6c8', 13 + Math.min(e.n, 8));
         if (e.n >= 3) this.showChain(e.n, e.x, e.y);
@@ -257,7 +266,7 @@ export class Play extends Phaser.Scene {
       }
       case 'chainEnd':
         snd.chainEnd(e.n);
-        if (e.bonus > 0) this.banner(`${e.n}${t('chain')}  ${t('chainBonus')} +${e.bonus}`, e.x, e.y, '#ffe27a', 22 + Math.min(e.n, 10) * 1.5);
+        if (e.bonus > 0) this.combo(e.n, e.bonus, e.x, e.y);
         if (e.n >= 6) { this.hitstop = tune<number>('juice.hitstop'); this.cameras.main.shake(180, 0.006); }
         break;
       case 'formation':
@@ -326,9 +335,9 @@ export class Play extends Phaser.Scene {
 
   private showChain(n: number, x: number, y: number) {
     const c = this.chainText;
-    c.setText(`${n}${t('chain')}!`);
-    c.setPosition(Phaser.Math.Clamp(x, 140, W - 140), Phaser.Math.Clamp(y - 90, 70, H - 60));
-    c.setFontSize(Math.min(30 + n * 2, 72));
+    c.setText(`${n} ${t('combo')}!`);
+    c.setPosition(Phaser.Math.Clamp(x, 140, W - 140), Phaser.Math.Clamp(y - 70, 70, H - 60));
+    c.setFontSize(Math.min(26 + n * 2, 60));
     c.setColor(n >= 15 ? '#ffb0e0' : n >= 8 ? '#ffe27a' : '#fff3c0');
     this.tweens.killTweensOf(c);
     c.setAlpha(1).setScale(1.3);
@@ -360,6 +369,33 @@ export class Play extends Phaser.Scene {
     }
   }
 
+  /** おばけのセリフの吹き出し。follow を渡すとそのおばけに付いていく。cry = やられた声(少し大きく、跳ねて消える) */
+  private say(x: number, y: number, s: string, color: string, cry: boolean, follow?: Phaser.GameObjects.Image) {
+    const b = this.add.text(x, y, s, pop(cry ? 17 : 14, color, { strokeThickness: 5, backgroundColor: cry ? undefined : 'rgba(40,20,48,0.55)' })).setOrigin(0.5).setDepth(57).setScale(0.3);
+    this.bubbles.push(b);
+    this.tweens.add({ targets: b, scale: 1, duration: 200, ease: 'Back.Out' });
+    if (cry) this.tweens.add({ targets: b, y: y - 30, angle: Phaser.Math.Between(-12, 12), duration: 900, ease: 'Quad.Out' });
+    if (follow) {
+      const ev = this.time.addEvent({ delay: 16, loop: true, callback: () => { if (follow.active && b.active) b.setPosition(follow.x, follow.y - 34); } });
+      this.time.delayedCall(1700, () => ev.remove());
+    }
+    this.tweens.add({ targets: b, alpha: 0, delay: cry ? 650 : 1300, duration: 350, onComplete: () => b.destroy() });
+  }
+
+  /** コンボ!: 決めた所に、ぽんっと弾んで出る(数が多いほど大きく、色が変わる) */
+  private combo(n: number, bonus: number, x: number, y: number) {
+    const size = Math.min(34 + n * 3, 72);
+    const cols = ['#ffe27a', '#ffb0e0', '#9ff0ff', '#b8ffb0'];
+    const xx = Phaser.Math.Clamp(x, 160, W - 160), yy = Phaser.Math.Clamp(y - 20, 90, H - 90);
+    const head = this.add.text(xx, yy, `${n} ${t('combo')}!`, pop(size, cols[n % cols.length])).setOrigin(0.5).setDepth(62).setScale(0.2).setAngle(-8);
+    const sub = this.add.text(xx, yy + size * 0.8, `+${bonus}`, pop(Math.round(size * 0.6), '#fff3c0')).setOrigin(0.5).setDepth(62).setScale(0).setAlpha(0);
+    this.tweens.add({ targets: head, scale: 1, angle: 0, duration: 260, ease: 'Back.Out' });
+    this.tweens.add({ targets: head, angle: { from: -4, to: 4 }, duration: 160, yoyo: true, repeat: 2, delay: 260 });
+    this.tweens.add({ targets: sub, scale: 1, alpha: 1, duration: 220, delay: 140, ease: 'Back.Out' });
+    this.tweens.add({ targets: [head, sub], y: '-=28', alpha: 0, delay: 1150, duration: 450, onComplete: () => { head.destroy(); sub.destroy(); } });
+    this.sparks.explode(Math.min(6 + n * 2, 30), xx, yy);
+  }
+
   /** 得点の小さな数字が浮かんで消える */
   private popup(x: number, y: number, s: string, color: string, size: number) {
     const tx = this.add.text(x, y, s, txt(size, color)).setOrigin(0.5).setDepth(58);
@@ -386,7 +422,18 @@ export class Play extends Phaser.Scene {
 
   private updateHud() {
     const g = this.game2;
-    this.scoreText.setText(`${t('score')} ${g.score}`);
+    // 表示のスコアは本当のスコアへ数え上がる。入った時は跳ねて光る(入った量が多いほど大きく)
+    if (this.shownScore !== g.score) {
+      const gain = g.score - this.shownScore;
+      if (gain > 0 && !this.scorePunch) {
+        this.scorePunch = true;
+        const s = 1.15 + Math.min(gain / 400, 0.45);
+        this.scoreText.setColor('#ffe27a').setScale(s);
+        this.tweens.add({ targets: this.scoreText, scale: 1, duration: 220, ease: 'Back.Out', onComplete: () => { this.scorePunch = false; this.scoreText.setColor('#f3e6c8'); } });
+      }
+      this.shownScore = gain > 0 ? Math.min(g.score, this.shownScore + Math.max(1, Math.ceil(gain * 0.18))) : g.score;
+    }
+    this.scoreText.setText(`${t('score')} ${this.shownScore}`);
     this.watchText.setText(`${watchName(g.wave)}  ${Math.min(g.wave + 1, g.waveCount)} / ${g.waveCount}`);
     this.hiText.setText(`${t('hiScore')} ${Math.max(this.hi, g.score)}`);
     expose('score', g.score); expose('lanterns', g.lanterns.length); expose('ammo', g.ammo);
@@ -467,6 +514,16 @@ export class Play extends Phaser.Scene {
         this.gSprites.set(gh.id, s);
       }
       this.drawGhost(s, gh, time);
+      // 最後の一匹: 急ぎだす時に一言
+      if (g.rush() > 1 && this.rushId !== gh.id && !gh.dead) { this.rushId = gh.id; this.say(gh.x, gh.y - 34, t('rush'), '#ffb0b0', true, s); }
+      // ときどき、種類ごとのセリフをしゃべる(画面にたくさん出すぎないよう 3 つまで)
+      if (!gh.haunt && !gh.caught && gh.y > 70 && gh.age > 1.4 + (gh.id % 4) * 1.7 && !this.talked.has(gh.id) && this.bubbles.filter((b) => b.active).length < 3) {
+        this.talked.add(gh.id);
+        if (gh.id % 2 === 0 || gh.kind === 'big' || gh.kind === 'giant') {
+          const lines = t(`talk_${gh.kind}`).split('|');
+          this.say(gh.x, gh.y - 30, lines[gh.id % lines.length], '#fff6d8', false, s);
+        }
+      }
       // おばけのまわりの淡い光(種類ごとの色。暗い空でも動きが読める)
       let gl = this.gGlows.get(gh.id);
       if (!gl) { gl = this.add.image(gh.x, gh.y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setDepth(14).setTint(GHOST_GLOW[gh.kind]); this.gGlows.set(gh.id, gl); }

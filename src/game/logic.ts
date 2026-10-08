@@ -306,30 +306,12 @@ export class Game {
     this.moveGhosts(dt);
     this.runBlasts(dt);
     this.closeChains();
-    this.runHaunts(dt);
 
     let n = 0;
     for (const g of this.ghosts) if (!g.dead) this.ghosts[n++] = g;
     this.ghosts.length = n;
 
     if (this.litCount === 0 && !this.over) { this.over = true; this.events.push({ type: 'over' }); }
-  }
-
-  private runHaunts(dt: number) {
-    this.houses.forEach((h, i) => {
-      if (h.haunt <= 0) return;
-      const inside = this.ghosts.filter((g) => !g.dead && g.haunt && g.target === i);
-      if (!inside.length) {
-        h.haunt = 0; this.saved++;
-        this.events.push({ type: 'saved', x: h.x, y: h.y, house: i });
-        return;
-      }
-      h.haunt -= dt;
-      if (h.haunt > 0) return;
-      h.haunt = 0; h.lit = false; h.ammo = 0; h.flash = 0.6;
-      for (const g of inside) g.dead = true;
-      this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: i, left: this.litCount });
-    });
   }
 
   private newChain(x: number, y: number): Chain {
@@ -460,7 +442,7 @@ export class Game {
       }
       g.caught = false;
       const c: Ghost = { ...g };
-      this.advance(c, g.speed * dt);
+      this.advance(c, g.speed * this.rush() * dt);
       const vx = c.x - g.x, vy = c.y - g.y;
       const blocked = this.ghosts.some((o) => o !== g && !o.dead && o.stopped && !o.haunt
         && Math.hypot(o.x - c.x, o.y - c.y) < P.queueGap && (o.x - g.x) * vx + (o.y - g.y) * vy > 0);
@@ -469,10 +451,20 @@ export class Game {
       g.stopped = false; // c は止まる前の写しなので、写した後で戻す(写す前に戻すと、止まったままの印が残る)
       const h = this.houses[g.target];
       if (h.lit && g.seg >= g.path.length - 1 && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
-        g.haunt = true; g.x = h.x; g.y = h.y;
-        if (h.haunt <= 0) { h.haunt = P.hauntTime; this.events.push({ type: 'haunt', x: h.x, y: h.y, house: g.target }); }
+        // 家に触れたら、その場で家はやられる(待ち時間なし)
+        g.dead = true; g.x = h.x; g.y = h.y;
+        h.lit = false; h.ammo = 0; h.flash = 0.6; h.haunt = 0;
+        this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount });
       }
     }
+  }
+
+  /** 最後の一匹(その刻にもう出てこない時)は、インベーダーのように速くなる */
+  rush(): number {
+    if (this.queue.length) return 1;
+    let n = 0;
+    for (const g of this.ghosts) if (!g.dead && ++n > 1) return 1;
+    return n === 1 ? this.P.lastRush : 1;
   }
 
   /** 先読み: このおばけが step 秒ごとにいる所(止まらないとして) */
@@ -482,7 +474,7 @@ export class Game {
     for (let t = 0; t <= horizon; t += step) {
       out.push({ x: c.x, y: c.y, t });
       if (g.haunt || g.stopped || c.seg >= c.path.length - 1) break;
-      this.advance(c, c.speed * step);
+      this.advance(c, c.speed * this.rush() * step);
     }
     return out;
   }

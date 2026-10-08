@@ -32,13 +32,13 @@ export const KNOBS: Knob[] = [
   { key: 'score.giant', label: '大大入道の点の倍率', value: 12, min: 1, max: 50, step: 1, unit: '倍' },
   { key: 'score.formation', label: '編隊ボーナス', value: 100, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
-  { key: 'house.haunt', label: '家の人が騒いでから逃げ出すまで', value: 1.5, min: 0, max: 8, step: 0.1, unit: '秒', aim: '騒いでいる家は提灯を投げられない' },
   // おばけ(動きは種類ごとに決まっている)
   { key: 'ghost.speed', label: 'おばけの速さ', value: 26, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
   { key: 'ghost.bigHp', label: '大入道の力', value: 3, min: 1, max: 8, step: 1, unit: '回', aim: '光が当たるたびに 1 減って小さくなる(数字は出さない)' },
   { key: 'ghost.giantHp', label: '大大入道の力', value: 6, min: 1, max: 15, step: 1, unit: '回' },
   { key: 'ghost.queue', label: 'つかえたおばけの間', value: 18, min: 6, max: 60, step: 1, unit: 'px', aim: '止まったおばけのこれだけ手前で、後ろのおばけも止まる(せき止め)' },
+  { key: 'ghost.last', label: '最後の一匹の速さ(倍)', value: 1.8, min: 1, max: 4, step: 0.1, unit: '倍', aim: 'インベーダーのように、残り 1 体は急いで来る' },
   // 刻
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },
   // 演出

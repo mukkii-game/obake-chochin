@@ -75,7 +75,7 @@ export const snd = {
    */
   break: (n: number) => {
     const step = MIYAKO[Math.min(n - 1, MIYAKO.length - 1)];
-    if (boomBuf) playSample(boomBuf, n > 1 ? 0.4 : 0.55, 2 ** (step / 12));
+    if (boomBuf) playSample(boomBuf, n > 1 ? 0.3 : 0.42, 2 ** (step / 12));
     else noise({ dur: 0.25, gain: 0.07, freq: 3200, slide: 1500, q: 0.6 });
     taiko(n > 1 ? 0.08 : 0.12, 0, 95 * 2 ** (step / 12));
     // 連爆: ピン・ポン・パーン…と、高くてきれいな鐘が明るい音階で上がっていく
@@ -120,20 +120,25 @@ let boomBuf: AudioBuffer | null = null;
 let voObake: AudioBuffer | null = null;
 /** やられた時のおばけの声(Open JTalk + Mei、高め) */
 const CRIES = ['yarareta', 'hya', 'uwaan', 'kyuu', 'maitta'];
-const cryBufs: AudioBuffer[] = [];
+const cryBufs = new Map<string, AudioBuffer>();
 let lastCry = 0, cryTurn = 0;
 /** 効果音のファイルを読んでおく(遊ぶ前に 1 回) */
 export function preloadSfx() {
   if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; });
   if (!voObake) loadBuffer('./audio/vo_obake.mp3').then((b) => { voObake = b; });
-  if (!cryBufs.length) for (const n of CRIES) loadBuffer(`./audio/vo_${n}.mp3`).then((b) => { if (b) cryBufs.push(b); });
+  if (!cryBufs.size) for (const n of CRIES) loadBuffer(`./audio/vo_${n}.mp3`).then((b) => { if (b) cryBufs.set(n, b); });
 }
 /** おばけがやられた声。たくさん同時に倒れても、うるさくならないように間を空ける(声の高さを少しずつ変える) */
-export function cry(n: number) {
+export function cry(n: number): string | null {
   const now = audioNow();
-  if (now == null || !cryBufs.length || now - lastCry < 0.16) return;
+  if (now == null || !cryBufs.size || now - lastCry < 0.16) return null;
+  const name = CRIES[cryTurn++ % CRIES.length];
+  const buf = cryBufs.get(name);
+  if (!buf) return null;
   lastCry = now;
-  playSample(cryBufs[cryTurn++ % cryBufs.length], 0.5, 1 + Math.min(n - 1, 8) * 0.04 + (cryTurn % 3) * 0.03);
+  // やられた声は爆発より大きく(いちばん楽しい音)
+  playSample(buf, 1.1, 1 + Math.min(n - 1, 8) * 0.04 + (cryTurn % 3) * 0.03);
+  return name;
 }
 
 /** 始まりの声「おばけが、くるぞー!」 */
