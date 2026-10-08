@@ -77,6 +77,14 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_big', 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c); });
   // 大大入道: さらに大きく(色は Play でうす紫にする)
   make(scene, 'g_giant', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c); });
+  // はやて: 小さめの幽霊に、うしろへ流れる風の線(色は Play で黄色にする)
+  const drawKaze = (c: Ctx, ko = false) => {
+    c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 2.5; c.lineCap = 'round';
+    for (const [y, l] of [[26, 14], [36, 20], [46, 12]]) { c.beginPath(); c.moveTo(4, y); c.lineTo(4 + l, y); c.stroke(); }
+    c.save(); c.translate(14, 6); c.scale(0.85, 0.85); drawFuwa(c, ko); c.restore();
+  };
+  make(scene, 'g_kaze', 72, 68, (c) => drawKaze(c));
+  make(scene, 'g_kaze_ko', 72, 68, (c) => drawKaze(c, true));
   make(scene, 'g_oni', 64, 68, drawOnibi);
   make(scene, 'g_kasa', 64, 72, drawKarakasa);
   // やられた顔(＞＜ や ×)

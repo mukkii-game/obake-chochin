@@ -31,6 +31,8 @@ export interface Group {
   turn?: number;
   /** 横から入ってくる(-1 = 左の端から、1 = 右の端から)。横一列に渡ってくるので、横の提灯で一網打尽 */
   edge?: number;
+  /** 行進(インベーダー): 端から端へ渡っては 1 段ずつ下がる(edge と一緒に使う) */
+  march?: boolean;
 }
 
 type Pattern = (m: boolean) => Group[];
@@ -69,34 +71,56 @@ function shift(gs: Group[], dt: number): Group[] { return gs.map((g) => ({ ...g,
 /** 数を減らした型(1・2 刻目の顔見世用) */
 function few(gs: Group[], n: number): Group[] { return gs.map((g) => ({ ...g, n: Math.min(g.n, n) })); }
 
-/** 旧 10 刻の出方(このうち 9 つを 3 日 × 3 ウェーブに並べる) */
-const OLD: Group[][] = [
-  [...few(P.line(false), 3), ...shift(few(P.sweep(true), 2), 3), ...shift(few(P.loop(false), 3), 6), ...shift(P.big(false), 8)],
-  [...few(P.row(false), 1).map((g) => ({ ...g, cols: g.cols.slice(1, 4) })), ...shift(few(P.cross(false), 2), 3), ...shift(P.big(true), 5)],
-  [...P.step(false), ...shift(P.sweep(true), 4), ...shift(P.giant(false), 5)],
-  [...P.sweep(false), ...shift(P.sweep(true), 3), ...shift(P.line(false), 7), ...shift(P.big(false), 4)],
-  [...P.loop(false), ...shift(P.row(true), 6), ...shift(P.big(true), 3), ...shift(P.big(false), 10)],
-  [...P.dam(false), ...shift(P.sweep(true), 4), ...shift(P.step(true), 10), ...shift(P.giant(true), 6)],
-  [...P.loop(false), ...shift(P.loop(true), 5), ...shift(P.cross(false), 10), ...shift(P.big(false), 7)],
-  [...P.row(false), ...shift(P.row(true), 4), ...shift(P.sweep(false), 8), ...shift(P.line(true), 12), ...shift(P.big(true), 2), ...shift(P.giant(false), 9)],
-  [...P.cross(false), ...shift(P.loop(true), 3), ...shift(P.dam(false), 6), ...shift(P.step(true), 11), ...shift(P.big(false), 1), ...shift(P.big(true), 9)],
-  [...P.loop(false), ...shift(P.row(true), 3), ...shift(P.sweep(false), 6), ...shift(P.cross(true), 9), ...shift(P.loop(true), 13), ...shift(P.giant(false), 1), ...shift(P.giant(true), 11), ...shift(P.big(false), 6)],
-];
 
 /** 1 日 = 最大 3 ウェーブ。8/13(迎え盆)・8/14・8/15(お盆)の 3 日を凌げばクリア */
 export const WAVES_PER_DAY = 3;
 export const DAYS = 3;
+
+// 足りない型(はやて・行進・お供つきの大入道)
+const Q: Record<string, Pattern> = {
+  kazeLine: (m) => [{ t: 0, kind: 'kaze', cols: [X(3, m)], n: 5, gap: 0.7, to: T(1, m), turn: 0.5 }],
+  kazeSide: (m) => [{ t: 0, kind: 'kaze', cols: [0], n: 4, gap: 0.6, to: T(4, m), edge: m ? 1 : -1, turn: 0.4 }],
+  kazeRow: (m) => [{ t: 0, kind: 'kaze', cols: [X(6, m), X(7, m), X(8, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 }],
+  marchL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 6, gap: 0.8, to: T(2, m), edge: m ? 1 : -1, turn: 0.1, march: true }],
+  marchK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 5, gap: 0.75, to: T(4, m), edge: m ? -1 : 1, turn: 0.15, march: true }],
+  // お供つきの大入道: 幽霊の群れが大入道のまわりを一緒に来る → まとめてコンボで(コンボほど力が上がり、大入道に効く)
+  escort: (m) => [
+    { t: 0, kind: 'big', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 },
+    { t: 0.6, kind: 'fuwa', cols: [X(4, m), X(8, m)], n: 3, gap: 2.0, to: T(2, m), turn: 0.5 },
+  ],
+  giantEscort: (m) => [
+    { t: 0, kind: 'giant', cols: [X(7, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 },
+    { t: 1, kind: 'fuwa', cols: [X(5, m), X(9, m)], n: 3, gap: 2.6, to: T(3, m), turn: 0.5 },
+  ],
+};
+
+/** ウェーブごとの題(日のはじめの札・ウェーブの札に出す)。何を練習するウェーブかをはっきりさせる */
+export const WAVE_NAMES: Array<{ ja: string; en: string }> = [
+  { ja: '幽霊の行列', en: 'Ghost Parade' },
+  { ja: '唐傘の横渡り', en: 'Umbrellas Cross' },
+  { ja: '鬼火の輪と大入道', en: 'Wisps and a Big One' },
+  { ja: 'はやて', en: 'Gale' },
+  { ja: 'おばけの行進', en: 'The March' },
+  { ja: '大入道とざこたち', en: 'Big One and Friends' },
+  { ja: 'はさみうち', en: 'Pincer' },
+  { ja: '大入道まつり', en: 'Big Festival' },
+  { ja: '総力戦!', en: 'ALL OUT!' },
+];
+
 const WAVES: Group[][] = [
-  // 上から来るのばかりだと縦の提灯ばかり効くので、左右の端から横一列に来る組を各ウェーブに混ぜる
-  [...OLD[0], ...shift(few(P.sideL(false), 3), 10)],
-  [...OLD[1], ...shift(few(P.sideK(false), 3), 7)],
-  [...OLD[2], ...shift(P.sideL(true), 8)], // 8/13: 顔見世、サクサク
-  [...OLD[3], ...shift(P.sideK(true), 10)],
-  [...OLD[5], ...shift(P.sides(false), 2)],
-  [...OLD[6], ...shift(P.sideL(false), 13)], // 8/14: 型を重ねる
-  [...OLD[7], ...shift(P.sides(true), 6)],
-  [...OLD[8], ...shift(P.sideK(false), 4)],
-  [...OLD[9], ...shift(few(P.sides(false), 2), 4)], // 8/15: お盆の本番
+  // 8/13 迎え盆: 1 種類ずつ顔見世(縦の幽霊 → 横の唐傘 → 輪と大入道)
+  [...few(P.line(false), 4), ...shift(few(P.row(false), 1).map((g) => ({ ...g, cols: g.cols.slice(1, 4) })), 5), ...shift(few(P.line(true), 3), 9), ...shift(P.big(false), 13)],
+  [...few(P.sweep(false), 3), ...shift(P.sideK(false), 4), ...shift(P.sideL(true), 9)],
+  [...P.loop(false), ...shift(P.big(true), 3), ...shift(P.sideL(false), 8), ...shift(few(P.step(false), 3), 11)],
+  // 8/14: はやて(先読み)→ 行進(横の提灯)→ 大入道とお供(コンボ)
+  [...Q.kazeLine(false), ...shift(Q.kazeSide(true), 5), ...shift(Q.kazeRow(false), 10), ...shift(few(P.line(true), 3), 12), ...shift(Q.kazeSide(false), 14)],
+  [...Q.marchL(false), ...shift(P.big(false), 3), ...shift(Q.marchK(true), 7), ...shift(P.sideL(false), 11)],
+  [...Q.escort(false), ...shift(Q.escort(true), 7), ...shift(few(P.loop(false), 3), 12), ...shift(P.big(false), 10)],
+  // 8/15 お盆: はさみうち → 大入道まつり → 総力戦(ぜんぶ出る)
+  [...P.sides(false), ...shift(Q.marchL(true), 4), ...shift(Q.kazeSide(false), 10), ...shift(P.sideK(true), 13)],
+  [...Q.giantEscort(false), ...shift(Q.escort(true), 5), ...shift(Q.kazeLine(false), 8), ...shift(P.big(false), 10)],
+  [...P.line(false), ...shift(P.loop(true), 2), ...shift(P.sides(false), 5), ...shift(Q.kazeRow(true), 8), ...shift(Q.marchK(false), 10),
+    ...shift(Q.escort(false), 12), ...shift(P.giant(true), 14), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22)],
 ];
 export const WAVE_COUNT = WAVES.length;
 /** n ウェーブ目が何日目か(0 = 8/13)と、その日の何番目か */

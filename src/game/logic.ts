@@ -42,7 +42,7 @@ export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' 
  *   幽霊 = 主に縦(降りる → 少し横 → 降りる)/ 唐傘 = 主に横(少し降りる → 長く横 → 降りる)/ 鬼火 = 輪(ギャラガ)/
  *   大入道 = 大きくてゆっくり、光 3 回で成仏 / 大大入道 = もっと大きくてもっとゆっくり、光 6 回
  */
-export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant';
+export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze';
 
 /** 提灯の形 = 光の形 = 家の形 */
 export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross';
@@ -85,7 +85,8 @@ export interface Lantern {
 }
 export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
-export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number }
+/** grow: 光の大きさの倍率、dmg: 当たった時の力(どちらもコンボの何発目かで増える) */
+export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number; grow: number; dmg: number }
 export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number>; bursts: number }
 
 export type GameEvent =
@@ -93,9 +94,9 @@ export type GameEvent =
   | { type: 'select'; house: number }
   | { type: 'light'; x: number; y: number }
   | { type: 'deny'; x: number; y: number; full?: number }
-  | { type: 'break'; x: number; y: number; chained: boolean; n: number }
+  | { type: 'break'; x: number; y: number; chained: boolean; n: number; dmg: number; grow: number }
   | { type: 'caught'; x: number; y: number }
-  | { type: 'hurt'; x: number; y: number; hp: number }
+  | { type: 'hurt'; x: number; y: number; hp: number; dmg: number }
   | { type: 'purify'; x: number; y: number; n: number; pts: number; kind: GhostKind }
   | { type: 'chainEnd'; x: number; y: number; n: number; pts: number; bonus: number }
   | { type: 'formation'; x: number; y: number; size: number; bonus: number }
@@ -227,8 +228,8 @@ export class Game {
   get band() { return Math.max(10, this.P.lightHold * this.P.lightSpeed); }
 
   /** 点 (x, y) が、光の形の中の「中心から何 px の所」にあるか(形の外なら -1)。r = 当たりの余裕(体の大きさ) */
-  along(piece: Piece, cx: number, cy: number, x: number, y: number, r = 0): number {
-    const dx = x - cx, dy = y - cy, w = this.P.lightWidth / 2 + r, L = this.reach(piece) + r;
+  along(piece: Piece, cx: number, cy: number, x: number, y: number, r = 0, grow = 1): number {
+    const dx = x - cx, dy = y - cy, w = (this.P.lightWidth / 2) * (1 + (grow - 1) * 0.5) + r, L = this.reach(piece) * grow + r;
     const line = (a: number, b: number) => (Math.abs(b) <= w && Math.abs(a) <= L ? Math.abs(a) : -1);
     switch (piece) {
       case 'vline': return line(dy, dx);
@@ -267,17 +268,21 @@ export class Game {
 
   /** 光がいま (x, y) を照らしているか */
   lit(b: Blast, x: number, y: number, r = 0) {
-    const a = this.along(b.piece, b.x, b.y, x, y, r);
+    const a = this.along(b.piece, b.x, b.y, x, y, r, b.grow);
     return a >= 0 && a <= b.ext && a >= b.ext - this.band;
   }
 
   /** 提灯が弾ける。chain があれば誘爆(同じ連鎖として数える) */
   private burst(l: Lantern, chain: Chain | null) {
     const c = chain ?? this.newChain(l.tx, l.ty);
-    this.blasts.push({ id: this.nextId++, x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id });
-    this.lanterns = this.lanterns.filter((q) => q !== l);
     c.bursts++;
-    this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain, n: c.bursts });
+    // コンボのごほうび: つなぐほど光が大きく(1 発ごとに chain.grow 倍ずつ、4 段まで)、力も強くなる(3 発目から 2、5 発目から 3)
+    const k = c.bursts - 1;
+    const grow = 1 + Math.min(k, 4) * this.P.chainGrow;
+    const dmg = Math.min(3, 1 + Math.floor(k / 2));
+    this.blasts.push({ id: this.nextId++, x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id, grow, dmg });
+    this.lanterns = this.lanterns.filter((q) => q !== l);
+    this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain, n: c.bursts, dmg, grow });
   }
 
   /** 1/60 秒進める */
@@ -372,7 +377,7 @@ export class Game {
 
   addGhost(gr: Group, x: number, form = 0) {
     const kind = gr.kind;
-    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45 }[kind];
+    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45, kaze: this.P.kazeSpeed }[kind];
     // 横から来る組(edge): 左右の端から、turn の高さで横一列に入ってくる
     let y = SPAWN_Y;
     if (gr.edge) {
@@ -386,7 +391,7 @@ export class Game {
       speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
     g.path = gr.edge && kind !== 'oni'
-      ? [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]] // 横に渡って、家の真上で降りる
+      ? (gr.march ? this.marchPath(x, y, gr.edge, this.houses[target]) : [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]]) // 横に渡って、家の真上で降りる
       : this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
     this.ghosts.push(g);
     this.events.push({ type: 'spawn', x, y, kind });
@@ -485,6 +490,22 @@ export class Game {
     }
   }
 
+  /** 行進(インベーダー): 端から端まで渡っては 1 段下がり、また反対へ。家の少し上まで来たら家へ */
+  marchPath(sx: number, sy: number, edge: number, h: { x: number; y: number }): Array<[number, number]> {
+    const pts: Array<[number, number]> = [[sx, sy]];
+    const xl = PLAY.x0 + 30, xr = PLAY.x1 - 30, bottom = h.y - 90;
+    let y = sy, dir = -edge; // 左の端から来たら右へ
+    for (let i = 0; i < 8 && y < bottom; i++) {
+      const x = dir > 0 ? xr : xl;
+      pts.push([x, y]);
+      y = Math.min(bottom, y + this.P.marchDrop);
+      pts.push([x, y]);
+      dir = -dir;
+    }
+    pts.push([h.x, y], [h.x, h.y]);
+    return pts;
+  }
+
   /** 今の速さ: 最後の一匹は急ぎ、家のすぐ近くまで来たら、すうっと速くなって家に飛び込む */
   speedOf(g: Ghost): number {
     const h = this.houses[g.target];
@@ -516,7 +537,7 @@ export class Game {
     const P = this.P;
     for (const b of [...this.blasts]) {
       b.ext += P.lightSpeed * dt;
-      if (b.ext - this.band > this.reach(b.piece) + GHOST_R) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
+      if (b.ext - this.band > this.reach(b.piece) * b.grow + GHOST_R) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
       const chain = this.chains.get(b.chain)!;
       // 誘爆: 光が届いた提灯は、すぐ弾ける(置かれたものだけ。飛んでいるものは除く)
       // 連爆は、光がその提灯の光の範囲に触れるだけで起きる(提灯そのものに当たらなくてよい)
@@ -529,7 +550,8 @@ export class Game {
       for (const g of this.ghosts) {
         if (g.dead || g.y < PLAY.y0 || g.hitBy.includes(b.id) || !this.lit(b, g.x, g.y, ghostR(g))) continue;
         g.hitBy.push(b.id);
-        if (--g.hp > 0) { this.events.push({ type: 'hurt', x: g.x, y: g.y, hp: g.hp }); continue; }
+        g.hp -= b.dmg;
+        if (g.hp > 0) { this.events.push({ type: 'hurt', x: g.x, y: g.y, hp: g.hp, dmg: b.dmg }); continue; }
         g.dead = true;
         chain.count++;
         chain.forms.set(g.form, (chain.forms.get(g.form) ?? 0) + 1);

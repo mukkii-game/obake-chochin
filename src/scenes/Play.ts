@@ -6,20 +6,20 @@ import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
 import { txt, pop, dayName, waveLabel } from '../game/view';
-import { dayOf, waveInDay, WAVES_PER_DAY } from '../game/waves';
+import { dayOf, waveInDay, WAVES_PER_DAY, WAVE_NAMES } from '../game/waves';
 import { PAPER } from '../game/art';
 import { onTap, onAim, onCancel } from '../ui/taps';
 import { DemoDriver, expose } from '../core/demo';
-import { t } from '../core/i18n';
+import { t, lang } from '../core/i18n';
 import { save, load } from '../core/save';
 import { tune } from '../core/tuning';
 import { startSeed } from '../core/rng';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted, pauseAudio } from '../core/audio';
 
-const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant' } as const;
-const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff };
-const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff } as const;
+const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant', kaze: 'g_kaze' } as const;
+const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff, kaze: 0xfff09a };
+const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff, kaze: 0xffe060 } as const;
 /** 軒先の提灯の位置(家の中心から) */
 /** 残りの提灯: 家の右下に、少し重ねて横に並べる(数が一目でわかるように) */
 const HANG: ReadonlyArray<[number, number]> = [[0, 12], [0, 15], [0, 12]];
@@ -66,6 +66,7 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private lastDmgShown = 1;
   private continues = 0;
   private paused = false;
   private pauseMenu: Phaser.GameObjects.Container | null = null;
@@ -82,7 +83,7 @@ export class Play extends Phaser.Scene {
   private fireworks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private fireworksBig!: Phaser.GameObjects.Particles.ParticleEmitter;
   /** 光が通った後の、ゆっくり消える余韻 */
-  private afterglow: Array<{ piece: Piece; x: number; y: number; t: number }> = [];
+  private afterglow: Array<{ piece: Piece; x: number; y: number; t: number; grow: number }> = [];
   private tipShown = new Set<string>();
   private trails = new Map<number, Array<[number, number]>>();
 
@@ -360,7 +361,10 @@ export class Play extends Phaser.Scene {
           const ring = this.add.image(e.x, e.y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint([0xff7eb6, 0xffd23f, 0x5ee0ff, 0x9dff7a][e.n % 4]).setScale(0.3).setDepth(29);
           this.tweens.add({ targets: ring, scale: 2.2 + e.n * 0.3, alpha: 0, duration: 700, ease: 'Quad.Out', onComplete: () => ring.destroy() });
         }
-        this.afterglow.push({ piece, x: e.x, y: e.y, t: this.time.now });
+        this.afterglow.push({ piece, x: e.x, y: e.y, t: this.time.now, grow: e.grow });
+        // コンボで強くなった: 「パワー 2!」(力が上がった時だけ)
+        if (e.dmg > 1 && e.dmg !== this.lastDmgShown) this.popup(e.x, e.y - 30, `${t('power')} ${e.dmg}!`, e.dmg >= 3 ? '#ff9ec8' : '#9ff0ff', 18 + e.dmg * 3);
+        this.lastDmgShown = e.n === 1 ? 1 : e.dmg;
         break;
       }
       case 'purify': {
@@ -389,8 +393,8 @@ export class Play extends Phaser.Scene {
         // 大入道に光が当たった: 白く光って、ひと回り小さくなる
         snd.hurt();
         this.sparks.explode(14, e.x, e.y);
-        this.popup(e.x, e.y - 40, '!', '#ffb0e0', 30);
-        const big = this.game2.ghosts.find((q) => (q.kind === 'big' || q.kind === 'giant') && Math.hypot(q.x - e.x, q.y - e.y) < 2);
+        this.popup(e.x, e.y - 40, e.dmg > 1 ? `-${e.dmg}!` : '!', '#ffb0e0', 30 + (e.dmg - 1) * 6);
+        const big = this.game2.ghosts.find((q) => (q.kind === 'big' || q.kind === 'giant' || q.hp > 1) && Math.hypot(q.x - e.x, q.y - e.y) < 2);
         const sp = big ? [big.id, this.gSprites.get(big.id)!] as const : undefined;
         if (sp && sp[1] && big) { sp[1].setTint(0xffffff); this.time.delayedCall(140, () => { if (sp[1].active) sp[1].setTint(GHOST_TINT[big.kind] ?? 0xffffff); }); }
         break;
@@ -420,8 +424,8 @@ export class Play extends Phaser.Scene {
       case 'watch': {
         snd.watch();
         const first = waveInDay(e.n) === 0;
-        if (first && dayOf(e.n) > 0) {
-          // 日が変わると、同時に置ける提灯が 1 つ増える
+        if (first) {
+          // 日のはじめに、画面に置ける提灯の数(日が変わると 1 つ増える)
           const up = this.add.text(W / 2, H / 2 + 70, t('maxUp').replace('{n}', String(this.game2.maxOnField)), pop(22, '#9ff0ff')).setOrigin(0.5).setDepth(56).setAlpha(0);
           this.tweens.add({ targets: up, alpha: 1, yoyo: true, hold: 1800, duration: 300, delay: 400, onComplete: () => up.destroy() });
         }
@@ -437,6 +441,15 @@ export class Play extends Phaser.Scene {
         const s = this.add.text(W / 2, H / 2 - 64, first ? dayName(dayOf(e.n)) : `${t('wave')} ${waveInDay(e.n) + 1}/3`, first ? pop(46, '#ffe27a') : pop(32, '#e8d6ff')).setOrigin(0.5).setDepth(55).setAlpha(0).setScale(0.6);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
         this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: first ? 1300 : 800, duration: 400, onComplete: () => s.destroy() });
+        // ウェーブの題(何が来るか)。総力戦は赤く大きく、揺らして
+        const nm = WAVE_NAMES[e.n];
+        if (nm) {
+          const last = e.n === WAVE_NAMES.length - 1;
+          const tt = this.add.text(W / 2, H / 2 - 14, lang() === 'ja' ? nm.ja : nm.en, pop(last ? 40 : 24, last ? '#ff7e9e' : '#ffe9c0')).setOrigin(0.5).setDepth(55).setAlpha(0).setScale(0.6);
+          this.tweens.add({ targets: tt, alpha: 1, scale: 1, duration: 300, delay: 150, ease: 'Back.Out' });
+          this.tweens.add({ targets: tt, alpha: 0, delay: first ? 1900 : 1400, duration: 400, onComplete: () => tt.destroy() });
+          if (last) { this.cameras.main.shake(500, 0.006); this.tweens.add({ targets: tt, angle: { from: -5, to: 5 }, yoyo: true, repeat: 5, duration: 120, delay: 300 }); }
+        }
         break;
       }
       case 'waveEnd': {
@@ -759,7 +772,7 @@ export class Play extends Phaser.Scene {
     this.afterglow = this.afterglow.filter((a) => now - a.t < 1800);
     for (const a of this.afterglow) {
       const k = 1 - (now - a.t) / 1800;
-      this.drawShape(a.piece, a.x, a.y, g.reach(a.piece), 0, 0xffc890, 0.12 * k * k);
+      this.drawShape(a.piece, a.x, a.y, g.reach(a.piece) * a.grow, 0, 0xffc890, 0.12 * k * k, 1 + (a.grow - 1) * 0.5);
     }
     // 光: 家の形どおりに、帯になって伸びる
     for (const b of g.blasts) this.drawBlast(b);
@@ -829,14 +842,14 @@ export class Play extends Phaser.Scene {
   /** 光の帯: 先頭がふくらんで明るく、後ろは薄れる */
   private drawBlast(b: Blast) {
     const g = this.game2;
-    const L = g.reach(b.piece), band = g.band;
+    const L = g.reach(b.piece) * b.grow, band = g.band, wid = 1 + (b.grow - 1) * 0.5;
     const head = Math.min(L, b.ext), tail = Math.max(0, b.ext - band);
     if (head <= tail) return;
     const fade = b.ext > L ? Math.max(0, 1 - (b.ext - L) / band) : 1;
     // 真っ白にしない: 光ごとに色を変え(桃・金・水・若草・藤)、芯も淡い色。主役は色とりどりの粒(花火)
     const [outer, inner] = BLAST_COLS[b.id % BLAST_COLS.length];
-    this.drawShape(b.piece, b.x, b.y, head, tail, outer, 0.2 * fade, 1.35);
-    this.drawShape(b.piece, b.x, b.y, head, tail, inner, 0.22 * fade, 0.8);
+    this.drawShape(b.piece, b.x, b.y, head, tail, outer, 0.2 * fade, 1.35 * wid);
+    this.drawShape(b.piece, b.x, b.y, head, tail, inner, 0.22 * fade, 0.8 * wid);
     if (tail <= 0) { this.glowFx.fillStyle(inner, 0.25 * fade); this.glowFx.fillCircle(b.x, b.y, 12); }
   }
 
