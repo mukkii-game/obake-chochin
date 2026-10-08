@@ -652,8 +652,13 @@ export class Play extends Phaser.Scene {
       if (!h.lit && pk) {
         const k = pk === 'big' ? 1.35 : pk === 'giant' ? 1.03 : 1;
         if (!o.peek) o.peek = this.add.image(h.x, wy, GHOST_TEX[pk]).setDepth(1.6);
-        o.peek.setTexture(GHOST_TEX[pk]).setScale(0.66 * k).setTint(GHOST_TINT[pk] ?? 0xffffff)
-          .setPosition(h.x + Math.sin(time * 1.3 + i) * 5, wy + 2 + Math.sin(time * 2.1 + i) * 2).setVisible(true);
+        const sc = 0.66 * k, px = h.x + Math.sin(time * 1.3 + i) * 5, py = wy + 2 + Math.sin(time * 2.1 + i) * 2;
+        o.peek.setTexture(GHOST_TEX[pk]).setScale(sc).setTint(GHOST_TINT[pk] ?? 0xffffff).setPosition(px, py).setVisible(true);
+        // 窓の外にはみ出す所は切る(おばけは窓からしか見えない)
+        const b = o.back.getBounds(), fw = o.peek.frame.width, fh = o.peek.frame.height;
+        const cx0 = Math.max(0, (b.x - px) / sc + fw / 2), cy0 = Math.max(0, (b.y - py) / sc + fh / 2);
+        const cx1 = Math.min(fw, (b.right - px) / sc + fw / 2), cy1 = Math.min(fh, (b.bottom - py) / sc + fh / 2);
+        if (cx1 > cx0 && cy1 > cy0) o.peek.setCrop(cx0, cy0, cx1 - cx0, cy1 - cy0); else o.peek.setVisible(false);
       } else if (o.peek) { o.peek.setVisible(false); if (h.lit) this.peek[i] = undefined; }
       // 軒先の提灯: ある分は灯る。無い分は点々の輪郭だけ。次に戻る 1 つは、下から灯りが溜まっていく(戻るまでのゲージ)
       const regenK = Math.min(1, h.regen / P.regenTime);
@@ -786,8 +791,8 @@ export class Play extends Phaser.Scene {
         // 家に入った: くるっと回らず、すうっと窓へ吸い込まれる
         this.entered.delete(id);
         // 大きさはそのまま、家の後ろ(窓の向こう)へ入る。あとは窓から一部だけ見える
-        s.setDepth(1.6);
-        this.tweens.add({ targets: s, alpha: 0, duration: 200, delay: 120, onComplete: () => s.destroy() });
+        // (飛んでいた絵は消し、窓の向こうの絵に引き継ぐ。窓の外にはみ出さないように)
+        s.destroy();
         continue;
       }
       const ko = `${s.texture.key.replace(/_(worry|cry)$/, '')}_ko`;
