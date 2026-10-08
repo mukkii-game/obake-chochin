@@ -67,7 +67,7 @@ export class Title extends Phaser.Scene {
     const hit = (o: Phaser.GameObjects.Text, x: number, y: number) => o.getBounds().contains(x, y) || Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 10, 6), x, y);
 
     let gone = false;
-    const go = () => { if (gone) return; gone = true; snd.ui(); this.scene.start('Play'); };
+    const go = () => { if (gone) return; gone = true; snd.ui(); if (DemoDriver.enabled) this.scene.start('Play'); else this.scene.start('Select'); };
     const off = onTap((x, y) => {
       if (hit(langBtn, x, y)) { snd.ui(); toggleLang(); this.scene.restart(); return; }
       if (hit(muteBtn, x, y)) { toggleMuted(); muteBtn.setText(isMuted() ? t('unmute') : t('mute')); snd.ui(); return; }
@@ -76,6 +76,10 @@ export class Title extends Phaser.Scene {
     this.events.once('shutdown', off);
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (e.key !== 'F2') go(); });
     if (DemoDriver.enabled) this.time.delayedCall(800, go);
+    // ?stage=3(&example=1)で、その面(の手本)へ直接
+    const qs = new URLSearchParams(location.search);
+    const sn = Number(qs.get('stage'));
+    if (!DemoDriver.enabled && sn >= 1 && !qs.get('replay')) { gone = true; this.time.delayedCall(50, () => this.scene.start('Play', { stage: sn - 1, example: qs.get('example') === '1' })); }
     void H;
   }
 }

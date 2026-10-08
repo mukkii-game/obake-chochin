@@ -13,6 +13,8 @@ import { t } from '../core/i18n';
 import { save, load } from '../core/save';
 import { tune } from '../core/tuning';
 import { startSeed } from '../core/rng';
+import { STAGES, stageSeed, stageOfSeed, type Stage } from '../game/stages';
+import { lang } from '../core/i18n';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted } from '../core/audio';
 
@@ -27,6 +29,10 @@ export class Play extends Phaser.Scene {
   private rec!: Recorder;
   private player: Player | null = null;
   private bot: Bot | null = null;
+  private stageNo = -1;
+  private stage: Stage | null = null;
+  private example: Array<[number, number, number]> | null = null;
+  private exIdx = 0;
   private hitstop = 0;
   private ended = false;
   private offTap: (() => void) | null = null;
@@ -50,22 +56,29 @@ export class Play extends Phaser.Scene {
 
   constructor() { super('Play'); }
 
-  create() {
+  create(data: { stage?: number; example?: boolean } = {}) {
     expose('scene', 'Play');
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0;
     this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
     this.tipShown.clear();
 
     const replay = replayFromUrl();
-    const seed = replay ? replay.seed : startSeed();
+    // 面は seed で決まる(面の seed は負の数。?replay= でも同じ面が出る)
+    const want = replay ? -1 : data.stage ?? -1;
+    const seed = replay ? replay.seed : want >= 0 ? stageSeed(want) : startSeed();
+    this.stage = stageOfSeed(seed);
+    this.stageNo = this.stage ? STAGES.indexOf(this.stage) : -1;
     this.player = replay ? new Player(replay) : null;
     this.rec = new Recorder(seed);
-    this.game2 = new Game(seed, readParams());
-    this.bot = DemoDriver.enabled && !replay ? new Bot(0.8, seed) : null;
+    this.game2 = new Game(seed, readParams(), this.stage);
+    this.example = this.stage && data.example && !replay ? [...this.stage.demo].sort((a, b) => a[0] - b[0]) : null;
+    this.exIdx = 0;
+    this.bot = DemoDriver.enabled && !replay && !this.example ? new Bot(0.8, Math.abs(seed)) : null;
     expose('seed', seed); expose('score', 0);
 
     this.add.image(0, 0, 'bg').setOrigin(0);
     this.moon = this.add.image(0, 0, 'moon').setAlpha(0.95);
+    for (let n = 0; n < CELLS; n++) if (this.game2.blocks[n]) this.add.image(cellX(n), cellY(n), 'block').setDepth(1);
     this.drawWalls();
     this.selFx = this.add.graphics().setDepth(4);
     for (const h of this.game2.houses) {
@@ -96,12 +109,14 @@ export class Play extends Phaser.Scene {
     const mute = this.add.text(PAPER.x1 - 14, 6, isMuted() ? '♪×' : '♪', txt(18, '#cfe')).setOrigin(1, 0).setDepth(50);
     this.chainText = this.add.text(W / 2, H / 2, '', txt(44, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
+    else if (this.example) this.add.text(W / 2, H - 22, t('watchingExample'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
+    else if (this.stage) this.add.text(W / 2, H - 22, this.stage.idea[lang()], txt(13, '#e8d6ff')).setOrigin(0.5).setDepth(50);
     else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
 
     this.offTap = onTap((x, y) => {
       // 右上の音ボタン
       if (x > PAPER.x1 - 50 && y < 34) { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); return; }
-      if (this.player || this.ended) return;
+      if (this.player || this.example || this.ended) return;
       this.pending.push([x, y]);
     });
     this.input.keyboard?.on('keydown-M', () => { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); });
@@ -121,6 +136,16 @@ export class Play extends Phaser.Scene {
       let taps: Array<[number, number]>;
       if (this.player) taps = decodeTaps(this.player.input(g.frame + 1));
       else if (this.bot) taps = this.bot.decide(g);
+      else if (this.example) {
+        // 手本: tools/stage.mjs と同じ決まりで流す(同じ結果になる)
+        taps = [];
+        while (this.exIdx < this.example.length && this.example[this.exIdx][0] <= g.t + 1e-9) {
+          const [, c, r] = this.example[this.exIdx++];
+          const n = cellAt(c, r);
+          taps.push([cellX(n), cellY(n)]);
+        }
+        if (this.pending.length) this.pending = [];
+      }
       else { taps = this.pending; this.pending = []; }
       if (taps.length) this.rec.push(g.frame + 1, encodeTaps(taps));
       g.step(taps);
@@ -136,15 +161,24 @@ export class Play extends Phaser.Scene {
     this.ended = true;
     const g = this.game2;
     const prev = load();
-    const best = Math.max(prev.best, g.score);
+    const best = this.stage ? prev.best : Math.max(prev.best, g.score);
     save({ best, played: prev.played + 1 });
     expose('replay', this.rec.toString());
     bgmStop();
-    snd.over();
+    if (g.cleared) snd.relight(); else snd.over();
     this.cameras.main.fadeOut(1400, 5, 3, 10);
+    let stars = 0;
+    if (this.stage) {
+      stars = (g.cleared ? 1 : 0) + (g.cleared && g.litCount === g.houses.length ? 1 : 0) + (g.cleared && g.bestChain >= this.stage.goal ? 1 : 0);
+      if (!this.example && !this.player && !this.bot) {
+        const st = load().stars;
+        if (stars > (st[this.stage.key] ?? 0)) save({ stars: { ...st, [this.stage.key]: stars } });
+      }
+    }
     this.time.delayedCall(1500, () => this.scene.start('Result', {
-      score: g.score, best, newBest: g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
+      score: g.score, best, newBest: !this.stage && g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
       watch: g.wave, seconds: Math.floor(g.t), replay: this.rec.toString(),
+      stage: this.stageNo, cleared: g.cleared, keptAll: g.litCount === g.houses.length, stars, example: !!this.example,
     }));
   }
 
@@ -153,6 +187,9 @@ export class Play extends Phaser.Scene {
       case 'launch':
         snd.launch();
         this.sparks.explode(4, e.sx, e.sy);
+        break;
+      case 'select':
+        snd.ui();
         break;
       case 'arm':
         snd.arm();
@@ -285,7 +322,7 @@ export class Play extends Phaser.Scene {
   private updateHud() {
     const g = this.game2;
     this.scoreText.setText(`${t('score')} ${g.score}`);
-    this.watchText.setText(watchName(g.wave));
+    this.watchText.setText(this.stage ? `${this.stage.name[lang()]}  ${Math.min(g.wave + 1, g.waveCount)} / ${g.waveCount}` : watchName(g.wave));
     expose('score', g.score); expose('lanterns', g.lanterns.length); expose('ammo', g.ammo);
   }
 
@@ -420,18 +457,21 @@ export class Play extends Phaser.Scene {
       }
     }
     // 光: 家の形どおりにマスを順に埋めて、留まって、縮む。柱と板塀で止まる
+    const band = g.band;
     for (const b of g.blasts) {
-      if (b.ext <= 0) continue;
       for (const q of b.cells) {
-        const k = Math.max(0, Math.min(1, b.ext - q.d + 1));
+        // 帯の先頭で明るくふくらみ、帯の後ろで薄れる
+        const front = Math.max(0, Math.min(1, b.ext - q.d + 0.6));
+        const back = Math.max(0, Math.min(1, q.d - (b.ext - band) + 0.4));
+        const k = Math.min(front, back);
         if (k <= 0) continue;
         const x = cellX(q.cell), y = cellY(q.cell);
-        const half = (cs / 2) * (0.35 + 0.65 * k);
+        const half = (cs / 2) * (0.35 + 0.65 * front);
         const layers: ReadonlyArray<[number, number, number]> = b.big ? [[1.15, 0xffb050, 0.28], [0.85, 0xfff0c0, 0.4], [0.45, 0xffffff, 0.5]] : [[1, 0xffc070, 0.25], [0.6, 0xfff0c0, 0.35]];
         for (const [m, col, a] of layers) { this.glowFx.fillStyle(col, a * k); this.glowFx.fillRoundedRect(x - half * m, y - half * m, half * m * 2, half * m * 2, 8); }
       }
-      this.glowFx.fillStyle(0xfff6d8, b.big ? 0.55 : 0.4); this.glowFx.fillCircle(b.x, b.y, b.big ? 16 : 10);
     }
+
     // おばけの通った跡(どちらへ向かっているか読めるように)
     for (const gh of g.ghosts) {
       const tr = this.trails.get(gh.id);

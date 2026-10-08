@@ -22,7 +22,7 @@ export const KNOBS: Knob[] = [
   { key: 'light.line', label: '上・下の光の届くマス', value: 4, min: 1, max: 8, step: 1, unit: 'マス', aim: '縦に並べば遠くまで連鎖する。柱と板塀で止まる' },
   { key: 'light.area', label: '周りの光の広さ', value: 1, min: 1, max: 3, step: 1, unit: 'マス', aim: '1 = 周り 8 マス' },
   { key: 'light.speed', label: '光の広がる速さ', value: 2.2, min: 0.5, max: 10, step: 0.1, unit: 'マス/秒', aim: 'ゆっくり広がる。歩いてくるおばけと出会う時を読む' },
-  { key: 'light.hold', label: '光が留まる時間', value: 0.6, min: 0, max: 3, step: 0.1, unit: '秒' },
+  { key: 'light.hold', label: '光が 1 マスを照らす時間', value: 0.9, min: 0.1, max: 3, step: 0.1, unit: '秒', aim: '光は帯になって形の上を走る。どのマスも同じ間だけ照らされる' },
   { key: 'wisp.delay', label: '成仏したおばけが弾けるまで', value: 0.4, min: 0, max: 2, step: 0.05, unit: '秒' },
   { key: 'wisp.reach', label: '成仏したおばけが隣のマスも照らす', value: true, aim: '群れで来れば、つながって連鎖する' },
   { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 10, min: 3, max: 30, step: 1, unit: '連' },

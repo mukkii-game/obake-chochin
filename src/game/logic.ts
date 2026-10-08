@@ -14,6 +14,7 @@
 //   - 守る: おばけが家に入ると中の人が騒ぎ、間に合わなければ逃げ出して灯りが消える。弾は軒先の提灯の分だけ。
 import { Rng } from '../core/rng';
 import type { Params } from './params';
+import type { Stage } from './stages';
 
 export const W = 960;
 export const H = 540;
@@ -139,6 +140,14 @@ export class Game {
   portals: Portal[] = [];
   /** マスの間の細い板塀(ドルアーガの壁)。edgeKey の集合 */
   walls = new Set<number>();
+  /** 通れないマス(町家の塊・柱)。1 = ふさがっている */
+  readonly blocks = new Uint8Array(CELLS);
+  /** 面(手作りの迷路と、決まったおばけの出方)。null = 気まぐれ(毎回ちがう都) */
+  readonly stage: Stage | null;
+  /** 面を越えた(最後の刻を守り切った) */
+  cleared = false;
+  /** 面のあの世の口(全部)。刻ごとにこのうち使うものだけが開く */
+  private stagePortals: number[] = [];
   /** 選んでいる家(-1 = 選んでいない。投げると外れる) */
   selected = -1;
   events: GameEvent[] = [];
@@ -154,14 +163,50 @@ export class Game {
   /** 家ごとの「家までの道のり」(迷路の最短距離)。家の灯りが変わるまで使い回す */
   private distCache = new Map<string, Int16Array>();
 
-  constructor(seed: number, readonly P: Params) {
+  constructor(seed: number, readonly P: Params, stage: Stage | null = null) {
     this.rng = new Rng(seed);
+    this.stage = stage;
     this.pieces = PIECE_SETS[P.pieceSet] ?? PIECE_SETS['上・下・周り'];
-    this.houses = this.layVillage();
-    this.buildWalls();
+    if (stage) {
+      this.houses = this.readMap(stage);
+    } else {
+      for (let n = 0; n < CELLS; n++) if (isPillar(n)) this.blocks[n] = 1;
+      this.houses = this.layVillage();
+      this.buildWalls();
+    }
     this.choosePortals(0);
     this.waveLeft = this.waveSize(0);
-    for (const h of this.houses) h.ammo = P.ammoPerHouse;
+    for (const h of this.houses) h.ammo = this.ammoPerHouse;
+  }
+
+  get ammoPerHouse() { return this.stage?.ammo ?? this.P.ammoPerHouse; }
+  get waveCount() { return this.stage ? this.stage.waves.length : Infinity; }
+
+  /**
+   * 面の地図を読む。マスの行と、その間の板塀の行を交互に書く(1 行 = 13 マス、マスの間に 1 文字)。
+   *   . 道 / # 町家の塊 / 1-9 あの世の口 / U 上の家(火の見櫓)/ D 下の家(提灯屋)/ O 周りの家(蔵)/ H 横 / I 縦 / X 十字
+   *   マスの間の | は左右の板塀、板塀の行の - はその上下の板塀
+   */
+  private readMap(stage: Stage): House[] {
+    const PIECE: Record<string, Piece> = { U: 'up', D: 'down', O: 'area', H: 'hline', I: 'vline', X: 'cross' };
+    const houses: House[] = [];
+    const portals: Array<[number, number]> = [];
+    const lines = stage.map;
+    for (let r = 0; r < GRID.rows; r++) {
+      const line = (lines[r * 2] ?? '').padEnd(GRID.cols * 2, ' ');
+      const under = (lines[r * 2 + 1] ?? '').padEnd(GRID.cols * 2, ' ');
+      for (let c = 0; c < GRID.cols; c++) {
+        const n = cellAt(c, r), ch = line[c * 2];
+        if (ch === '#') this.blocks[n] = 1;
+        else if (PIECE[ch]) houses.push({ x: cellX(n), y: cellY(n), cell: n, lit: true, ammo: 0, haunt: 0, flash: 0, piece: PIECE[ch] });
+        else if (ch >= '1' && ch <= '9') portals.push([Number(ch), n]);
+        if (c < GRID.cols - 1 && line[c * 2 + 1] === '|') this.walls.add(edgeKey(n, n + 1));
+        if (r < GRID.rows - 1 && under[c * 2] === '-') this.walls.add(edgeKey(n, n + GRID.cols));
+      }
+    }
+    portals.sort((a, b) => a[0] - b[0]);
+    this.stagePortals = portals.map((p) => p[1]);
+    return houses;
   }
 
   /** 家並み。毎回変わる(中ほどの段に、間をあけて)。家ごとの提灯の形も毎回変わる */
@@ -169,7 +214,7 @@ export class Game {
     const cells: number[] = [];
     for (let tries = 0; cells.length < HOUSE_COUNT && tries < 3000; tries++) {
       const n = cellAt(this.rng.int(1, GRID.cols - 2), this.rng.int(2, GRID.rows - 3));
-      if (isPillar(n)) continue;
+      if (this.blocks[n]) continue;
       if (cells.every((m) => Math.abs(cellCol(m) - cellCol(n)) + Math.abs(cellRow(m) - cellRow(n)) >= 3)) cells.push(n);
     }
     cells.sort((a, b) => cellCol(a) - cellCol(b));
@@ -183,12 +228,12 @@ export class Game {
   private buildWalls() {
     const edges: Array<[number, number]> = [];
     for (let n = 0; n < CELLS; n++) {
-      if (isPillar(n)) continue;
+      if (this.blocks[n]) continue;
       for (const [dc, dr] of [[1, 0], [0, 1]] as const) {
         const c = cellCol(n) + dc, r = cellRow(n) + dr;
         if (!inGrid(c, r)) continue;
         const m = cellAt(c, r);
-        if (!isPillar(m)) edges.push([n, m]);
+        if (!this.blocks[m]) edges.push([n, m]);
       }
     }
     let placed = 0;
@@ -211,7 +256,7 @@ export class Game {
       for (const m of this.neighbors(n)) if (!seen[m]) { seen[m] = 1; count++; q.push(m); }
     }
     let open = 0;
-    for (let n = 0; n < CELLS; n++) if (!isPillar(n)) open++;
+    for (let n = 0; n < CELLS; n++) if (!this.blocks[n]) open++;
     return count === open;
   }
 
@@ -222,7 +267,7 @@ export class Game {
       const c = cellCol(n) + dc, r = cellRow(n) + dr;
       if (!inGrid(c, r)) continue;
       const m = cellAt(c, r);
-      if (!isPillar(m) && !this.walls.has(edgeKey(n, m))) out.push(m);
+      if (!this.blocks[m] && !this.walls.has(edgeKey(n, m))) out.push(m);
     }
     return out;
   }
@@ -252,15 +297,25 @@ export class Game {
   /** 迷路の道のり(歩くおばけの数え方) */
   pathDist(a: number, b: number) { const d = this.distField(b)[a]; return d < 0 ? 999 : d; }
 
-  waveSize(n: number) { return Math.round(this.P.waveBase + this.P.waveGrow * n); }
+  waveSize(n: number) {
+    if (this.stage) return (this.stage.waves[n] ?? []).reduce((s, g) => s + g.n, 0);
+    return Math.round(this.P.waveBase + this.P.waveGrow * n);
+  }
 
   /** 刻ごとのあの世の口。町の縁のマス。刻が進むと口が増える */
   private choosePortals(n: number) {
+    if (this.stage) {
+      // 面: その刻に使う口だけが開く(刻の前から見えている)
+      const used = [...new Set((this.stage.waves[n] ?? []).map((g) => g.from))];
+      this.portals = used.map((i) => this.stagePortals[i - 1]).filter((c) => c !== undefined).map((c) => ({ x: cellX(c), y: cellY(c), cell: c }));
+      this.events.push({ type: 'portals' });
+      return;
+    }
     const count = Math.min(3, 1 + Math.floor(n / this.P.portalEvery));
     const edge: number[] = [];
     for (let i = 0; i < CELLS; i++) {
       const c = cellCol(i), r = cellRow(i);
-      if (!isPillar(i) && (c === 0 || r === 0 || c === GRID.cols - 1 || r === GRID.rows - 1)) edge.push(i);
+      if (!this.blocks[i] && (c === 0 || r === 0 || c === GRID.cols - 1 || r === GRID.rows - 1)) edge.push(i);
     }
     const md = (a: number, b: number) => Math.abs(cellCol(a) - cellCol(b)) + Math.abs(cellRow(a) - cellRow(b));
     const ps: number[] = [];
@@ -336,7 +391,7 @@ export class Game {
     }
     const tx = cellX(cell), ty = cellY(cell);
     const from = this.selected >= 0 && this.canThrow(this.selected) ? this.selected : this.launchHouse(tx, ty);
-    if (isPillar(cell) || from < 0 || this.lanterns.length >= this.P.maxLanterns) { this.events.push({ type: 'deny', x: tx, y: ty }); return; }
+    if (this.blocks[cell] || from < 0 || this.lanterns.length >= this.P.maxLanterns) { this.events.push({ type: 'deny', x: tx, y: ty }); return; }
     const h = this.houses[from];
     h.ammo--;
     this.selected = -1;
@@ -355,7 +410,7 @@ export class Game {
         const c = cellCol(n) + dc, r = cellRow(n) + dr;
         if (!inGrid(c, r)) break;
         const m = cellAt(c, r);
-        if (isPillar(m) || this.walls.has(edgeKey(n, m))) break;
+        if (this.blocks[m] || this.walls.has(edgeKey(n, m))) break;
         out.push({ cell: m, d: k }); n = m;
       }
     };
@@ -369,7 +424,7 @@ export class Game {
         for (let dr = -P.areaRange; dr <= P.areaRange; dr++) {
           for (let dc = -P.areaRange; dc <= P.areaRange; dc++) {
             const c = cellCol(cell) + dc, r = cellRow(cell) + dr;
-            if ((dc || dr) && inGrid(c, r) && !isPillar(cellAt(c, r))) out.push({ cell: cellAt(c, r), d: Math.max(Math.abs(dc), Math.abs(dr)) });
+            if ((dc || dr) && inGrid(c, r) && !this.blocks[cellAt(c, r)]) out.push({ cell: cellAt(c, r), d: Math.max(Math.abs(dc), Math.abs(dr)) });
           }
         }
         break;
@@ -381,7 +436,7 @@ export class Game {
   private burst(l: Lantern, chain: Chain | null) {
     const c = chain ?? this.newChain(l.x, l.y);
     const cells = this.shape(l.cell, l.piece);
-    this.blasts.push({ x: cellX(l.cell), y: cellY(l.cell), cells, range: Math.max(...cells.map((q) => q.d), 0.6), ext: 0, hold: this.P.lightHold, shrinking: false, chain: c.id, big: true });
+    this.blasts.push({ x: cellX(l.cell), y: cellY(l.cell), cells, range: Math.max(...cells.map((q) => q.d), 0), ext: 0, hold: this.P.lightHold, shrinking: false, chain: c.id, big: true });
     this.lanterns = this.lanterns.filter((q) => q !== l);
     for (const g of this.ghosts) if (g.lure === l.id) this.release(g);
     this.events.push({ type: 'break', x: l.x, y: l.y, chained: !!chain });
@@ -415,7 +470,7 @@ export class Game {
       if (s.age < P.wispDelay) continue;
       const c = this.chains.get(s.chain) ?? this.newChain(s.x, s.y);
       const cells = [{ cell: s.cell, d: 0 }, ...this.neighbors(s.cell).map((m) => ({ cell: m, d: 1 }))].slice(0, P.wispReach ? 5 : 1);
-      this.blasts.push({ x: s.x, y: s.y, cells, range: 1, ext: 0, hold: P.lightHold * 0.5, shrinking: false, chain: c.id, big: false });
+      this.blasts.push({ x: s.x, y: s.y, cells, range: cells.length > 1 ? 1 : 0, ext: 0, hold: P.lightHold * 0.5, shrinking: false, chain: c.id, big: false });
       this.wisps = this.wisps.filter((q) => q !== s);
       this.events.push({ type: 'wispPop', x: s.x, y: s.y });
     }
@@ -477,11 +532,20 @@ export class Game {
       if (this.pause <= 0) {
         if (this.begun) {
           this.wave++; this.waveLeft = this.waveSize(this.wave);
-          for (const h of this.houses) if (h.lit) h.ammo = P.ammoPerHouse;
+          for (const h of this.houses) if (h.lit) h.ammo = this.ammoPerHouse;
         }
         this.begun = true;
         this.salvoT = 0;
         this.events.push({ type: 'watch', n: this.wave });
+        if (this.stage) {
+          // 面: 決まった出方(何秒後に、どの口から、何が、何体、どの間で)
+          for (const gr of this.stage.waves[this.wave] ?? []) {
+            const cell = this.stagePortals[gr.from - 1];
+            if (cell === undefined) continue;
+            for (let i = 0; i < gr.n; i++) this.queue.push({ at: this.t + gr.t + i * (gr.gap ?? P.convoyGap), kind: gr.kind, cell });
+          }
+          this.waveLeft = 0;
+        }
       }
       return;
     }
@@ -491,6 +555,7 @@ export class Game {
         this.score += bonus;
         this.pause = WAVE_PAUSE;
         this.events.push({ type: 'waveEnd', n: this.wave, bonus });
+        if (this.wave + 1 >= this.waveCount) { this.cleared = true; this.over = true; this.events.push({ type: 'over' }); return; }
         this.choosePortals(this.wave + 1);
       }
       return;
@@ -515,7 +580,7 @@ export class Game {
     const x = cellX(cell), y = cellY(cell);
     const g: Ghost = {
       id: this.nextId++, kind, x, y, from: cell, to: cell, prog: 0, dir: -1,
-      zig: this.rng.chance(0.5) ? 1 : -1, zigLeft: GRID.cell * 0.75,
+      zig: this.stage ? 1 : this.rng.chance(0.5) ? 1 : -1, zigLeft: GRID.cell * 0.75,
       speed: this.P.ghostSpeed * mult, target: Math.max(0, this.nearestLit(x, y, WALKS[kind])),
       age: 0, face: 1, lure: 0, caught: 0, haunt: false, passed: [], wait: 0, dead: false,
     };
@@ -588,7 +653,7 @@ export class Game {
 
   private moveGhosts(dt: number) {
     const P = this.P;
-    const ramp = 1 + P.speedRamp * this.wave;
+    const ramp = this.stage ? 1 : 1 + P.speedRamp * this.wave;
     for (const g of this.ghosts) {
       if (g.dead) continue;
       g.age += dt;
@@ -658,7 +723,7 @@ export class Game {
   /** 先読み: このおばけが t 秒ごとにいるマス(呼ばれない・罠にかからないとして) */
   predict(g: Ghost, horizon: number, step = 0.25): Array<{ cell: number; t: number; x: number; y: number }> {
     const c: Ghost = { ...g, passed: [...g.passed], lure: 0, caught: 0 };
-    const sp = g.speed * (1 + this.P.speedRamp * this.wave);
+    const sp = g.speed * (this.stage ? 1 : 1 + this.P.speedRamp * this.wave);
     const out: Array<{ cell: number; t: number; x: number; y: number }> = [];
     let t = Math.max(0, g.wait) + Math.max(0, g.caught);
     const house = this.houses[g.target];
@@ -671,19 +736,20 @@ export class Game {
     return out;
   }
 
+  /** 光の帯の長さ(マス)。光は帯になって形の上を走り、どのマスも同じ間(light.hold 秒)だけ照らされる */
+  get band() { return Math.max(0.3, this.P.lightHold * this.P.lightSpeed); }
+
   /** そのマスが光に照らされているか */
   lit(b: Blast, cell: number) {
-    return b.cells.some((q) => q.cell === cell && q.d <= b.ext);
+    const band = this.band;
+    return b.cells.some((q) => q.cell === cell && q.d <= b.ext && q.d >= b.ext - band);
   }
 
   private runBlasts(dt: number) {
     const P = this.P;
     for (const b of [...this.blasts]) {
-      if (!b.shrinking) {
-        b.ext = Math.min(b.range, b.ext + P.lightSpeed * dt);
-        if (b.ext >= b.range) { b.hold -= dt; if (b.hold <= 0) b.shrinking = true; }
-      } else b.ext -= P.lightSpeed * 2 * dt;
-      if (b.ext < 0 && b.shrinking) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
+      b.ext += P.lightSpeed * dt;
+      if (b.ext - this.band > b.range) { this.blasts = this.blasts.filter((q) => q !== b); continue; }
       const chain = this.chains.get(b.chain)!;
       // 誘爆: 光が届いたマスの提灯も弾ける
       for (const l of [...this.lanterns]) if (!l.flying && this.lit(b, l.cell)) this.burst(l, chain);
@@ -698,7 +764,7 @@ export class Game {
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });
         // 成仏したおばけは、少しして自分のマスと周りを照らす
-        if (this.wisps.length < 50 && !isPillar(cell)) this.wisps.push({ id: this.nextId++, x: cellX(cell), y: cellY(cell), cell, age: 0, chain: chain.id });
+        if (this.wisps.length < 50 && !this.blocks[cell]) this.wisps.push({ id: this.nextId++, x: cellX(cell), y: cellY(cell), cell, age: 0, chain: chain.id });
       }
     }
   }

@@ -35,6 +35,20 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   ammo: { ja: '残り', en: 'Left' },
   waveClear: { ja: '刻を越えた', en: 'Watch survived' },
   demo: { ja: 'デモ', en: 'Demo' },
+  selectTitle: { ja: '面を選ぶ', en: 'Choose a Stage' },
+  example: { ja: '手本', en: 'Example' },
+  watchingExample: { ja: '手本(この面の正解の一つ)', en: 'Example (one solution)' },
+  free: { ja: '気まぐれ', en: 'Endless' },
+  freeIdea: { ja: '毎回ちがう迷路と家並み。どこまで守れるか', en: 'A new maze every time. How long can you last?' },
+  goal: { ja: '目標', en: 'Goal' },
+  cleared: { ja: '守り切った', en: 'Stage cleared' },
+  failed: { ja: '灯りが消えた', en: 'The lights went out' },
+  starClear: { ja: '守り切る', en: 'Clear' },
+  starKeep: { ja: '家を一軒も消さない', en: 'Lose no house' },
+  starChain: { ja: '連鎖', en: 'chain' },
+  next: { ja: '次の面', en: 'Next' },
+  toSelect: { ja: '面を選ぶ', en: 'Stages' },
+  stageNo: { ja: '第', en: 'Stage ' },
 };
 
 let current: Lang = detect();
