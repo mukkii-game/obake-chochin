@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { Game, DT, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
-import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry, ouch } from '../game/sound';
+import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry, ouch, bgmRate } from '../game/sound';
 import { txt, pop, dayName, waveLabel, hourName } from '../game/view';
 import { dayOf, waveInDay, WAVES_PER_DAY, WAVE_NAMES } from '../game/waves';
 import { PAPER } from '../game/art';
@@ -70,6 +70,7 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private feverFx!: Phaser.GameObjects.Rectangle;
   private comboText?: Phaser.GameObjects.Text;
   private fullShown = false;
   private flashUntil = new Map<number, number>();
@@ -146,6 +147,8 @@ export class Play extends Phaser.Scene {
     }
     this.fx = this.add.graphics().setDepth(5);
     this.slotFx = this.add.graphics().setDepth(4.5);
+    // あせる時間: 画面がうっすら赤く脈打つ
+    this.feverFx = this.add.rectangle(W / 2, H / 2, W, H, 0xff3050).setBlendMode(Phaser.BlendModes.ADD).setDepth(40).setAlpha(0);
     this.glowFx = this.add.graphics().setDepth(19).setBlendMode(Phaser.BlendModes.ADD);
 
     this.sparks = this.add.particles(0, 0, 'dot', {
@@ -496,6 +499,19 @@ export class Play extends Phaser.Scene {
         this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: 1100, duration: 350, onComplete: () => s.destroy() });
         break;
       }
+      case 'fever': {
+        // あせる時間: 曲が速くなり、おばけも速く(拍も速くなるので弾み方も速くなる)
+        bgmRate(e.on ? this.game2.P.feverMult : 1);
+        if (e.on) {
+          snd.watch();
+          const f = this.add.text(W / 2, H / 2 - 30, t('fever'), pop(40, '#ff7e9e')).setOrigin(0.5).setDepth(60).setScale(0.3);
+          this.tweens.add({ targets: f, scale: 1, duration: 220, ease: 'Back.Out' });
+          this.tweens.add({ targets: f, angle: { from: -6, to: 6 }, yoyo: true, repeat: 4, duration: 110 });
+          this.tweens.add({ targets: f, alpha: 0, delay: 1300, duration: 400, onComplete: () => f.destroy() });
+          this.cameras.main.shake(300, 0.004);
+        }
+        break;
+      }
       case 'dayEnd': {
         // その晩を凌いだ: 家がみんな灯り直す
         snd.chainEnd(5);
@@ -660,6 +676,7 @@ export class Play extends Phaser.Scene {
       .setAngle(Math.sin(beatPos(time) * Math.PI / 2) * 6);
 
     this.slotFx.clear();
+    this.feverFx.setAlpha(g.fever ? 0.05 + 0.04 * Math.abs(Math.sin(beatPos(time) * Math.PI)) : 0);
     if (g.lanterns.length < g.maxOnField) this.fullShown = false;
     g.houses.forEach((h, i) => {
       const o = this.houseImgs[i];

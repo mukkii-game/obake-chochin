@@ -3,7 +3,7 @@
 // BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。遊ぶ間 = サイバー16(アイドル・ダンスの曲)。タイトルは無音。
 // 始まりの声「おばけが、くるぞー!」は Open JTalk + HTS Voice「Mei」(happy, CC BY 3.0)で作った。
 // 読めない時は合成の爪弾きに切り替える。
-import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice, playSample, setVolumes } from '../core/audio';
+import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice, playSample, setVolumes, setLoopRate } from '../core/audio';
 import { tune } from '../core/tuning';
 
 // 都節音階(D E♭ G A B♭)。和の夜の響き
@@ -187,6 +187,14 @@ const PHRASE = [0, 2, 3, 2, 5, 4, 3, -1, 2, 3, 5, 7, 6, 5, 3, -1];
 let current: Track | null = null;
 /** 曲が鳴り始めた時刻(音の時計) */
 let playT0: number | null = null;
+let songRate = 1, rateRefT = 0, rateRefPos = 0;
+/** 曲の速さを変える(あせる時間)。拍の位置が途切れないよう、変えた瞬間の位置を覚えておく */
+export function bgmRate(r: number) {
+  const now = audioNow();
+  if (now == null || playT0 == null || r === songRate) return;
+  rateRefPos = rateRefPos + (now - rateRefT) * songRate; rateRefT = now; songRate = r;
+  setLoopRate(r);
+}
 /**
  * いまの拍の位置(拍の数。小数部が拍の中の位置)。曲が鳴っていれば曲の位置から、鳴っていなければ同じテンポの時計で。
  * 絵(おばけが弾む)を BGM に合わせるために使う
@@ -195,8 +203,10 @@ export function beatPos(fallbackSec: number): number {
   const tr = TRACKS.play, beat = 60 / tr.bpm;
   const now = audioNow();
   if (playT0 != null && now != null && current === 'play' && stopFile) {
+    // 曲の位置 = 速さを変えた時の位置 + その後の経過 × 速さ(速くなると拍も速くなる)
     const len = tr.end - tr.start;
-    const pos = tr.start + (((now - playT0) % len) + len) % len;
+    const raw = rateRefPos + (now - rateRefT) * songRate;
+    const pos = tr.start + ((((raw - tr.start) % len) + len) % len);
     return (pos - tr.firstBeat) / beat;
   }
   return fallbackSec / beat;
@@ -214,7 +224,7 @@ export function bgmStart(track: Track = 'play') {
     if (my !== gen) return; // 読んでいる間に止められた
     starting = false;
     if (stopFile || timer) return;
-    if (buf) { stopFile = playLoop(buf, tr.gain, tr.start, tr.end); playT0 = audioNow(); }
+    if (buf) { stopFile = playLoop(buf, tr.gain, tr.start, tr.end); playT0 = audioNow(); rateRefT = playT0 ?? 0; rateRefPos = tr.start; songRate = 1; }
     else synthStart();
   });
 }

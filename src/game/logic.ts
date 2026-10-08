@@ -13,7 +13,7 @@
 // マス目は描画の目安だけ。位置はすべて px(アナログ)。
 import { Rng } from '../core/rng';
 import type { Params } from './params';
-import { waveGroups, WAVE_COUNT, dayOf, type Group } from './waves';
+import { waveGroups, WAVE_COUNT, dayOf, waveInDay, type Group } from './waves';
 
 export const W = 960;
 export const H = 540;
@@ -112,6 +112,7 @@ export type GameEvent =
   | { type: 'watch'; n: number }
   | { type: 'waveEnd'; n: number; bonus: number }
   | { type: 'clear' }
+  | { type: 'fever'; on: boolean }
   | { type: 'enter'; x: number; y: number; house: number; kind: GhostKind; ghost: number }
   | { type: 'ignite'; x: number; y: number }
   | { type: 'dayEnd'; day: number }
@@ -296,6 +297,10 @@ export class Game {
   /** 提灯の網: 1 つの連鎖で弾けた提灯が多いほど、その連鎖の点がまとめて増える(2 つで ×1.5、3 つで ×2 …) */
   netMult(c: Chain) { return 1 + this.P.netMult * Math.max(0, c.bursts - 1); }
 
+  /** あせる時間の最中か(feverAt 秒後から feverDur 秒) */
+  feverFrom = Infinity;
+  fever = false;
+
   /** 1/60 秒進める */
   step(taps: Array<[number, number]> = []) {
     if (this.over) return;
@@ -305,6 +310,8 @@ export class Game {
     if (this.selected >= 0 && !this.canThrow(this.selected)) { this.selected = -1; this.events.push({ type: 'select', house: -1 }); }
 
     this.spawn(dt);
+    const fv = this.t >= this.feverFrom && this.t < this.feverFrom + this.P.feverDur && !this.over;
+    if (fv !== this.fever) { this.fever = fv; this.events.push({ type: 'fever', on: fv }); }
 
     for (const l of [...this.lanterns]) {
       if (!l.flying) {
@@ -361,6 +368,8 @@ export class Game {
         if (this.begun) this.wave++;
         this.begun = true;
         this.events.push({ type: 'watch', n: this.wave });
+        // あせる時間: 第二・第三刻の途中で、しばらくおばけが速くなる(曲も速くなる)
+        this.feverFrom = waveInDay(this.wave) >= 1 ? this.t + this.P.feverAt : Infinity;
         for (const g of this.groups) {
           const form = this.nextId++;
           this.formSize.set(form, g.n * g.cols.length);
@@ -591,7 +600,7 @@ export class Game {
   speedOf(g: Ghost): number {
     const h = this.houses[g.target];
     const near = h && g.seg >= g.path.length - 2 && Math.hypot(h.x - g.x, h.y - g.y) < this.P.dashR;
-    return g.speed * this.rush() * (near ? this.P.dashMult : 1);
+    return g.speed * this.rush() * (near ? this.P.dashMult : 1) * (this.fever ? this.P.feverMult : 1);
   }
 
   /** 最後の一匹(その刻にもう出てこない時)は、インベーダーのように速くなる */

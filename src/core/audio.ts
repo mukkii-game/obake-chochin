@@ -159,6 +159,14 @@ export function loadBuffer(url: string): Promise<AudioBuffer | null> {
   return buffers.get(url)!;
 }
 /** ループ再生。止める関数を返す。loopStart/loopEnd 秒(曲頭の無音や、曲尾の余白を飛ばす) */
+/** いま鳴っている曲(速さを変えるため) */
+let loopSrc: AudioBufferSourceNode | null = null;
+/** 曲の速さ(1 = ふつう)。速くすると音も少し高くなる(あせる感じ) */
+export function setLoopRate(r: number) {
+  const c = ctx;
+  if (!c || !loopSrc) return;
+  loopSrc.playbackRate.setValueAtTime(r, c.currentTime);
+}
 export function playLoop(buf: AudioBuffer, gain: number, loopStart = 0, loopEnd = buf.duration, fadeIn = 1.5): () => void {
   const c = ensure();
   if (!c || !musicGain) return () => {};
@@ -169,6 +177,7 @@ export function playLoop(buf: AudioBuffer, gain: number, loopStart = 0, loopEnd 
   g.gain.exponentialRampToValueAtTime(gain, c.currentTime + fadeIn);
   src.connect(g).connect(musicGain);
   src.start(c.currentTime, loopStart);
+  loopSrc = src;
   return () => {
     const t = c.currentTime;
     g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
