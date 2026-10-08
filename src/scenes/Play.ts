@@ -762,7 +762,7 @@ export class Play extends Phaser.Scene {
         this.prevPos.set(gh.id, [gh.x, gh.y]);
       }
       // 最後の一匹: 急ぎだす時に一言
-      if (g.rush() > 1 && this.rushId !== gh.id && !gh.dead) { this.rushId = gh.id; this.say(gh.x, gh.y - 34, t('rush'), '#ffb0b0', true, s); }
+      if (g.rush() > 1 && this.rushId !== gh.form && !gh.dead) { this.rushId = gh.form; this.say(gh.x, gh.y - 34, t('rush'), '#ffb0b0', true, s); }
       // ときどき、種類ごとのセリフをしゃべる(画面にたくさん出すぎないよう 3 つまで)
       if (!gh.haunt && !gh.caught && gh.y > 70 && gh.age > 1.4 + (gh.id % 4) * 1.7 && !this.talked.has(gh.id) && this.bubbles.filter((b) => b.active).length < 3) {
         this.talked.add(gh.id);

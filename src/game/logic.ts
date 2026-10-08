@@ -561,10 +561,14 @@ export class Game {
 
   /** 最後の一匹(その刻にもう出てこない時)は、インベーダーのように速くなる */
   rush(): number {
+    // 残りが 1 匹、または 1 つの隊列だけになったら(その刻にもう出てこない時)、みんな急ぐ
     if (this.queue.length) return 1;
-    let n = 0;
-    for (const g of this.ghosts) if (!g.dead && ++n > 1) return 1;
-    return n === 1 ? this.P.lastRush : 1;
+    let form = -1;
+    for (const g of this.ghosts) {
+      if (g.dead) continue;
+      if (form < 0) form = g.form; else if (g.form !== form) return 1;
+    }
+    return form >= 0 ? this.P.lastRush : 1;
   }
 
   /** 先読み: このおばけが step 秒ごとにいる所(止まらないとして) */
