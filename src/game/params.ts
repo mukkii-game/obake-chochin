@@ -20,6 +20,7 @@ export function readParams() {
     chainPad: tune('chain.pad'),
     lureR: tune('lantern.lure'),
     netMult: tune('score.net'),
+    dayRelight: tune('house.dayRelight'),
     lureSpeed: tune('lantern.lureSpeed'),
     sideSpeed: tune('ghost.side'),
     inazumaSpeed: tune('ghost.inazuma'),

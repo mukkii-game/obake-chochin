@@ -378,7 +378,12 @@ export class Game {
       // 日が変わる時(次の晩): 家はみんな灯り直し、提灯も満タン
       if (dayOf(this.wave + 1) !== dayOf(this.wave)) {
         this.pause = WAVE_PAUSE + 1.5;
-        for (const h of this.houses) { h.lit = true; h.ammo = this.P.ammoPerHouse; h.regen = 0; h.flash = 0.4; h.takenForm = undefined; }
+        // 次の日: 消えた家のうち dayRelight 軒だけ灯り直す(全部は戻らない = 守った家の数が次の日に響く)
+        let back = this.P.dayRelight;
+        for (const h of this.houses) {
+          if (!h.lit) { if (back <= 0) continue; back--; h.lit = true; h.takenForm = undefined; }
+          h.ammo = this.P.ammoPerHouse; h.regen = 0; h.flash = 0.4;
+        }
         this.selected = -1;
         this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
       }
