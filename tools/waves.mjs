@@ -40,7 +40,8 @@ try {
   globalThis.location = { search: '' };
   const mod = await import('data:text/javascript,' + encodeURIComponent(out[0].output[0].code));
   const kinds = (process.env.KINDS ?? 'lead,patient,nolead,nohang').split(',');
-  for (let w = 0; w < mod.waves; w++) {
+  const from = Number(process.env.FROM ?? 0), to = Number(process.env.TO ?? mod.waves);
+  for (let w = from; w < to; w++) {
     const row = [];
     for (const k of kinds) {
       const s = { thrown: 0, hangs: 0, kills: 0, best: 0, lost: 0 };
