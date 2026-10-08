@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { Game, DT, W, H, PLAY, HOUSE_R, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
-import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos } from '../game/sound';
+import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
 import { txt, watchName } from '../game/view';
 import { PAPER } from '../game/art';
 import { onTap, onAim, onCancel } from '../ui/taps';
@@ -50,6 +50,7 @@ export class Play extends Phaser.Scene {
   private hi = 0;
   private hiText!: Phaser.GameObjects.Text;
   private nightK = 0;
+  private banners: Phaser.GameObjects.Text[] = [];
   private scoreText!: Phaser.GameObjects.Text;
   private watchText!: Phaser.GameObjects.Text;
   private chainText!: Phaser.GameObjects.Text;
@@ -66,7 +67,7 @@ export class Play extends Phaser.Scene {
 
   create() {
     expose('scene', 'Play');
-    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = [];
+    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = [];
     this.gSprites.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
@@ -248,6 +249,7 @@ export class Play extends Phaser.Scene {
       }
       case 'purify': {
         snd.purify(e.n);
+        cry(e.n);
         this.sparks.explode(5, e.x, e.y);
         this.popup(e.x, e.y - 14, `${e.pts}`, e.n >= 3 ? '#ffe27a' : '#f3e6c8', 13 + Math.min(e.n, 8));
         if (e.n >= 3) this.showChain(e.n, e.x, e.y);
@@ -366,7 +368,11 @@ export class Play extends Phaser.Scene {
 
   /** 大きな得点(連鎖ボーナス・編隊全滅)。昔のゲームのように、はっきり出す */
   private banner(s: string, x: number, y: number, color: string, size: number) {
-    const tx = this.add.text(0, Phaser.Math.Clamp(y - 60, 80, H - 90), s, txt(size, color, { strokeThickness: 6 })).setOrigin(0.5).setDepth(61).setScale(0.6);
+    // 同時に出た大きな文字は重ならないよう、下へずらして積む
+    this.banners = this.banners.filter((b) => b.active);
+    const yy = Phaser.Math.Clamp(y - 60, 80, H - 140) + this.banners.length * (size + 12);
+    const tx = this.add.text(0, yy, s, txt(size, color, { strokeThickness: 6 })).setOrigin(0.5).setDepth(61).setScale(0.6);
+    this.banners.push(tx);
     const half = tx.width / 2 + 80;
     tx.x = Phaser.Math.Clamp(x, half, W - half);
     this.tweens.add({ targets: tx, scale: 1, duration: 180, ease: 'Back.Out' });
@@ -470,8 +476,13 @@ export class Play extends Phaser.Scene {
     for (const [id, s] of this.gSprites) {
       if (seenG.has(id)) continue;
       this.gSprites.delete(id);
-      // 消える時: 上へ昇って薄れる(成仏)/ 家に吸い込まれる
-      this.tweens.add({ targets: s, y: s.y - 30, alpha: 0, scale: 0.6, duration: 450, onComplete: () => s.destroy() });
+      // やられた: 目が ＞＜(唐傘は ×)になって、くるっと回りながらぴょんと跳ね、昇って消える
+      const ko = `${s.texture.key}_ko`;
+      if (this.textures.exists(ko)) s.setTexture(ko);
+      const sc = s.scaleX;
+      this.tweens.add({ targets: s, scaleX: sc * 1.25, scaleY: sc * 0.8, duration: 70, yoyo: true });
+      this.tweens.add({ targets: s, y: s.y - 46, angle: s.angle + (id % 2 ? 360 : -360), duration: 650, ease: 'Quad.Out' });
+      this.tweens.add({ targets: s, alpha: 0, scale: sc * 0.5, delay: 380, duration: 420, onComplete: () => s.destroy() });
     }
 
     this.fx.clear();

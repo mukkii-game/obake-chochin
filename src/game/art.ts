@@ -75,6 +75,12 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_giant', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c); });
   make(scene, 'g_oni', 64, 68, drawOnibi);
   make(scene, 'g_kasa', 64, 72, drawKarakasa);
+  // やられた顔(＞＜ や ×)
+  make(scene, 'g_fuwa_ko', 64, 68, (c) => drawFuwa(c, true));
+  make(scene, 'g_oni_ko', 64, 68, (c) => drawOnibi(c, true));
+  make(scene, 'g_kasa_ko', 64, 72, (c) => drawKarakasa(c, true));
+  make(scene, 'g_big_ko', 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c, true); });
+  make(scene, 'g_giant_ko', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c, true); });
   make(scene, 'g_kirai', 50, 56, drawKage);
   make(scene, 'wisp', 32, 40, drawWisp);
   make(scene, 'portal', 72, 72, drawPortal);
@@ -354,7 +360,18 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
 }
 
 /** かわいい顔(点の目・ほっぺ・小さい口)。シンプルで丸い、かわいげのある顔 */
-function cuteFace(c: Ctx, cx: number, cy: number, spread: number, mouth: 'w' | 'o' | 'smile' | 'grin' = 'w', eyeR = 2.6, happyEyes = false) {
+function cuteFace(c: Ctx, cx: number, cy: number, spread: number, mouth: 'w' | 'o' | 'smile' | 'grin' = 'w', eyeR = 2.6, happyEyes = false, ko = false) {
+  if (ko) {
+    // やられた顔: 目が ＞＜、口はぽかん
+    c.strokeStyle = '#2b2020'; c.lineWidth = 2; c.lineCap = 'round'; c.lineJoin = 'round';
+    const e = eyeR * 1.3;
+    c.beginPath(); c.moveTo(cx - spread - e, cy - e); c.lineTo(cx - spread + e, cy); c.lineTo(cx - spread - e, cy + e); c.stroke();
+    c.beginPath(); c.moveTo(cx + spread + e, cy - e); c.lineTo(cx + spread - e, cy); c.lineTo(cx + spread + e, cy + e); c.stroke();
+    c.fillStyle = 'rgba(255,140,160,0.55)';
+    for (const s2 of [-1, 1]) { c.beginPath(); c.ellipse(cx + s2 * (spread + 6), cy + 5, 4.2, 2.6, 0, 0, 7); c.fill(); }
+    c.fillStyle = '#7a2a36'; c.beginPath(); c.ellipse(cx, cy + 6, 3, 3.6, 0, 0, 7); c.fill(); c.stroke();
+    return;
+  }
   if (happyEyes) {
     // にこっと閉じた目(∩ ∩)
     c.strokeStyle = '#2b2020'; c.lineWidth = 1.8; c.lineCap = 'round';
@@ -380,7 +397,7 @@ function cuteFace(c: Ctx, cx: number, cy: number, spread: number, mouth: 'w' | '
 }
 
 /** 幽霊: ころんと丸い白いおもち。小さい天冠と、ちょろっとしたしっぽ */
-function drawFuwa(c: Ctx) {
+function drawFuwa(c: Ctx, ko = false) {
   const ol = '#4a3c46';
   c.lineWidth = 2; c.strokeStyle = ol; c.lineJoin = 'round';
   c.fillStyle = '#fbfaff';
@@ -400,11 +417,11 @@ function drawFuwa(c: Ctx) {
   // 影でふんわり
   c.fillStyle = 'rgba(170,190,240,0.25)';
   c.beginPath(); c.ellipse(36, 48, 12, 5, 0, 0, 7); c.fill();
-  cuteFace(c, 32, 33, 8, 'grin', 2.6, true);
+  cuteFace(c, 32, 33, 8, 'grin', 2.6, true, ko);
 }
 
 /** 鬼火: ぷっくりした青緑の火の玉。ゆらっとした炎の先 */
-function drawOnibi(c: Ctx) {
+function drawOnibi(c: Ctx, ko = false) {
   const ol = '#1f4a42';
   const g = c.createRadialGradient(32, 42, 2, 32, 40, 26);
   g.addColorStop(0, '#e8fff4'); g.addColorStop(0.55, '#8ff0cc'); g.addColorStop(1, '#4cc8a4');
@@ -420,11 +437,11 @@ function drawOnibi(c: Ctx) {
   // 内側の明るい芯
   c.fillStyle = 'rgba(255,255,255,0.45)';
   c.beginPath(); c.ellipse(26, 36, 5, 7, -0.4, 0, 7); c.fill();
-  cuteFace(c, 32, 43, 8, 'grin');
+  cuteFace(c, 32, 43, 8, 'grin', 2.6, false, ko);
 }
 
 /** 唐傘: まるいむらさきの傘に、大きな一つ目とちいさい舌。一本足に下駄 */
-function drawKarakasa(c: Ctx) {
+function drawKarakasa(c: Ctx, ko = false) {
   const ol = '#3e2a52';
   c.lineWidth = 2; c.strokeStyle = ol; c.lineJoin = 'round';
   c.fillStyle = '#b796e6';
@@ -441,8 +458,14 @@ function drawKarakasa(c: Ctx) {
   // 大きな一つ目(点の目を大きくしたもの)+ ほっぺ + 舌
   c.fillStyle = '#fff'; c.strokeStyle = ol; c.lineWidth = 1.6;
   c.beginPath(); c.ellipse(32, 25, 8, 8.5, 0, 0, 7); c.fill(); c.stroke();
-  c.fillStyle = '#2b2020'; c.beginPath(); c.ellipse(32.5, 26, 4.2, 4.8, 0, 0, 7); c.fill();
-  c.fillStyle = '#fff'; c.beginPath(); c.arc(34, 24, 1.6, 0, 7); c.fill();
+  if (ko) {
+    // やられた顔: 大きな目が ×
+    c.strokeStyle = '#2b2020'; c.lineWidth = 2.4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(28.5, 21.5); c.lineTo(35.5, 28.5); c.moveTo(35.5, 21.5); c.lineTo(28.5, 28.5); c.stroke();
+  } else {
+    c.fillStyle = '#2b2020'; c.beginPath(); c.ellipse(32.5, 26, 4.2, 4.8, 0, 0, 7); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(34, 24, 1.6, 0, 7); c.fill();
+  }
   c.fillStyle = 'rgba(255,140,170,0.55)';
   for (const s of [-1, 1]) { c.beginPath(); c.ellipse(32 + s * 15, 31, 4, 2.4, 0, 0, 7); c.fill(); }
   c.fillStyle = '#ff7a96'; c.strokeStyle = ol; c.lineWidth = 1.4;

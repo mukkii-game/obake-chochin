@@ -16,6 +16,18 @@ function rin(freq: number, gain = 0.05, delay = 0, dur = 1.2) {
   tone({ freq: freq * 2.71, dur: dur * 0.45, type: 'sine', gain: gain * 0.4, delay });
   tone({ freq: freq * 5.12, dur: dur * 0.18, type: 'sine', gain: gain * 0.18, delay });
 }
+/** きれいな高い鐘(ピン・ポン): 明るい倍音のベル + 「パ」のきらめき */
+function chime(freq: number, gain = 0.06, delay = 0, dur = 0.9) {
+  tone({ freq, dur, type: 'sine', gain, delay, attack: 0.002 });
+  tone({ freq: freq * 2, dur: dur * 0.6, type: 'sine', gain: gain * 0.45, delay, attack: 0.002 });
+  tone({ freq: freq * 3.01, dur: dur * 0.3, type: 'sine', gain: gain * 0.25, delay, attack: 0.002 });
+  tone({ freq: freq * 4.2, dur: dur * 0.15, type: 'triangle', gain: gain * 0.15, delay, attack: 0.001 });
+  noise({ dur: 0.08, gain: gain * 0.5, freq: 7000, q: 1.2, delay });
+}
+/** 明るい音階(長調の五音)。連爆の n 個目ほど上がる */
+const BRIGHT = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28];
+const brightNote = (k: number) => 880 * 2 ** (BRIGHT[Math.min(k, BRIGHT.length - 1)] / 12);
+
 /** 寺の鐘: 低く長い。少しずれた音が重なってうなる */
 function kane(freq: number, gain = 0.08, delay = 0, dur = 3.5) {
   tone({ freq, dur, type: 'sine', gain, delay, attack: 0.01 });
@@ -63,15 +75,19 @@ export const snd = {
    */
   break: (n: number) => {
     const step = MIYAKO[Math.min(n - 1, MIYAKO.length - 1)];
-    if (boomBuf) playSample(boomBuf, 0.55, 2 ** (step / 12));
+    if (boomBuf) playSample(boomBuf, n > 1 ? 0.4 : 0.55, 2 ** (step / 12));
     else noise({ dur: 0.25, gain: 0.07, freq: 3200, slide: 1500, q: 0.6 });
-    taiko(0.12, 0, 95 * 2 ** (step / 12));
+    taiko(n > 1 ? 0.08 : 0.12, 0, 95 * 2 ** (step / 12));
+    // 連爆: ピン・ポン・パーン…と、高くてきれいな鐘が明るい音階で上がっていく
+    if (n > 1) chime(brightNote(n - 2), 0.07, 0, 1.1);
   },
   burnout: () => noise({ dur: 0.4, gain: 0.06, freq: 600, q: 2 }),
   /** n 体目の成仏: 鈴が音階を上っていく */
   purify: (n: number) => rin(note(6 + Math.min(n - 1, 12)), 0.045, 0, 1.0),
   wispPop: () => rin(note(12), 0.02, 0, 0.4),
   chainEnd: (n: number) => {
+    // 3 体以上まとめて: 締めの「ピンポンパーン!」(高 → 低 → いちばん高く長く)
+    if (n >= 3) { chime(1318.5, 0.06, 0.05, 0.6); chime(1046.5, 0.06, 0.2, 0.6); chime(1568, 0.075, 0.38, 1.6); chime(2093, 0.04, 0.38, 1.4); }
     if (n < 4) return;
     [0, 2, 4, 7].forEach((k, i) => rin(note(10 + k), 0.04, i * 0.08, 1.6));
     if (n >= 6) kane(note(0) / 2, 0.05, 0.3, 2.5);
@@ -102,11 +118,24 @@ export const snd = {
 const MIYAKO = [0, 1, 5, 7, 8, 12, 13, 17, 19, 20, 24];
 let boomBuf: AudioBuffer | null = null;
 let voObake: AudioBuffer | null = null;
+/** やられた時のおばけの声(Open JTalk + Mei、高め) */
+const CRIES = ['yarareta', 'hya', 'uwaan', 'kyuu', 'maitta'];
+const cryBufs: AudioBuffer[] = [];
+let lastCry = 0, cryTurn = 0;
 /** 効果音のファイルを読んでおく(遊ぶ前に 1 回) */
 export function preloadSfx() {
   if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; });
   if (!voObake) loadBuffer('./audio/vo_obake.mp3').then((b) => { voObake = b; });
+  if (!cryBufs.length) for (const n of CRIES) loadBuffer(`./audio/vo_${n}.mp3`).then((b) => { if (b) cryBufs.push(b); });
 }
+/** おばけがやられた声。たくさん同時に倒れても、うるさくならないように間を空ける(声の高さを少しずつ変える) */
+export function cry(n: number) {
+  const now = audioNow();
+  if (now == null || !cryBufs.length || now - lastCry < 0.16) return;
+  lastCry = now;
+  playSample(cryBufs[cryTurn++ % cryBufs.length], 0.5, 1 + Math.min(n - 1, 8) * 0.04 + (cryTurn % 3) * 0.03);
+}
+
 /** 始まりの声「おばけが、くるぞー!」 */
 export function sayObake() { if (voObake) playSample(voObake, 0.9); }
 
