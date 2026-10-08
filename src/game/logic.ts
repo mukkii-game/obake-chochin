@@ -32,7 +32,7 @@ export const HOUSE_POS: ReadonlyArray<[number, number]> = [[142, 452], [268, 462
 /** 家の高さの線: 提灯はこれより下へは投げられない。おばけもこれより下へは、家に入る時しか降りない */
 export const GROUND_Y = Math.min(...HOUSE_POS.map((p) => p[1])) - 40;
 /** 家を押したとみなす近さ / おばけが家に入ったとみなす近さ */
-export const HOUSE_R = 26;
+export const HOUSE_R = 30;
 const HOME_R = 6;
 /** おばけの体の大きさ(光に触れたかの判定) */
 export const GHOST_R = 13;

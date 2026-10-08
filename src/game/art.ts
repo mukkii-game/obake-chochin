@@ -232,7 +232,11 @@ function drawBackground(c: Ctx) {
   mist.addColorStop(0, 'rgba(160,170,220,0)'); mist.addColorStop(0.6, 'rgba(160,170,220,0.08)'); mist.addColorStop(1, 'rgba(160,170,220,0)');
   c.fillStyle = mist; c.fillRect(x0, 300, x1 - x0, 120);
   // 近景: 家並みの後ろの町家の屋根(家はこの前に建つ)
-  silhouette('rgba(16,16,30,0.92)', 440, 11, false);
+  // (遊び場の家と見分けがつくよう、上へずらして淡く。手前に霞をかける)
+  silhouette('rgba(30,30,58,0.7)', 392, 11, false);
+  const mist2 = c.createLinearGradient(0, 370, 0, 440);
+  mist2.addColorStop(0, 'rgba(150,160,215,0)'); mist2.addColorStop(1, 'rgba(150,160,215,0.10)');
+  c.fillStyle = mist2; c.fillRect(x0, 370, x1 - x0, 70);
   const ground = c.createLinearGradient(0, 430, 0, y1);
   ground.addColorStop(0, 'rgba(10,10,20,0)'); ground.addColorStop(1, 'rgba(8,8,16,0.8)');
   c.fillStyle = ground; c.fillRect(x0, 430, x1 - x0, y1 - 430);

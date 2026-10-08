@@ -22,7 +22,9 @@ const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0
 const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff, kaze: 0xffe060, inazuma: 0x60e0ff, mega: 0xffc060 } as const;
 /** 軒先の提灯の位置(家の中心から) */
 /** 残りの提灯: 家の右下に、少し重ねて横に並べる(数が一目でわかるように) */
-const HANG: ReadonlyArray<[number, number]> = [[0, 12], [0, 15], [0, 12]];
+const HANG: ReadonlyArray<[number, number]> = [[0, 14], [0, 17], [0, 14]];
+/** 家の絵の大きさ */
+const HOUSE_SCALE = 1.05;
 
 /** 光の色(外側, 芯)。光ごとに順に変える */
 const BLAST_COLS: Array<[number, number]> = [[0xff6fa0, 0xffc0d8], [0xffb030, 0xffe08a], [0x40c8ff, 0xa8ecff], [0x70e060, 0xc8ffb0], [0xa070ff, 0xd8c0ff]];
@@ -125,14 +127,15 @@ export class Play extends Phaser.Scene {
     for (const h of this.game2.houses) {
       const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
       // 家の形 = この家から投げる提灯の光の形(縦の楼は縦、長屋は横)
-      const key = `house_${h.piece}`;
-      const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(0.8).setDepth(2);
+      // 家の形はどれも同じ(撃てる光の形は軒先の提灯で分かる)。ひと回り大きく
+      const key = 'house_hline';
+      const img = this.add.image(h.x, h.y + 22, `${key}_lit`).setOrigin(0.5, 0.92).setScale(HOUSE_SCALE).setDepth(2);
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
       // 形ごとに重なり具合を変える(横長は広め、縦長は詰める)
       const step = h.piece === 'hline' ? 17 : h.piece === 'vline' ? 13 : 14;
-      const hang = HANG.map(([, dy], k) => this.add.image(h.x + 40 + k * step, h.y + dy, `lantern_${h.piece}`).setScale(0.56).setDepth(4 + k * 0.01));
+      const hang = HANG.map(([, dy], k) => this.add.image(h.x + 46 + k * step, h.y + dy, `lantern_${h.piece}`).setScale(0.56).setDepth(4 + k * 0.01));
       // 窓の向こうの暗がり(暗い家の窓は穴なので、その後ろに置く)
-      const back = h.piece === 'area' ? this.add.circle(h.x, h.y + 4, 13, 0x15131c) : h.piece === 'vline' ? this.add.rectangle(h.x, h.y - 3, 21, 26, 0x15131c) : this.add.rectangle(h.x, h.y + 9, 40, 19, 0x15131c);
+      const back = this.add.rectangle(h.x, h.y + 22 + (50 - 66.24) * HOUSE_SCALE, 48 * HOUSE_SCALE, 22 * HOUSE_SCALE, 0x15131c);
       back.setDepth(1.5).setVisible(false);
       // のっとられた家の青い魂のオーラと人魂(灯りのついた家・提灯の暖かい色と対比)
       const aura = this.add.image(h.x, h.y - 6, 'glow').setTint(0x4f7dff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.6).setVisible(false);
@@ -645,12 +648,12 @@ export class Play extends Phaser.Scene {
       o.img.setTexture(`${o.key}_${h.lit && flick ? 'lit' : 'dark'}`);
       o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y + 22);
       o.glow.setVisible(h.lit).setAlpha(panic ? (flick ? 0.5 : 0.15) : 0.45 + 0.1 * Math.sin(time * 3 + i));
-      o.img.setScale(0.8 * (1 + h.flash * 0.25));
+      o.img.setScale(HOUSE_SCALE * (1 + h.flash * 0.25));
       // 入り込んだおばけ: 暗くなった家の窓から顔を出して、ゆらゆら(大きいのは目だけ)
       const pk = this.peek[i];
       // 暗い家: 窓は穴になっていて、後ろの暗がりが見える。入り込んだおばけは大きさそのまま窓の向こうにいて、
       // 窓から見える所だけ見える(大きいおばけは目のあたりだけ)
-      const wy = h.y + (o.key.endsWith('vline') ? -3 : o.key.endsWith('hline') ? 9 : 4);
+      const wy = o.back.y;
       o.back.setVisible(!h.lit);
       // のっとられた家: 家を覆う青白い魂がゆらゆら、まわりを人魂が回る
       o.aura.setVisible(!h.lit);
@@ -697,10 +700,10 @@ export class Play extends Phaser.Scene {
     // カーソルを寄せた家: 押すと選ばれる(薄い輪が点滅)/ 選んだ家に寄せると、押すと外れる(はっきりした輪のまま点滅)
     const hover = this.aim && !this.ended ? g.houses.findIndex((h) => h.lit && Math.hypot(h.x - this.aim!.x, h.y - this.aim!.y) < HOUSE_R * 1.3) : -1;
     const ring = (i: number, a: number) => {
-      const h = g.houses[i], r = 34 + 3 * Math.sin(time * 6);
-      this.selFx.lineStyle(9, 0xff7eb6, 0.25 * a); this.selFx.strokeCircle(h.x, h.y - 4, r + 4);
-      this.selFx.lineStyle(4, 0xff7eb6, 0.95 * a); this.selFx.strokeCircle(h.x, h.y - 4, r);
-      this.selFx.lineStyle(2, 0xffffff, 0.8 * a); this.selFx.strokeCircle(h.x, h.y - 4, r - 4);
+      const h = g.houses[i], r = 40 + 3 * Math.sin(time * 6);
+      this.selFx.lineStyle(9, 0xff7eb6, 0.25 * a); this.selFx.strokeCircle(h.x, h.y - 10, r + 4);
+      this.selFx.lineStyle(4, 0xff7eb6, 0.95 * a); this.selFx.strokeCircle(h.x, h.y - 10, r);
+      this.selFx.lineStyle(2, 0xffffff, 0.8 * a); this.selFx.strokeCircle(h.x, h.y - 10, r - 4);
       this.selFx.fillStyle(0xff7eb6, 0.95 * a);
       const ay = h.y - r - 14 + 3 * Math.sin(time * 8);
       this.selFx.fillTriangle(h.x - 8, ay, h.x + 8, ay, h.x, ay + 10);
