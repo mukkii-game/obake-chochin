@@ -46,6 +46,8 @@ export const KNOBS: Knob[] = [
   { key: 'chain.pad', label: '連鎖の当たりの余裕(見えている縁)', value: 12, min: 0, max: 30, step: 1, unit: 'px', aim: '光の範囲の縁どうしが触れているだけで連鎖する' },
   { key: 'ghost.kaze', label: 'はやて(速いおばけ)の速さ', value: 2.1, min: 1, max: 4, step: 0.1, unit: '倍', aim: '先読みを強く求める' },
   { key: 'ghost.side', label: '横から来る組の速さ', value: 1.3, min: 1, max: 3, step: 0.1, unit: '倍', aim: '家までの道のりが長いぶん速く' },
+  { key: 'ghost.inazuma', label: 'いなずま(すごく速いおばけ)の速さ', value: 4.2, min: 2, max: 8, step: 0.1, unit: '倍', aim: '家へまっすぐ来ないぶん、うんと速く' },
+  { key: 'ghost.zigLen', label: 'いなずまが家へ向かうまでに走る道のり', value: 1500, min: 400, max: 3000, step: 50, unit: 'px', aim: '速さ × 道のりで、倒すまでの猶予がほかと同じくらいになるように' },
   { key: 'ghost.march', label: '行進が 1 段で下がる高さ', value: 46, min: 20, max: 120, step: 2, unit: 'px', aim: 'インベーダーのように、端で下がる' },
   // 刻
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },

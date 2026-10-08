@@ -45,7 +45,7 @@ export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' 
  *   幽霊 = 主に縦(降りる → 少し横 → 降りる)/ 唐傘 = 主に横(少し降りる → 長く横 → 降りる)/ 鬼火 = 輪(ギャラガ)/
  *   大入道 = 大きくてゆっくり、光 3 回で成仏 / 大大入道 = もっと大きくてもっとゆっくり、光 6 回
  */
-export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze';
+export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze' | 'inazuma';
 
 /** 提灯の形 = 光の形 = 家の形 */
 export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross';
@@ -383,7 +383,7 @@ export class Game {
 
   addGhost(gr: Group, x: number, form = 0) {
     const kind = gr.kind;
-    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45, kaze: this.P.kazeSpeed }[kind];
+    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45, kaze: this.P.kazeSpeed, inazuma: this.P.inazumaSpeed }[kind];
     // 横から来る組(edge): 左右の端から、turn の高さで横一列に入ってくる
     let y = SPAWN_Y;
     if (gr.edge) {
@@ -396,7 +396,8 @@ export class Game {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
       speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
-    g.path = gr.edge && kind !== 'oni'
+    g.path = kind === 'inazuma' ? this.zigPath(x, y, gr.side ?? 1, this.houses[target])
+      : gr.edge && kind !== 'oni'
       ? (gr.march ? this.marchPath(x, y, gr.edge, this.houses[target]) : [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]]) // 横に渡って、家の真上で降りる
       : this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
     // 横から来る組は家までの道のりが長いので、そのぶん速く(行進は除く)
@@ -498,6 +499,29 @@ export class Game {
         this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount });
       }
     }
+  }
+
+  /**
+   * いなずま: すごく速いが家へまっすぐは来ない。斜め → 横 → 斜め…と曲がりながら長い道のりを走り、最後に家へ。
+   * 道のりは zigLen px ぶん(速いぶん長いので、倒すまでの猶予はほかと同じくらい)
+   */
+  zigPath(sx: number, sy: number, side: number, h: { x: number; y: number }): Array<[number, number]> {
+    const pts: Array<[number, number]> = [[sx, sy]];
+    const xl = PLAY.x0 + 30, xr = PLAY.x1 - 30, floor = GROUND_Y - 30;
+    let x = sx, y = PLAY.y0 + 20, dir = side, len = 0;
+    const go = (nx: number, ny: number) => { len += Math.hypot(nx - x, ny - y); x = nx; y = ny; pts.push([x, y]); };
+    go(sx, y);
+    for (let i = 0; i < 12 && len < this.P.zigLen; i++) {
+      const ex = dir > 0 ? xr : xl;
+      // 斜めに 45° で端まで(下がりすぎたら上へ折り返す)、そこから横へ少し
+      const dy = Math.abs(ex - x) * (i % 2 ? -0.5 : 0.5);
+      go(ex, Math.max(PLAY.y0 + 20, Math.min(floor, y + dy)));
+      dir = -dir;
+      go(x + dir * 120, y);
+    }
+    go(h.x, Math.min(y, floor));
+    pts.push([h.x, h.y]);
+    return pts;
   }
 
   /** 行進(インベーダー): 端から端まで渡っては 1 段下がり、また反対へ。家の少し上まで来たら家へ */

@@ -17,9 +17,9 @@ import { startSeed } from '../core/rng';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted, pauseAudio } from '../core/audio';
 
-const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant', kaze: 'g_kaze' } as const;
-const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff, kaze: 0xfff09a };
-const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff, kaze: 0xffe060 } as const;
+const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant', kaze: 'g_kaze', inazuma: 'g_kaze' } as const;
+const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff, kaze: 0xfff09a, inazuma: 0x9ff0ff };
+const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff, kaze: 0xffe060, inazuma: 0x60e0ff } as const;
 /** 軒先の提灯の位置(家の中心から) */
 /** 残りの提灯: 家の右下に、少し重ねて横に並べる(数が一目でわかるように) */
 const HANG: ReadonlyArray<[number, number]> = [[0, 12], [0, 15], [0, 12]];
