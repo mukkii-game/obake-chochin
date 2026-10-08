@@ -33,9 +33,6 @@ jobs:
       - run: npm run test:replay
       - name: Bot simulation (determinism + balance, no rendering)
         run: node tools/sim.mjs 8
-      # 面の手本が目標の連鎖に届くか(面を直した時の壊れ確認。数秒)
-      - name: Stage examples reach their goals
-        run: node tools/stage.mjs all demo
       # 公開キット: 配布用 ZIP・スクショ・日英の文面・投稿ページへのリンクを /kit/ の 1 ページに。
       # 文面は publish.json、画像は kit/assets/(手元の check.mjs のスクショを置く)から。
       - name: Build publish kit

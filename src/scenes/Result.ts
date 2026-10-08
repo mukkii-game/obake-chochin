@@ -5,12 +5,9 @@ import { onTap } from '../ui/taps';
 import { snd } from '../game/sound';
 import { txt, watchName } from '../game/view';
 import { W } from '../game/logic';
-import { STAGES } from '../game/stages';
-import { lang } from '../core/i18n';
 
 interface ResultData {
   score: number; best: number; newBest: boolean; bestChain: number; purified: number; watch: number; seconds: number; replay: string;
-  stage: number; cleared: boolean; keptAll: boolean; stars: number; example: boolean;
 }
 
 export class Result extends Phaser.Scene {
@@ -20,7 +17,6 @@ export class Result extends Phaser.Scene {
     this.cameras.main.fadeIn(500, 5, 3, 10);
     this.add.image(0, 0, 'bg').setOrigin(0);
     this.add.rectangle(W / 2, 270, 560, 400, 0x07060c, 0.55);
-    if (d.stage >= 0) { this.stageResult(d); return; }
     this.add.text(W / 2, 110, t('result'), txt(36, '#e8d6ff')).setOrigin(0.5);
     this.add.text(W / 2, 175, `${t('score')} ${d.score}`, txt(44, '#ffe27a')).setOrigin(0.5);
     if (d.newBest) {
@@ -35,7 +31,7 @@ export class Result extends Phaser.Scene {
     this.add.text(W / 2, 248, rows.join('\n'), txt(18, '#f3e6c8', { align: 'center', lineSpacing: 8 })).setOrigin(0.5, 0);
 
     const retry = this.add.text(W / 2 - 110, 400, t('retry'), txt(26, '#9cf')).setOrigin(0.5);
-    const title = this.add.text(W / 2 + 110, 400, t('toSelect'), txt(22, '#9cf')).setOrigin(0.5);
+    const title = this.add.text(W / 2 + 110, 400, t('toTitle'), txt(22, '#9cf')).setOrigin(0.5);
     const copy = this.add.text(W / 2, 448, t('copyReplay'), txt(14, '#889')).setOrigin(0.5);
     const near = (o: Phaser.GameObjects.Text, x: number, y: number) => Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 20, 12), x, y);
 
@@ -47,46 +43,11 @@ export class Result extends Phaser.Scene {
         try { navigator.clipboard?.writeText(location.href.split('?')[0] + '?replay=' + d.replay).catch(() => {}); } catch { /* 無視 */ }
         copy.setText(t('copied')); snd.ui(); return;
       }
-      if (near(title, x, y)) { snd.ui(); this.scene.start('Select'); return; }
-      if (near(retry, x, y)) { snd.ui(); this.scene.start('Play', { stage: -1 }); }
+      if (near(title, x, y)) { snd.ui(); this.scene.start('Title'); return; }
+      if (near(retry, x, y)) { snd.ui(); this.scene.start('Play'); }
     });
     this.events.once('shutdown', off);
-    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (ready && (e.key === 'Enter' || e.key === ' ' || e.key === 'r')) this.scene.start('Play', { stage: -1 }); });
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (ready && (e.key === 'Enter' || e.key === ' ' || e.key === 'r')) this.scene.start('Play'); });
     if (DemoDriver.enabled) this.time.delayedCall(2500, () => this.scene.start('Play'));
-  }
-
-  /** 面の結果: ★ 3 つ(守り切る / 家を消さない / 目標の連鎖)と、次の面・手本・もういちど */
-  private stageResult(d: ResultData) {
-    const st = STAGES[d.stage];
-    const L = lang();
-    this.add.text(W / 2, 96, `${t('stageNo')}${d.stage + 1}${L === 'ja' ? '面' : ''}  ${st.name[L]}`, txt(22, '#e8d6ff')).setOrigin(0.5);
-    this.add.text(W / 2, 140, d.cleared ? t('cleared') : t('failed'), txt(36, d.cleared ? '#ffe27a' : '#c8b8e8')).setOrigin(0.5);
-    const rows: Array<[boolean, string]> = [
-      [d.cleared, t('starClear')],
-      [d.cleared && d.keptAll, t('starKeep')],
-      [d.cleared && d.bestChain >= st.goal, `${st.goal}${t('chain')}(${t('bestChain')} ${d.bestChain})`],
-    ];
-    rows.forEach(([ok, label], i) => {
-      this.add.text(W / 2 - 150, 190 + i * 38, ok ? '★' : '☆', txt(28, '#ffd860')).setOrigin(0.5);
-      this.add.text(W / 2 - 120, 190 + i * 38, label, txt(18, ok ? '#fff3d0' : '#a8a0b8')).setOrigin(0, 0.5);
-    });
-    if (d.example) this.add.text(W / 2, 312, t('watchingExample'), txt(14, '#aaf')).setOrigin(0.5);
-    const hasNext = d.stage + 1 < STAGES.length;
-    const btns: Array<[string, () => void]> = [
-      [t('retry'), () => this.scene.start('Play', { stage: d.stage })],
-      [t('example'), () => this.scene.start('Play', { stage: d.stage, example: true })],
-      [hasNext ? t('next') : t('toSelect'), () => (hasNext ? this.scene.start('Play', { stage: d.stage + 1 }) : this.scene.start('Select'))],
-    ];
-    const objs = btns.map(([label], i) => this.add.text(W / 2 + (i - 1) * 170, 370, label, txt(22, '#9cf')).setOrigin(0.5));
-    const sel = this.add.text(W / 2, 430, t('toSelect'), txt(16, '#9cf')).setOrigin(0.5).setVisible(hasNext);
-    const near = (o: Phaser.GameObjects.Text, x: number, y: number) => Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 20, 12), x, y);
-    let ready = false;
-    this.time.delayedCall(600, () => { ready = true; });
-    const off = onTap((x, y) => {
-      if (!ready) return;
-      for (let i = 0; i < objs.length; i++) if (near(objs[i], x, y)) { snd.ui(); btns[i][1](); return; }
-      if (near(sel, x, y)) { snd.ui(); this.scene.start('Select'); }
-    });
-    this.events.once('shutdown', off);
   }
 }

@@ -13,12 +13,10 @@ import { t } from '../core/i18n';
 import { save, load } from '../core/save';
 import { tune } from '../core/tuning';
 import { startSeed } from '../core/rng';
-import { STAGES, stageSeed, stageOfSeed, type Stage } from '../game/stages';
-import { lang } from '../core/i18n';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted } from '../core/audio';
 
-const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', kirai: 'g_kirai' } as const;
+const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa' } as const;
 /** 軒先の提灯の位置(家の中心から) */
 const HANG: ReadonlyArray<[number, number]> = [[-25, -2], [25, -2], [-25, 12]];
 
@@ -29,17 +27,12 @@ export class Play extends Phaser.Scene {
   private rec!: Recorder;
   private player: Player | null = null;
   private bot: Bot | null = null;
-  private stageNo = -1;
-  private stage: Stage | null = null;
-  private example: Array<[number, number, number]> | null = null;
-  private exIdx = 0;
   private hitstop = 0;
   private ended = false;
   private offTap: (() => void) | null = null;
 
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; label: Phaser.GameObjects.Image }>();
-  private wSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
   private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string }> = [];
   private selFx!: Phaser.GameObjects.Graphics;
   private portalImgs: Phaser.GameObjects.Image[] = [];
@@ -56,34 +49,25 @@ export class Play extends Phaser.Scene {
 
   constructor() { super('Play'); }
 
-  create(data: { stage?: number; example?: boolean } = {}) {
+  create() {
     expose('scene', 'Play');
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0;
-    this.gSprites.clear(); this.lSprites.clear(); this.wSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
-    this.tipShown.clear();
+    this.gSprites.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
-    // 面は seed で決まる(面の seed は負の数。?replay= でも同じ面が出る)
-    const want = replay ? -1 : data.stage ?? -1;
-    const seed = replay ? replay.seed : want >= 0 ? stageSeed(want) : startSeed();
-    this.stage = stageOfSeed(seed);
-    this.stageNo = this.stage ? STAGES.indexOf(this.stage) : -1;
+    const seed = replay ? replay.seed : startSeed();
     this.player = replay ? new Player(replay) : null;
     this.rec = new Recorder(seed);
-    this.game2 = new Game(seed, readParams(), this.stage);
-    this.example = this.stage && data.example && !replay ? [...this.stage.demo].sort((a, b) => a[0] - b[0]) : null;
-    this.exIdx = 0;
-    this.bot = DemoDriver.enabled && !replay && !this.example ? new Bot(0.8, Math.abs(seed)) : null;
+    this.game2 = new Game(seed, readParams());
+    this.bot = DemoDriver.enabled && !replay ? new Bot(0.8, seed) : null;
     expose('seed', seed); expose('score', 0);
 
     this.add.image(0, 0, 'bg').setOrigin(0);
     this.moon = this.add.image(0, 0, 'moon').setAlpha(0.95);
-    for (let n = 0; n < CELLS; n++) if (this.game2.blocks[n]) this.add.image(cellX(n), cellY(n), 'block').setDepth(1);
-    this.drawWalls();
     this.selFx = this.add.graphics().setDepth(4);
     for (const h of this.game2.houses) {
       const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
-      // 家の形 = この家から投げる提灯の光の形(火の見櫓は上、提灯屋は下、蔵は周り)
+      // 家の形 = この家から投げる提灯の光の形(縦の楼は縦、長屋は横)
       const key = `house_${h.piece}`;
       const img = this.add.image(h.x, h.y + GRID.cell / 2 - 2, `${key}_lit`).setOrigin(0.5, 0.92).setScale(0.9).setDepth(2);
       // 軒先に下がる提灯(この家から飛ばせる数。ミサイルコマンドの基地の弾)
@@ -109,20 +93,17 @@ export class Play extends Phaser.Scene {
     const mute = this.add.text(PAPER.x1 - 14, 6, isMuted() ? '♪×' : '♪', txt(18, '#cfe')).setOrigin(1, 0).setDepth(50);
     this.chainText = this.add.text(W / 2, H / 2, '', txt(44, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
-    else if (this.example) this.add.text(W / 2, H - 22, t('watchingExample'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
-    else if (this.stage) this.add.text(W / 2, H - 22, this.stage.idea[lang()], txt(13, '#e8d6ff')).setOrigin(0.5).setDepth(50);
     else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
 
     this.offTap = onTap((x, y) => {
       // 右上の音ボタン
       if (x > PAPER.x1 - 50 && y < 34) { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); return; }
-      if (this.player || this.example || this.ended) return;
+      if (this.player || this.ended) return;
       this.pending.push([x, y]);
     });
     this.input.keyboard?.on('keydown-M', () => { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); });
     this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; bgmStop(); });
 
-    this.showPortals();
     bgmStart();
     this.updateHud();
   }
@@ -136,16 +117,6 @@ export class Play extends Phaser.Scene {
       let taps: Array<[number, number]>;
       if (this.player) taps = decodeTaps(this.player.input(g.frame + 1));
       else if (this.bot) taps = this.bot.decide(g);
-      else if (this.example) {
-        // 手本: tools/stage.mjs と同じ決まりで流す(同じ結果になる)
-        taps = [];
-        while (this.exIdx < this.example.length && this.example[this.exIdx][0] <= g.t + 1e-9) {
-          const [, c, r] = this.example[this.exIdx++];
-          const n = cellAt(c, r);
-          taps.push([cellX(n), cellY(n)]);
-        }
-        if (this.pending.length) this.pending = [];
-      }
       else { taps = this.pending; this.pending = []; }
       if (taps.length) this.rec.push(g.frame + 1, encodeTaps(taps));
       g.step(taps);
@@ -161,24 +132,15 @@ export class Play extends Phaser.Scene {
     this.ended = true;
     const g = this.game2;
     const prev = load();
-    const best = this.stage ? prev.best : Math.max(prev.best, g.score);
+    const best = Math.max(prev.best, g.score);
     save({ best, played: prev.played + 1 });
     expose('replay', this.rec.toString());
     bgmStop();
-    if (g.cleared) snd.relight(); else snd.over();
+    snd.over();
     this.cameras.main.fadeOut(1400, 5, 3, 10);
-    let stars = 0;
-    if (this.stage) {
-      stars = (g.cleared ? 1 : 0) + (g.cleared && g.litCount === g.houses.length ? 1 : 0) + (g.cleared && g.bestChain >= this.stage.goal ? 1 : 0);
-      if (!this.example && !this.player && !this.bot) {
-        const st = load().stars;
-        if (stars > (st[this.stage.key] ?? 0)) save({ stars: { ...st, [this.stage.key]: stars } });
-      }
-    }
     this.time.delayedCall(1500, () => this.scene.start('Result', {
-      score: g.score, best, newBest: !this.stage && g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
+      score: g.score, best, newBest: g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
       watch: g.wave, seconds: Math.floor(g.t), replay: this.rec.toString(),
-      stage: this.stageNo, cleared: g.cleared, keptAll: g.litCount === g.houses.length, stars, example: !!this.example,
     }));
   }
 
@@ -191,7 +153,7 @@ export class Play extends Phaser.Scene {
       case 'select':
         snd.ui();
         break;
-      case 'arm':
+      case 'hang':
         snd.arm();
         break;
       case 'light':
@@ -206,7 +168,6 @@ export class Play extends Phaser.Scene {
         snd.break(1);
         this.shards.explode(14, e.x, e.y);
         this.sparks.explode(12, e.x, e.y);
-        this.cameras.main.flash(80, 255, 220, 160, false);
         break;
       case 'purify': {
         snd.purify(e.n);
@@ -214,13 +175,9 @@ export class Play extends Phaser.Scene {
         if (e.n >= 3) this.showChain(e.n, e.x, e.y);
         break;
       }
-      case 'wispPop':
-        snd.wispPop();
-        this.sparks.explode(4, e.x, e.y);
-        break;
       case 'chainEnd':
         snd.chainEnd(e.n);
-        if (e.n >= 8) { this.hitstop = tune<number>('juice.hitstop'); this.cameras.main.shake(180, 0.006); }
+        if (e.n >= 6) { this.hitstop = tune<number>('juice.hitstop'); this.cameras.main.shake(180, 0.006); }
         break;
       case 'caught':
         snd.catch();
@@ -237,9 +194,6 @@ export class Play extends Phaser.Scene {
         this.cameras.main.shake(260, tune<number>('juice.shake'));
         this.puff(e.x, e.y);
         this.flee(e.x, e.y);
-        break;
-      case 'portals':
-        this.showPortals();
         break;
       case 'relight': {
         snd.relight();
@@ -276,34 +230,6 @@ export class Play extends Phaser.Scene {
     this.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 400 });
   }
 
-  /** マスの間の細い板塀(ドルアーガの壁)。毎回変わる。おばけ(歩くもの)も光も通さない */
-  private drawWalls() {
-    const g = this.game2, gr = this.add.graphics().setDepth(4);
-    for (let n = 0; n < CELLS; n++) {
-      const c = cellCol(n), r = cellRow(n);
-      for (const [dc, dr] of [[1, 0], [0, 1]] as const) {
-        if (c + dc >= GRID.cols || r + dr >= GRID.rows) continue;
-        if (!g.wallBetween(n, cellAt(c + dc, r + dr))) continue;
-        const x = GRID.x0 + (c + dc) * GRID.cell, y = GRID.y0 + (r + dr) * GRID.cell;
-        const [x1, y1, x2, y2] = dc ? [x, y, x, y + GRID.cell] : [x, y, x + GRID.cell, y];
-        gr.lineStyle(7, 0x0c0a10, 0.9); gr.lineBetween(x1, y1, x2, y2);
-        gr.lineStyle(4, 0xc09468, 1); gr.lineBetween(x1, y1, x2, y2);
-        // 板の継ぎ目
-        for (let k = 1; k < 4; k++) { const u = k / 4; gr.fillStyle(0x3a2a1a, 1); gr.fillRect(x1 + (x2 - x1) * u - 1.5, y1 + (y2 - y1) * u - 1.5, 3, 3); }
-      }
-    }
-  }
-
-  /** あの世の口(次の刻のおばけの出所)。刻の前から見えている */
-  private showPortals() {
-    for (const p of this.portalImgs) this.tweens.add({ targets: p, alpha: 0, duration: 500, onComplete: () => p.destroy() });
-    this.portalImgs = this.game2.portals.map((p) => {
-      const img = this.add.image(p.x, p.y, 'portal').setDepth(3).setAlpha(0).setScale(0.6);
-      this.tweens.add({ targets: img, alpha: 0.9, scale: 1, duration: 700, ease: 'Back.Out' });
-      return img;
-    });
-  }
-
   /** 灯りが消えた家から、家の人が逃げ出す */
   private flee(x: number, y: number) {
     for (let i = 0; i < 3; i++) {
@@ -322,7 +248,7 @@ export class Play extends Phaser.Scene {
   private updateHud() {
     const g = this.game2;
     this.scoreText.setText(`${t('score')} ${g.score}`);
-    this.watchText.setText(this.stage ? `${this.stage.name[lang()]}  ${Math.min(g.wave + 1, g.waveCount)} / ${g.waveCount}` : watchName(g.wave));
+    this.watchText.setText(watchName(g.wave));
     expose('score', g.score); expose('lanterns', g.lanterns.length); expose('ammo', g.ammo);
   }
 
@@ -353,7 +279,6 @@ export class Play extends Phaser.Scene {
       this.selFx.lineStyle(3, 0xffd890, 0.55 + 0.3 * Math.sin(time * 6));
       this.selFx.strokeRoundedRect(h.x - s, h.y - s, s * 2, s * 2, 6);
     }
-    this.portalImgs.forEach((p, i) => p.setAngle(Math.sin(time * 0.8 + i) * 3).setAlpha(0.75 + 0.2 * Math.sin(time * 2 + i)));
 
     // 提灯: 飛んでいる間は軌跡と行き先の印、灯ったら縮んでいく灯り
     const seenL = new Set<number>();
@@ -363,45 +288,29 @@ export class Play extends Phaser.Scene {
       if (!s) {
         const glow = this.add.image(l.x, l.y, 'glow').setTint(0xff9a40).setBlendMode(Phaser.BlendModes.ADD).setDepth(8).setAlpha(0);
         const body = this.add.image(l.x, l.y, 'lantern').setDepth(12).setScale(0.55);
-        // 提灯の模様 = 光の形。香・桂は投げた向きに回す(上向きが「前」)
+        // 提灯の模様 = 光の形(縦 / 横)
         const label = this.add.image(l.x, l.y, `mark_${l.piece}`).setDepth(13);
         s = { body, glow, label };
         this.lSprites.set(l.id, s);
       }
       if (l.flying) {
-        // ゆっくり弧を描いて飛ぶ(行き先は辻)
+        // ゆっくり弧を描いて飛ぶ。着いたら弾ける
         const k = l.flyT / l.flyDur;
         const arc = Math.sin(k * Math.PI) * Math.min(90, Math.hypot(cellX(l.cell) - l.sx, cellY(l.cell) - l.sy) * 0.35);
         s.body.setPosition(l.x, l.y - arc).setScale(0.55).setAngle(Math.sin(time * 14 + l.id) * 12);
         s.glow.setPosition(l.x, l.y - arc).setScale(0.5).setAlpha(0.6);
         s.label.setPosition(l.x, l.y - arc + 1).setScale(0.4);
       } else {
-        // 辻に下がった提灯。光は通りに沿ってこぼれる(弾けた時に光が走る道)
+        // 下がった提灯。いつも同じ時間で弾ける(終わり際に火がゆらぐだけ。数字は出さない)
         if (s.body.scale < 1) s.body.setScale(Math.min(1, s.body.scale + 0.1));
-        s.body.setPosition(l.x, l.y - 8).setAngle(Math.sin(time * 2 + l.id) * 5);
+        const late = Math.max(0, l.age - (P.hangTime - 1.2)) / 1.2;
+        const sway = Math.sin(time * (2 + late * 14) + l.id) * (5 + late * 7);
+        s.body.setPosition(l.x, l.y - 8).setAngle(sway);
         s.label.setPosition(l.x, l.y - 7).setScale(0.62 * Math.min(1, s.body.scale)).setAngle(s.body.angle);
-        s.glow.setPosition(l.x, l.y).setScale(1.1).setAlpha(0.55 + 0.08 * Math.sin(time * 5 + l.id));
+        s.glow.setPosition(l.x, l.y).setScale(1.1).setAlpha(0.55 + (0.08 + late * 0.25) * Math.sin(time * (5 + late * 20) + l.id));
       }
     }
     for (const [id, s] of this.lSprites) if (!seenL.has(id)) { s.body.destroy(); s.glow.destroy(); s.label.destroy(); this.lSprites.delete(id); }
-
-    // 味方の灯り
-    const seenW = new Set<number>();
-    for (const w of g.wisps) {
-      seenW.add(w.id);
-      let s = this.wSprites.get(w.id);
-      if (!s) {
-        s = {
-          glow: this.add.image(w.x, w.y, 'glow').setTint(0xffe0a0).setBlendMode(Phaser.BlendModes.ADD).setDepth(9),
-          body: this.add.image(w.x, w.y, 'wisp').setBlendMode(Phaser.BlendModes.ADD).setDepth(18),
-        };
-        this.wSprites.set(w.id, s);
-      }
-      const k = Math.min(1, w.age / Math.max(0.01, P.wispDelay));
-      s.body.setPosition(w.x, w.y - 6 - k * 6).setAlpha(1).setScale(0.6 + 0.5 * k);
-      s.glow.setPosition(w.x, w.y).setScale(0.4 + 0.4 * k).setAlpha(0.5);
-    }
-    for (const [id, s] of this.wSprites) if (!seenW.has(id)) { s.body.destroy(); s.glow.destroy(); this.wSprites.delete(id); }
 
     // おばけ
     const seenG = new Set<number>();
@@ -427,7 +336,7 @@ export class Play extends Phaser.Scene {
     }
 
     this.fx.clear();
-    // 飛んでいる提灯: 弧の軌跡と、行き先の辻の小さな十字
+    // 飛んでいる提灯: 弧の軌跡と、行き先のマスの小さな × (下げる時は、吊るす鉤の輪)
     for (const l of g.lanterns) {
       if (!l.flying) continue;
       const tx = cellX(l.cell), ty = cellY(l.cell);
@@ -441,9 +350,12 @@ export class Play extends Phaser.Scene {
         if (i === 0) this.fx.moveTo(px, py); else this.fx.lineTo(px, py);
       }
       this.fx.strokePath();
-      this.fx.lineStyle(2, l.armed ? 0xffe0a0 : 0xff6040, 0.9);
-      this.fx.lineBetween(tx - 6, ty - 6, tx + 6, ty + 6);
-      this.fx.lineBetween(tx - 6, ty + 6, tx + 6, ty - 6);
+      if (l.hang) { this.fx.lineStyle(2, 0xffe0a0, 0.9); this.fx.strokeCircle(tx, ty - 10, 6); this.fx.lineBetween(tx, ty - 4, tx, ty + 4); }
+      else {
+        this.fx.lineStyle(2, 0xff6040, 0.9);
+        this.fx.lineBetween(tx - 6, ty - 6, tx + 6, ty + 6);
+        this.fx.lineBetween(tx - 6, ty + 6, tx + 6, ty - 6);
+      }
     }
     this.glowFx.clear();
     // 下がった提灯の明かりが、模様の形のマスにうっすらこぼれる(弾けたら光がここを埋める。印ではなく提灯の明かり)
@@ -456,7 +368,7 @@ export class Play extends Phaser.Scene {
         this.glowFx.fillRect(cellX(q.cell) - cs / 2 + 4, cellY(q.cell) - cs / 2 + 4, cs - 8, cs - 8);
       }
     }
-    // 光: 家の形どおりにマスを順に埋めて、留まって、縮む。柱と板塀で止まる
+    // 光: 家の形どおりに帯になって走る
     const band = g.band;
     for (const b of g.blasts) {
       for (const q of b.cells) {
@@ -467,7 +379,7 @@ export class Play extends Phaser.Scene {
         if (k <= 0) continue;
         const x = cellX(q.cell), y = cellY(q.cell);
         const half = (cs / 2) * (0.35 + 0.65 * front);
-        const layers: ReadonlyArray<[number, number, number]> = b.big ? [[1.15, 0xffb050, 0.28], [0.85, 0xfff0c0, 0.4], [0.45, 0xffffff, 0.5]] : [[1, 0xffc070, 0.25], [0.6, 0xfff0c0, 0.35]];
+        const layers: ReadonlyArray<[number, number, number]> = [[1.15, 0xffb050, 0.28], [0.85, 0xfff0c0, 0.4], [0.45, 0xffffff, 0.5]];
         for (const [m, col, a] of layers) { this.glowFx.fillStyle(col, a * k); this.glowFx.fillRoundedRect(x - half * m, y - half * m, half * m * 2, half * m * 2, 8); }
       }
     }
@@ -478,7 +390,7 @@ export class Play extends Phaser.Scene {
       if (!tr || tr.length < 2) continue;
       for (let i = 1; i < tr.length; i++) {
         const a = (i / tr.length) * 0.35;
-        this.fx.lineStyle(3 * (i / tr.length) + 0.5, gh.kind === 'kirai' ? 0x6a3a8a : gh.kind === 'oni' ? 0x60e0b0 : gh.kind === 'kasa' ? 0xb080ff : 0xc8d8ff, a);
+        this.fx.lineStyle(3 * (i / tr.length) + 0.5, gh.kind === 'oni' ? 0x60e0b0 : gh.kind === 'kasa' ? 0xb080ff : 0xc8d8ff, a);
         this.fx.lineBetween(tr[i - 1][0], tr[i - 1][1], tr[i][0], tr[i][1]);
       }
     }
@@ -490,12 +402,13 @@ export class Play extends Phaser.Scene {
     let sx = 1, sy = 1;
     const appear = Math.min(1, gh.age / 0.6);
     let alpha = appear * (gh.kind === 'fuwa' ? 0.8 + 0.2 * Math.sin(time * 4 + gh.id) : 1);
-    if (gh.kind === 'kirai') alpha *= 0.92;
     if (gh.haunt) { alpha *= 0.55 + 0.3 * Math.sin(time * 9 + gh.id); sx *= 0.8; sy *= 0.8; }
-    // 罠にかかったおばけは提灯のまわりを回る(見とれている)
-    const orbit = gh.caught > 0 ? time * 3 + gh.id : 0;
-    const ox = gh.caught > 0 ? Math.cos(orbit) * 18 : gh.haunt ? Math.sin(time * 7 + gh.id) * 8 : 0;
-    const oy = gh.caught > 0 ? Math.sin(orbit) * 10 - 6 : gh.haunt ? -10 : 0;
+    // 下がった提灯に見とれたおばけは提灯のまわりを回る / 前がつかえたおばけは足踏みする
+    const orbit = time * 3 + gh.id;
+    let ox = 0, oy = 0;
+    if (gh.caught) { ox = Math.cos(orbit) * 16; oy = Math.sin(orbit) * 9 - 6; }
+    else if (gh.stopped) { ox = Math.sin(time * 18 + gh.id) * 2; sy *= 0.92 + 0.08 * Math.abs(Math.sin(time * 9 + gh.id)); }
+    else if (gh.haunt) { ox = Math.sin(time * 7 + gh.id) * 8; oy = -10; }
     s.setPosition(gh.x + ox, gh.y + oy + bob).setScale(sx * 0.82, sy * 0.82).setAlpha(alpha).setFlipX(gh.face < 0);
     // 唐傘は折れるたびに傘を傾ける / 鬼火は揺らめく
     s.setAngle(gh.kind === 'kasa' ? gh.zig * 14 : gh.kind === 'oni' ? Math.sin(time * 8 + gh.id) * 6 : 0);

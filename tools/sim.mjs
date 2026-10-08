@@ -1,5 +1,5 @@
 // ゲームの中身だけを bot で回す(描画なし・数秒)。バランス確認と決定性の確認。
-// 使い方: node tools/sim.mjs [本数=20] [skill=0.8] [lag=0 秒] [all|break|launch]。NOLEAD=1 で先読みしない bot と比べる
+// 使い方: node tools/sim.mjs [本数=20] [skill=0.8] [lag=0 秒]。NOLEAD=1 で先読みしない bot、NOHANG=1 で下げる手を使わない bot と比べる
 // 出力: 生き残った秒数・スコア・最大連鎖の分布。同じ seed で 2 回回して結果が一致するかも見る。
 import { build } from 'vite';
 import fs from 'node:fs';
@@ -16,7 +16,7 @@ import { Bot } from '../src/game/bot';
 import { readParams } from '../src/game/params';
 export function run(seed: number, skill: number, lag = 0, lagOn = 'all') {
   const g = new Game(seed, readParams());
-  const bot = new Bot(skill, seed, lag, lagOn as any); bot.noLead = (globalThis as any).NOLEAD === 1;
+  const bot = new Bot(skill, seed, lag); bot.noLead = (globalThis as any).NOLEAD === 1; bot.useHang = (globalThis as any).NOHANG !== 1;
   let breaks = 0, caught = 0, multi = 0, eaten = 0, saved = 0, lost = 0;
   while (!g.over && g.t < 900) {
     g.step(bot.decide(g));
@@ -45,6 +45,7 @@ try {
     build: { write: false, lib: { entry, formats: ['es'], fileName: 's' }, rollupOptions: { output: { inlineDynamicImports: true } } } });
   globalThis.location = { search: '' };
   globalThis.NOLEAD = process.env.NOLEAD ? 1 : 0;
+  globalThis.NOHANG = process.env.NOHANG ? 1 : 0;
   const mod = await import('data:text/javascript,' + encodeURIComponent(out[0].output[0].code));
   const rows = [];
   if (process.env.DUMP) { for (let s = 1; s <= N; s++) { const r = mod.run(s * 7919, SKILL, LAG, LAGON); if (r.sec < 80) console.log(JSON.stringify(r)); } }

@@ -22,7 +22,7 @@ export class Title extends Phaser.Scene {
     this.add.rectangle(W / 2, 300, 700, 160, 0x07060c, 0.45);
 
     // 飾り: 漂うおばけと提灯
-    const deco: Array<[string, number, number]> = [['g_fuwa', 140, 430], ['g_oni', 215, 470], ['g_kasa', 760, 460], ['g_kirai', 830, 410], ['g_fuwa', 690, 480]];
+    const deco: Array<[string, number, number]> = [['g_fuwa', 140, 430], ['g_oni', 215, 470], ['g_kasa', 760, 460], ['g_oni', 830, 410], ['g_fuwa', 690, 480]];
     deco.forEach(([k, x, y], i) => {
       const s = this.add.image(x, y, k).setAlpha(0.85);
       this.tweens.add({ targets: s, y: y - 10, x: x + (i % 2 ? 12 : -12), yoyo: true, repeat: -1, duration: 1400 + i * 230, ease: 'Sine.InOut' });
@@ -37,7 +37,7 @@ export class Title extends Phaser.Scene {
     this.add.text(W / 2, 252, lines.join('\n'), txt(16, '#f3e6c8', { align: 'center', lineSpacing: 6 })).setOrigin(0.5, 0);
     this.add.text(W / 2, 372, t('kinds'), txt(13, '#b9b0d0')).setOrigin(0.5);
     // 家の形 = 光の形(絵で見せる)。小さなマス目に光る形を描く
-    const pieces = PIECE_SETS[readParams().pieceSet] ?? PIECE_SETS['上・下・周り'];
+    const pieces = PIECE_SETS[readParams().pieceSet] ?? PIECE_SETS['縦・横'];
     pieces.forEach((p, i) => {
       const x = W / 2 + (i - (pieces.length - 1) / 2) * 130, y = 420;
       this.add.image(x - 26, y + 22, `house_${p}_lit`).setOrigin(0.5, 0.92).setScale(0.62);
@@ -67,7 +67,7 @@ export class Title extends Phaser.Scene {
     const hit = (o: Phaser.GameObjects.Text, x: number, y: number) => o.getBounds().contains(x, y) || Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 10, 6), x, y);
 
     let gone = false;
-    const go = () => { if (gone) return; gone = true; snd.ui(); if (DemoDriver.enabled) this.scene.start('Play'); else this.scene.start('Select'); };
+    const go = () => { if (gone) return; gone = true; snd.ui(); this.scene.start('Play'); };
     const off = onTap((x, y) => {
       if (hit(langBtn, x, y)) { snd.ui(); toggleLang(); this.scene.restart(); return; }
       if (hit(muteBtn, x, y)) { toggleMuted(); muteBtn.setText(isMuted() ? t('unmute') : t('mute')); snd.ui(); return; }
@@ -76,10 +76,6 @@ export class Title extends Phaser.Scene {
     this.events.once('shutdown', off);
     this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (e.key !== 'F2') go(); });
     if (DemoDriver.enabled) this.time.delayedCall(800, go);
-    // ?stage=3(&example=1)で、その面(の手本)へ直接
-    const qs = new URLSearchParams(location.search);
-    const sn = Number(qs.get('stage'));
-    if (!DemoDriver.enabled && sn >= 1 && !qs.get('replay')) { gone = true; this.time.delayedCall(50, () => this.scene.start('Play', { stage: sn - 1, example: qs.get('example') === '1' })); }
     void H;
   }
 }

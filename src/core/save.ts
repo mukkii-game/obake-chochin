@@ -8,11 +8,9 @@ export interface SaveData {
   lang: 'ja' | 'en';
   muted: boolean;
   played: number;
-  /** 面ごとの★(0-3)。key は stages.ts の key */
-  stars: Record<string, number>;
 }
 
-const DEFAULTS: SaveData = { v: VERSION, best: 0, lang: 'ja', muted: false, played: 0, stars: {} };
+const DEFAULTS: SaveData = { v: VERSION, best: 0, lang: 'ja', muted: false, played: 0 };
 
 function key() { return `${NS}:save`; }
 
