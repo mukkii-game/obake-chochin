@@ -47,7 +47,10 @@ export class Play extends Phaser.Scene {
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private gGlows = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string }> = [];
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peek?: Phaser.GameObjects.Image }> = [];
+  /** 家に入り込んだおばけ(家ごと)と、入ったおばけの id(跳ね返る絵を出さない) */
+  private peek: Array<GhostKind | undefined> = [];
+  private entered = new Set<number>();
   private selFx!: Phaser.GameObjects.Graphics;
   private portalImgs: Phaser.GameObjects.Image[] = [];
   private fx!: Phaser.GameObjects.Graphics;
@@ -99,7 +102,7 @@ export class Play extends Phaser.Scene {
     this.continues = data?.continues ?? 0;
     this.paused = false; this.pauseMenu = null; this.pauseOff = null; this.time.paused = false;
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = []; this.bubbles = []; this.talked = new Set();
-    this.gSprites.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
+    this.gSprites.clear(); this.peek = []; this.entered.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
     const seed = replay ? replay.seed : startSeed();
@@ -419,6 +422,9 @@ export class Play extends Phaser.Scene {
         this.sparks.explode(10, e.x, e.y - 10);
         break;
       case 'houseOut':
+        // おばけは家に入り込んだ(跳ね返らない): 窓から顔を出す。大きいのは目だけ見える
+        if (e.ghost !== undefined) this.entered.add(e.ghost);
+        this.peek[e.house] = e.kind ?? 'fuwa';
         snd.houseOut();
         this.cameras.main.shake(260, tune<number>('juice.shake'));
         this.puff(e.x, e.y);
@@ -631,6 +637,15 @@ export class Play extends Phaser.Scene {
       o.img.setPosition(h.x + (panic ? Math.sin(time * 60) * 1.5 : 0), h.y + 22);
       o.glow.setVisible(h.lit).setAlpha(panic ? (flick ? 0.5 : 0.15) : 0.45 + 0.1 * Math.sin(time * 3 + i));
       o.img.setScale(0.8 * (1 + h.flash * 0.25));
+      // 入り込んだおばけ: 暗くなった家の窓から顔を出して、ゆらゆら(大きいのは目だけ)
+      const pk = this.peek[i];
+      if (!h.lit && pk) {
+        const big = pk === 'big' || pk === 'giant' || pk === 'mega';
+        const wy = h.y + (o.key.endsWith('vline') ? -3 : o.key.endsWith('hline') ? 9 : 4);
+        if (!o.peek) o.peek = this.add.image(h.x, wy, 'peek_eyes').setDepth(3);
+        o.peek.setTexture(big ? 'peek_eyes' : GHOST_TEX[pk]).setScale(big ? 0.7 : 0.3).setTint(big ? 0xffffff : (GHOST_TINT[pk] ?? 0xffffff))
+          .setPosition(h.x + Math.sin(time * 1.7 + i) * 3, wy + Math.sin(time * 2.3 + i) * 1.5).setVisible(true).setAlpha(big ? 0.6 + 0.4 * Math.abs(Math.sin(time * 1.2 + i)) : 1);
+      } else if (o.peek) { o.peek.setVisible(false); if (h.lit) this.peek[i] = undefined; }
       o.hang.forEach((hg, k) => hg.setVisible(h.lit && k < h.ammo).setY(h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2));
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)
@@ -742,6 +757,12 @@ export class Play extends Phaser.Scene {
       this.gSprites.delete(id);
       this.prevPos.delete(id);
       // やられた: 目が ＞＜(唐傘は ×)になって、くるっと回りながらぴょんと跳ね、昇って消える
+      if (this.entered.has(id)) {
+        // 家に入った: くるっと回らず、すうっと窓へ吸い込まれる
+        this.entered.delete(id);
+        this.tweens.add({ targets: s, scale: 0.05, alpha: 0, y: s.y + 8, duration: 260, ease: 'Quad.In', onComplete: () => s.destroy() });
+        continue;
+      }
       const ko = `${s.texture.key.replace(/_(worry|cry)$/, '')}_ko`;
       if (this.textures.exists(ko)) s.setTexture(ko);
       const sc = s.scaleX;

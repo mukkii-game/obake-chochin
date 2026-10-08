@@ -131,6 +131,14 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_giant_ko', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c, true); });
   make(scene, 'g_mega_ko', 256, 272, (c) => { c.scale(4, 4); drawFuwa(c, true); });
   make(scene, 'g_kirai', 50, 56, drawKage);
+  // 大きなおばけが家に入った時: 窓の向こうに目だけ光る
+  make(scene, 'peek_eyes', 44, 20, (c) => {
+    for (const x of [12, 32]) {
+      c.fillStyle = '#fffaf0'; c.beginPath(); c.ellipse(x, 10, 7, 8, 0, 0, 7); c.fill();
+      c.fillStyle = '#2b2020'; c.beginPath(); c.arc(x + 1, 11, 4, 0, 7); c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(x + 2.5, 8.5, 1.5, 0, 7); c.fill();
+    }
+  });
   make(scene, 'wisp', 32, 40, drawWisp);
   make(scene, 'portal', 72, 72, drawPortal);
   make(scene, 'person', 12, 18, drawPerson);
@@ -370,9 +378,9 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       c.fillStyle = roof; c.beginPath(); c.ellipse(36, 26, 32, 16, 0, Math.PI, 0); c.fill();
       c.fillRect(4, 24, 64, 5);
       c.fillStyle = lit ? '#2a2a2a' : '#1a1a1a'; c.fillRect(10, 60, 52, 4);
-      c.fillStyle = win; c.beginPath(); c.arc(36, 44, 11, 0, 7); c.fill();
+      c.fillStyle = win; c.beginPath(); c.arc(36, 44, 15, 0, 7); c.fill();
       c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
-      c.beginPath(); c.arc(36, 44, 11, 0, 7); c.moveTo(25, 44); c.lineTo(47, 44); c.moveTo(36, 33); c.lineTo(36, 55); c.stroke();
+      c.beginPath(); c.arc(36, 44, 15, 0, 7); c.stroke();
       if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.beginPath(); c.arc(36, 44, 16, 0, 7); c.fill(); }
       break;
     }
@@ -380,10 +388,11 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       // 横の家(長屋): 横に 3 つつながった窓明かり = 横に光る
       c.fillStyle = wall; c.fillRect(2, 34, 68, 32);
       gable(0, 72, 36, 18);
-      c.fillStyle = win; c.fillRect(8, 42, 56, 14);
+      // 大きな窓 1 つ(おばけが入ると、ここから顔を出す)
+      c.fillStyle = win; c.fillRect(12, 39, 48, 22);
       c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
-      c.strokeRect(8, 42, 56, 14);
-      c.beginPath(); c.moveTo(26.7, 42); c.lineTo(26.7, 56); c.moveTo(45.3, 42); c.lineTo(45.3, 56); c.moveTo(8, 49); c.lineTo(64, 49); c.stroke();
+      c.strokeRect(12, 39, 48, 22);
+      c.beginPath(); c.moveTo(36, 39); c.lineTo(36, 61); c.stroke();
       if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.fillRect(4, 38, 64, 22); }
       break;
     }
@@ -391,10 +400,10 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
       // 縦の家(二階の楼): 縦に 3 つつながった窓明かり = 縦に光る
       c.fillStyle = wall; c.fillRect(20, 10, 32, 58);
       gable(12, 60, 14, 0);
-      c.fillStyle = win; c.fillRect(29, 18, 14, 44);
+      c.fillStyle = win; c.fillRect(24, 20, 24, 30);
       c.strokeStyle = lit ? 'rgba(90,50,10,0.85)' : 'rgba(60,60,70,0.6)'; c.lineWidth = 1.5;
-      c.strokeRect(29, 18, 14, 44);
-      c.beginPath(); c.moveTo(29, 32.7); c.lineTo(43, 32.7); c.moveTo(29, 47.3); c.lineTo(43, 47.3); c.moveTo(36, 18); c.lineTo(36, 62); c.stroke();
+      c.strokeRect(24, 20, 24, 30);
+      c.beginPath(); c.moveTo(24, 35); c.lineTo(48, 35); c.stroke();
       if (lit) { c.fillStyle = 'rgba(255,220,140,0.25)'; c.fillRect(25, 14, 22, 52); }
       break;
     }

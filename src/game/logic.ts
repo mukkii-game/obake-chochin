@@ -105,7 +105,7 @@ export type GameEvent =
   | { type: 'formation'; x: number; y: number; size: number; bonus: number }
   | { type: 'haunt'; x: number; y: number; house: number }
   | { type: 'saved'; x: number; y: number; house: number }
-  | { type: 'houseOut'; x: number; y: number; house: number; left: number }
+  | { type: 'houseOut'; x: number; y: number; house: number; left: number; kind?: GhostKind; ghost?: number }
   | { type: 'relight'; x: number; y: number; from: [number, number] }
   | { type: 'spawn'; x: number; y: number; kind: GhostKind }
   | { type: 'watch'; n: number }
@@ -496,7 +496,7 @@ export class Game {
         // 家に触れたら、その場で家はやられる(待ち時間なし)
         g.dead = true; g.x = h.x; g.y = h.y;
         h.lit = false; h.ammo = 0; h.flash = 0.6; h.haunt = 0;
-        this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount });
+        this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount, kind: g.kind, ghost: g.id });
       }
     }
   }
