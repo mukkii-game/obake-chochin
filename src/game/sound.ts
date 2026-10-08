@@ -142,6 +142,17 @@ export function preloadSfx() {
   if (!voObake) loadBuffer('./audio/vo_obake.mp3').then((b) => { voObake = b; });
   if (!cryBufs.size) for (const n of CRIES) loadBuffer(`./audio/vo_${n}.mp3`).then((b) => { if (b) cryBufs.set(n, b); });
 }
+/** 大きなおばけに光が当たった: かわいい小さな悲鳴(やられた声を高く短く。間をあけて重ねない) */
+let lastOuch = 0;
+export function ouch(): boolean {
+  const now = audioNow();
+  if (now == null || !cryBufs.size || now - lastOuch < 0.22) return false;
+  const buf = cryBufs.get(['hya', 'kyuu', 'uwaan'][Math.floor(now * 7) % 3]);
+  if (!buf) return false;
+  lastOuch = now;
+  playSample(buf, 0.75, 1.22);
+  return true;
+}
 /** おばけがやられた声。たくさん同時に倒れても、うるさくならないように間を空ける(声の高さを少しずつ変える) */
 export function cry(n: number): string | null {
   const now = audioNow();

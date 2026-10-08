@@ -43,6 +43,7 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   maxOnField: { ja: '{n}こまで!', en: 'Only {n}!' },
   maxUp: { ja: 'ちょうちんは {n}つまで おけるよ!  れんさで パワーUP!', en: 'Up to {n} lanterns! Chain them to POWER UP!' },
   power: { ja: 'パワー', en: 'POWER' },
+  ouch: { ja: 'いたっ!|ひゃん!|あうっ!|いたた〜|きゃっ!', en: 'Ow!|Eek!|Ouch!|Owie~|Yip!' },
   lock: { ja: '発射位置ロック!', en: 'Lock launcher!' },
   unlock: { ja: 'ロック解除!', en: 'Unlock!' },
   left: { ja: 'あと', en: 'left' },

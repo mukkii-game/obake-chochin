@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { Game, DT, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
-import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
+import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry, ouch } from '../game/sound';
 import { txt, pop, dayName, waveLabel, hourName } from '../game/view';
 import { dayOf, waveInDay, WAVES_PER_DAY, WAVE_NAMES } from '../game/waves';
 import { PAPER } from '../game/art';
@@ -413,8 +413,9 @@ export class Play extends Phaser.Scene {
       case 'clear':
         break;
       case 'hurt': {
-        // 大入道に光が当たった: 白く光って、ひと回り小さくなる
+        // 大きなおばけに光が当たった: 白く光って、かわいい悲鳴と一言
         snd.hurt();
+        if (ouch()) { const w = t('ouch').split('|'); this.say(e.x + 18, e.y - 46, w[Math.floor(this.time.now / 97) % w.length], '#ffd0e8', true); }
         this.sparks.explode(14, e.x, e.y);
         this.popup(e.x, e.y - 40, e.dmg > 1 ? `-${e.dmg}!` : '!', '#ffb0e0', 30 + (e.dmg - 1) * 6);
         const big = this.game2.ghosts.find((q) => (q.kind === 'big' || q.kind === 'giant' || q.hp > 1) && Math.hypot(q.x - e.x, q.y - e.y) < 2);
