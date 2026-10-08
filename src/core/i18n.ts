@@ -36,7 +36,7 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   ammo: { ja: '残り', en: 'Left' },
   waveClear: { ja: '刻をこえた!', en: 'Hour cleared!' },
   demo: { ja: 'デモ', en: 'Demo' },
-  screams: { ja: 'キャー!|ワー!|ひぃ〜!|わぁっ!', en: 'Eek!|Aaah!|Help!|Waah!' },
+  screams: { ja: 'わあ〜!|ひえー!|キャー!|たすけて〜!', en: 'Waaah!|Yikes!|Eek!|Help~!' },
   obakeComing: { ja: 'おばけが、くるぞー!', en: 'Here come the ghosts!' },
   // おばけのセリフ(| で区切って、順番に使う)
   wave: { ja: 'ウェーブ', en: 'Wave' },

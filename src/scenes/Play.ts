@@ -520,7 +520,7 @@ export class Play extends Phaser.Scene {
       const p = this.add.image(x, y - 4, 'px_run0').setDepth(26).setFlipX(dir < 0).setScale(1.6).setAlpha(0);
       // びっくりして家から大きく跳び出す(家より高く)→ 着地して走って逃げる
       const landX = x + dir * (40 + (i >> 1) * 28), groundY = y + 10;
-      const jumpH = 150 + (i >> 1) * 40 + (i % 2) * 20, delay = i * 130, up = 460, down = 420;
+      const jumpH = 185 + (i >> 1) * 45 + (i % 2) * 22, delay = i * 130, up = 690, down = 630; // 高く、ゆっくり(見やすく)
       this.tweens.add({ targets: p, alpha: 1, duration: 60, delay });
       this.tweens.add({ targets: p, x: landX, duration: up + down, delay, ease: 'Linear' });
       this.tweens.add({ targets: p, angle: dir * 360, duration: up + down, delay, ease: 'Quad.Out' });
@@ -531,7 +531,7 @@ export class Play extends Phaser.Scene {
       const kind = i % 3, cry = cries[i % cries.length];
       const lift = 26 + (i >> 1) * 16;
       const bubble = this.add.text(x, y - 40, cry, txt(i % 2 ? 17 : 19, i % 2 ? '#ffe0e0' : '#fff6c0', { strokeThickness: 4 })).setOrigin(0.5).setDepth(57).setAlpha(0);
-      this.tweens.add({ targets: bubble, alpha: 1, delay: delay + 60, duration: 120, hold: 1300, yoyo: true, onComplete: () => bubble.destroy() });
+      this.tweens.add({ targets: bubble, alpha: 1, delay: delay + 60, duration: 120, hold: 1900, yoyo: true, onComplete: () => bubble.destroy() });
       snd.scream(kind, i * 0.13 + 0.05, 1 + (i - 1.5) * 0.06);
       const follow = this.time.addEvent({ delay: 16, loop: true, callback: () => {
         if (!p.active || !bubble.active) { follow.remove(); return; }
