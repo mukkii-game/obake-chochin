@@ -25,8 +25,8 @@ export const KNOBS: Knob[] = [
   { key: 'light.line', label: '縦・横の光の長さ(中心から)', value: 72, min: 20, max: 400, step: 4, unit: 'px', aim: '最初はポーンより少し先まで。遠くへは提灯を並べて誘爆でつなぐ' },
   { key: 'light.width', label: '縦・横の光の太さ', value: 30, min: 8, max: 120, step: 2, unit: 'px' },
   { key: 'light.area', label: '丸の光の半径', value: 56, min: 16, max: 200, step: 4, unit: 'px' },
-  { key: 'light.dayGrow', label: '日ごとに光が広がる割合', value: 0.2, min: 0, max: 0.6, step: 0.05, unit: '倍', aim: '2 日目は 1.2 倍、3 日目は 1.4 倍の長さ・広さ(置ける数は増えない)' },
-  { key: 'house.carry', label: '次の日に灯る家 = 守った家 + この数', value: 1, min: 0, max: 9, step: 1, unit: '軒', aim: '前の日の出来が響く。9 で毎日ぜんぶ灯る' },
+  { key: 'light.dayGrow', label: '日ごとに光が広がる割合', value: 0.5, min: 0, max: 0.6, step: 0.05, unit: '倍', aim: '2 日目は 1.5 倍、3 日目は 2 倍の長さ・広さ(置ける数は増えない)' },
+  { key: 'house.carry', label: '次の日に灯る家 = 守った家 + この数', value: 2, min: 0, max: 9, step: 1, unit: '軒', aim: '前の日の出来が響く。9 で毎日ぜんぶ灯る' },
   { key: 'light.speed', label: '光の伸びる速さ', value: 150, min: 20, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり伸びる。伸びる先におばけが来る時を読む' },
   { key: 'light.hold', label: '光が 1 か所を照らす時間', value: 0.7, min: 0.1, max: 3, step: 0.1, unit: '秒', aim: '光は帯になって伸びる。どこも同じ間だけ照らされる' },
   { key: 'chain.relightAt', label: '家の灯りが戻る連鎖数', value: 12, min: 3, max: 30, step: 1, unit: '連' },
@@ -39,7 +39,7 @@ export const KNOBS: Knob[] = [
   { key: 'score.formation', label: '編隊ボーナス', value: 40, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
   // おばけ(動きは種類ごとに決まっている)
-  { key: 'ghost.speed', label: 'おばけの速さ', value: 34, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
+  { key: 'ghost.speed', label: 'おばけの速さ', value: 30, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
   { key: 'ghost.bigHp', label: '大入道の力', value: 5, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
   { key: 'ghost.giantHp', label: '大大入道の力', value: 9, min: 1, max: 20, step: 1, unit: '回' },

@@ -48,7 +48,9 @@ export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' 
 export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze' | 'inazuma' | 'mega';
 
 /** 提灯の形 = 光の形 = 家の形 */
-export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross';
+/** dr = 右斜め(/)、dl = 左斜め(\\)。2 日目から */
+export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross' | 'dr' | 'dl';
+const R2 = Math.SQRT1_2;
 export const PIECE_SETS: Record<string, Piece[]> = {
   '縦・横・丸': ['vline', 'hline', 'area'],
   '縦・横': ['vline', 'hline'],
@@ -169,8 +171,10 @@ export class Game {
    */
   private buildHouses(day: number, carry?: number) {
     const n = 3 + Math.min(2, day);
-    const kinds: Piece[] = [...this.pieces];
-    while (kinds.length < n) kinds.push(this.rng.pick(this.pieces));
+    // 1 日目は 縦・横・丸 が 1 軒ずつ。2 日目からは斜め(右・左)も入って、形はランダム(斜めは必ず 1 軒)
+    const pool: Piece[] = day >= 1 ? [...this.pieces, 'dr', 'dl'] : this.pieces;
+    const kinds: Piece[] = day >= 1 ? [this.rng.pick<Piece>(['dr', 'dl'])] : [...this.pieces];
+    while (kinds.length < n) kinds.push(this.rng.pick(pool));
     kinds.length = n;
     for (let i = kinds.length - 1; i > 0; i--) { const j = this.rng.int(0, i); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
     const x0 = HOUSE_POS[0][0], x1 = HOUSE_POS[HOUSE_POS.length - 1][0];
@@ -245,7 +249,8 @@ export class Game {
     }
     const h = this.houses[from];
     // 提灯の数はもう数えない(置ける数だけ。家ごとの在庫は無し)
-    // 選んだ家はそのまま(続けてその家から投げられる)。外れるのは、同じ家をもう一度押す・他の家を押す・弾が無くなった時
+    // 選んだ家は 1 回投げたら外れる(続けたい時は、その都度選ぶ)
+    this.selected = -1;
     const sy = h.y - 14;
     this.lanterns.push({ id: this.nextId++, piece: h.piece, tx: x, ty: y, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(x, y, from), age: 0 });
     this.events.push({ type: 'launch', sx: h.x, sy, x, y, house: from });
@@ -271,6 +276,8 @@ export class Game {
       case 'down': return dy >= -w && Math.abs(dx) <= w && dy <= L ? Math.max(0, dy) : -1;
       case 'cross': { const a = line(dy, dx), b = line(dx, dy); return a < 0 ? b : b < 0 ? a : Math.min(a, b); }
       case 'area': { const d = Math.hypot(dx, dy); return d <= L ? Math.max(0, d - r) : -1; }
+      case 'dr': return line((dx - dy) * R2, (dx + dy) * R2);
+      case 'dl': return line((-dx - dy) * R2, (dx - dy) * R2);
     }
   }
 
@@ -279,7 +286,7 @@ export class Game {
     const L = this.reach(piece), w = this.P.lightWidth / 2;
     const pts: Array<[number, number]> = [[x, y]];
     const line = (dx: number, dy: number) => {
-      for (const k of [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) for (const o of [-w, 0, w]) pts.push([x + dx * L * k + dy * o, y + dy * L * k + dx * o]);
+      for (const k of [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) for (const o of [-w, 0, w]) pts.push([x + dx * L * k - dy * o, y + dy * L * k + dx * o]);
     };
     switch (piece) {
       case 'vline': line(0, -1); line(0, 1); break;
@@ -287,6 +294,8 @@ export class Game {
       case 'up': line(0, -1); break;
       case 'down': line(0, 1); break;
       case 'cross': line(0, -1); line(0, 1); line(-1, 0); line(1, 0); break;
+      case 'dr': line(R2, -R2); line(-R2, R2); break;
+      case 'dl': line(-R2, -R2); line(R2, R2); break;
       case 'area': for (let a = 0; a < 24; a++) for (const k of [0.5, 1]) pts.push([x + Math.cos((a * Math.PI) / 12) * L * k, y + Math.sin((a * Math.PI) / 12) * L * k]); break;
     }
     return pts;
@@ -458,7 +467,7 @@ export class Game {
         g.path = pts;
       } else {
         // 縦の筋に集まる: 筋を上から下まで長く通る
-        const t1 = gr.edge ? y : top + (h.y - 40 - top) * 0.15, t2 = Math.max(t1 + 90, top + (h.y - 40 - top) * 0.75);
+        const t1 = gr.edge ? y : top + (h.y - 40 - top) * 0.22, t2 = Math.max(t1 + 60, top + (h.y - 40 - top) * 0.62);
         g.path = [[x, y], [x, t1], [gr.via, t1], [gr.via, t2], [h.x, t2], [h.x, h.y]];
       }
     }

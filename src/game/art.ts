@@ -48,6 +48,10 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'lantern_hline', 60, 34, (c) => drawShapedLantern(c, 60, 34, 25, 10));
   make(scene, 'lantern_area', 44, 48, (c) => drawShapedLantern(c, 44, 48, 18, 17));
   make(scene, 'lantern_up', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));
+  // 斜めの提灯: 縦長の提灯を 45° 傾けたもの(右斜め / 左斜め)
+  for (const [k, a] of [['dr', Math.PI / 4], ['dl', -Math.PI / 4]] as const) {
+    make(scene, `lantern_${k}`, 52, 52, (c) => { c.translate(26, 26); c.rotate(a); c.scale(0.78, 0.78); c.translate(-14, -30); drawShapedLantern(c, 28, 60, 9, 25); });
+  }
   make(scene, 'lantern_down', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));
   make(scene, 'lantern_cross', 44, 48, (c) => drawShapedLantern(c, 44, 48, 18, 17));
   // 逃げる人(小さなドット絵。2 コマで走る)

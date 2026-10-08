@@ -31,6 +31,16 @@ const BLAST_COLS: Array<[number, number]> = [[0xff6fa0, 0xffc0d8], [0xffb030, 0x
 /** 弾けた真ん中の、にじむ大きな粒の数(連爆ほど多い) */
 const big0 = (n: number) => Math.min(3 + n * 3, 22); // 白く飛びすぎないよう少なめから。コンボで増えて、重なるほど白くなる
 
+const R2 = Math.SQRT1_2;
+/** 斜めの帯の 4 隅: 中心から向き (dx, dy) に a〜b、幅 ±w */
+function stripPts(x: number, y: number, dx: number, dy: number, a: number, b: number, w: number) {
+  const px = -dy * w, py = dx * w;
+  return [
+    new Phaser.Math.Vector2(x + dx * a + px, y + dy * a + py), new Phaser.Math.Vector2(x + dx * b + px, y + dy * b + py),
+    new Phaser.Math.Vector2(x + dx * b - px, y + dy * b - py), new Phaser.Math.Vector2(x + dx * a - px, y + dy * a - py),
+  ];
+}
+
 export class Play extends Phaser.Scene {
   private game2!: Game;
   private acc = 0;
@@ -949,6 +959,8 @@ export class Play extends Phaser.Scene {
       const l = Math.min(x0, x1) - (dx ? 0 : w), t = Math.min(y0, y1) - (dy ? 0 : w);
       fx.fillRoundedRect(l, t, Math.abs(x1 - x0) + (dx ? 0 : w * 2), Math.abs(y1 - y0) + (dy ? 0 : w * 2), Math.min(8, w));
     };
+    // 斜め: 向き (dx, dy) に from〜to、幅 w の帯(四角形を回したもの)
+    const diag = (dx: number, dy: number) => fx.fillPoints(stripPts(x, y, dx, dy, from, to, w), true);
     switch (piece) {
       case 'vline': seg(0, -1); seg(0, 1); break;
       case 'hline': seg(-1, 0); seg(1, 0); break;
@@ -956,6 +968,8 @@ export class Play extends Phaser.Scene {
       case 'down': seg(0, 1); break;
       case 'cross': seg(0, -1); seg(0, 1); seg(-1, 0); seg(1, 0); break;
       case 'area': fx.fillCircle(x, y, to); break;
+      case 'dr': diag(R2, -R2); diag(-R2, R2); break;
+      case 'dl': diag(-R2, -R2); diag(R2, R2); break;
     }
   }
 
@@ -972,6 +986,8 @@ export class Play extends Phaser.Scene {
         case 'down': box(x - w, y - w, w * 2, L + w); break;
         case 'cross': box(x - w, y - L * 0.7, w * 2, L * 1.4); box(x - L * 0.7, y - w, L * 1.4, w * 2); break;
         case 'area': fx.strokeCircle(x, y, L); break;
+        case 'dr': fx.strokePoints(stripPts(x, y, R2, -R2, -L, L, w), true, true); break;
+        case 'dl': fx.strokePoints(stripPts(x, y, -R2, -R2, -L, L, w), true, true); break;
       }
     }
   }
@@ -988,6 +1004,8 @@ export class Play extends Phaser.Scene {
       case 'down': box(x - w, y - w, w * 2, L + w); break;
       case 'cross': box(x - w, y - L * 0.7, w * 2, L * 1.4); box(x - L * 0.7, y - w, L * 1.4, w * 2); break;
       case 'area': fx.strokeCircle(x, y, L); break;
+      case 'dr': fx.strokePoints(stripPts(x, y, R2, -R2, -L, L, w), true, true); break;
+      case 'dl': fx.strokePoints(stripPts(x, y, -R2, -R2, -L, L, w), true, true); break;
     }
   }
 
