@@ -27,7 +27,7 @@ const HANG: ReadonlyArray<[number, number]> = [[0, 12], [0, 15], [0, 12]];
 /** 光の色(外側, 芯)。光ごとに順に変える */
 const BLAST_COLS: Array<[number, number]> = [[0xff6fa0, 0xffc0d8], [0xffb030, 0xffe08a], [0x40c8ff, 0xa8ecff], [0x70e060, 0xc8ffb0], [0xa070ff, 0xd8c0ff]];
 /** 弾けた真ん中の、にじむ大きな粒の数(連爆ほど多い) */
-const big0 = (n: number) => Math.min(8 + n * 4, 32);
+const big0 = (n: number) => Math.min(3 + n * 3, 22); // 白く飛びすぎないよう少なめから。コンボで増えて、重なるほど白くなる
 
 export class Play extends Phaser.Scene {
   private game2!: Game;
@@ -154,7 +154,7 @@ export class Play extends Phaser.Scene {
     // にじむ花火: ふんわりした大きな色の粒が、にじみながら飛んで消える
     this.bloom = this.add.particles(0, 0, 'glow', {
       lifespan: { min: 800, max: 1500 }, speed: { min: 30, max: 150 }, angle: { min: 0, max: 360 }, gravityY: 22,
-      scale: { start: 0.5, end: 0.1 }, alpha: { start: 0.7, end: 0 }, blendMode: 'ADD', emitting: false,
+      scale: { start: 0.4, end: 0.08 }, alpha: { start: 0.42, end: 0 }, blendMode: 'ADD', emitting: false,
       tint: [0xff5e8a, 0xffc23f, 0x4ed8ff, 0x8dff6a, 0xb57dff, 0xff8f40],
     }).setDepth(30);
     this.shards = this.add.particles(0, 0, 'shard', {
@@ -351,14 +351,14 @@ export class Play extends Phaser.Scene {
         const g = this.game2;
         // 連爆するほど、花火が大きく・多く・色とりどりに
         const big = e.n >= 2;
-        const per = big ? Math.min(5 + e.n * 3, 20) : 5;
+        const per = big ? Math.min(3 + e.n * 2, 14) : 3;
         for (const [px, py] of g.shapePoints(piece, e.x, e.y).filter((_, k) => k % (big ? 2 : 3) === 0)) {
           const d = Math.hypot(px - e.x, py - e.y);
-          this.time.delayedCall((d / g.P.lightSpeed) * 1000, () => { (big ? this.fireworksBig : this.fireworks).explode(per, px, py); this.bloom.explode(big ? 4 : 2, px, py); });
+          this.time.delayedCall((d / g.P.lightSpeed) * 1000, () => { (big ? this.fireworksBig : this.fireworks).explode(per, px, py); this.bloom.explode(big ? 2 : 1, px, py); });
         }
         if (big) {
           // 真ん中で大きな菊の花火 + 少し揺れる
-          this.fireworksBig.explode(Math.min(20 + e.n * 10, 80), e.x, e.y);
+          this.fireworksBig.explode(Math.min(8 + e.n * 7, 56), e.x, e.y);
           this.cameras.main.shake(90 + e.n * 20, 0.002 + Math.min(e.n, 6) * 0.0008);
           const ring = this.add.image(e.x, e.y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint([0xff7eb6, 0xffd23f, 0x5ee0ff, 0x9dff7a][e.n % 4]).setScale(0.3).setDepth(29);
           this.tweens.add({ targets: ring, scale: 2.2 + e.n * 0.3, alpha: 0, duration: 700, ease: 'Quad.Out', onComplete: () => ring.destroy() });

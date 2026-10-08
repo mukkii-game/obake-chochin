@@ -42,31 +42,31 @@ const T = (h: number, m: boolean) => (m ? 5 - h : h);
 
 export const PATTERNS: Record<string, Pattern> = {
   // 幽霊(主に縦)
-  line: (m) => [{ t: 0, kind: 'fuwa', cols: [X(5, m)], n: 5, gap: 1.5, to: T(2, m) }],
+  line: (m) => [{ t: 0, kind: 'fuwa', cols: [X(5, m)], n: 5, gap: 0.9, to: T(2, m) }],
   row: (m) => [{ t: 0, kind: 'fuwa', cols: [X(3, m), X(4, m), X(5, m), X(6, m), X(7, m)], n: 1, gap: 0, to: T(2, m), turn: 0.6 }],
-  step: (m) => [{ t: 0, kind: 'fuwa', cols: [X(4, m)], n: 4, gap: 1.5, to: T(3, m), turn: 0.5 }],
-  dam: (m) => [{ t: 0, kind: 'fuwa', cols: [X(10, m)], n: 7, gap: 2.2, to: T(5, m) }],
+  step: (m) => [{ t: 0, kind: 'fuwa', cols: [X(4, m)], n: 4, gap: 0.9, to: T(3, m), turn: 0.5 }],
+  dam: (m) => [{ t: 0, kind: 'fuwa', cols: [X(10, m)], n: 7, gap: 1.3, to: T(5, m) }],
   // 唐傘(主に横): 端から出て、少し降りて長く横へ渡り、家の上で降りる
-  sweep: (m) => [{ t: 0, kind: 'kasa', cols: [X(0, m)], n: 4, gap: 1.3, to: T(4, m), turn: 0.3 }],
+  sweep: (m) => [{ t: 0, kind: 'kasa', cols: [X(0, m)], n: 4, gap: 0.8, to: T(4, m), turn: 0.3 }],
   cross: (m) => [
-    { t: 0, kind: 'kasa', cols: [X(0, m)], n: 3, gap: 1.3, to: T(4, m), turn: 0.35 },
-    { t: 0, kind: 'kasa', cols: [X(12, m)], n: 3, gap: 1.3, to: T(1, m), turn: 0.35 },
+    { t: 0, kind: 'kasa', cols: [X(0, m)], n: 3, gap: 0.8, to: T(4, m), turn: 0.35 },
+    { t: 0, kind: 'kasa', cols: [X(12, m)], n: 3, gap: 0.8, to: T(1, m), turn: 0.35 },
   ],
   // 横から(左右の端から横一列に渡ってくる → 横の提灯を並んだ高さへ)
-  sideL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(3, m), edge: m ? 1 : -1, turn: 0.45 }],
-  sideK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 3, gap: 0.9, to: T(1, m), edge: m ? -1 : 1, turn: 0.3 }],
+  sideL: (m) => [{ t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 0.6, to: T(3, m), edge: m ? 1 : -1, turn: 0.45 }],
+  sideK: (m) => [{ t: 0, kind: 'kasa', cols: [0], n: 3, gap: 0.6, to: T(1, m), edge: m ? -1 : 1, turn: 0.3 }],
   sides: (m) => [
-    { t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(4, m), edge: m ? 1 : -1, turn: 0.3 },
-    { t: 0.5, kind: 'fuwa', cols: [0], n: 3, gap: 1.0, to: T(1, m), edge: m ? -1 : 1, turn: 0.6 },
+    { t: 0, kind: 'fuwa', cols: [0], n: 3, gap: 0.6, to: T(4, m), edge: m ? 1 : -1, turn: 0.3 },
+    { t: 0.5, kind: 'fuwa', cols: [0], n: 3, gap: 0.6, to: T(1, m), edge: m ? -1 : 1, turn: 0.6 },
   ],
   // 鬼火(輪)
-  loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.9, to: T(3, m), side: m ? -1 : 1 }],
+  loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.6, to: T(3, m), side: m ? -1 : 1 }],
   // 大入道・大大入道(主に縦、ゆっくり、何度も光を当てる)
   big: (m) => [{ t: 0, kind: 'big', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 }],
   // 特大入道: ときどき来る、いちばん大きな敵(ゆっくり、力 12)。お供のざこと一緒に
   mega: (m) => [
     { t: 0, kind: 'mega', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 },
-    { t: 2, kind: 'fuwa', cols: [X(3, m), X(9, m)], n: 2, gap: 3, to: T(2, m), turn: 0.5 },
+    { t: 2, kind: 'fuwa', cols: [X(3, m), X(9, m)], n: 3, gap: 0.9, to: T(2, m), turn: 0.5 },
   ],
   giant: (m) => [{ t: 0, kind: 'giant', cols: [X(7, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 }],
 };
@@ -94,11 +94,11 @@ const Q: Record<string, Pattern> = {
   // お供つきの大入道: 幽霊の群れが大入道のまわりを一緒に来る → まとめてコンボで(コンボほど力が上がり、大入道に効く)
   escort: (m) => [
     { t: 0, kind: 'big', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 },
-    { t: 0.6, kind: 'fuwa', cols: [X(4, m), X(8, m)], n: 3, gap: 2.0, to: T(2, m), turn: 0.5 },
+    { t: 0.6, kind: 'fuwa', cols: [X(4, m), X(8, m)], n: 3, gap: 0.8, to: T(2, m), turn: 0.5 },
   ],
   giantEscort: (m) => [
     { t: 0, kind: 'giant', cols: [X(7, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 },
-    { t: 1, kind: 'fuwa', cols: [X(5, m), X(9, m)], n: 3, gap: 2.6, to: T(3, m), turn: 0.5 },
+    { t: 1, kind: 'fuwa', cols: [X(5, m), X(9, m)], n: 3, gap: 0.9, to: T(3, m), turn: 0.5 },
   ],
 };
 
