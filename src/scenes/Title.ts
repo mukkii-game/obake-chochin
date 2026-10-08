@@ -50,7 +50,7 @@ export class Title extends Phaser.Scene {
     const box = this.add.rectangle(W / 2, 294, 560, 76, 0x2a1430, 0.55).setStrokeStyle(2, 0xffd890, 0.4);
     void box;
     this.add.text(W / 2 - 260, 272, t('ctrlPhone'), txt(15, '#ffffff')).setOrigin(0, 0.5);
-    this.add.text(W / 2 - 260, 294, t('ctrlPhone2'), txt(13, '#e0d0f0')).setOrigin(0, 0.5);
+    this.add.text(W / 2 - 260, 294, t('ctrlPhone2'), txt(15, '#ffe9c0')).setOrigin(0, 0.5);
     this.add.text(W / 2 - 260, 316, t('ctrlPC'), txt(15, '#ffffff')).setOrigin(0, 0.5);
     // 家の形 = 光の形(絵で見せる)。小さなマス目に光る形を描く
     const pieces = PIECE_SETS[readParams().pieceSet] ?? PIECE_SETS['縦・横'];

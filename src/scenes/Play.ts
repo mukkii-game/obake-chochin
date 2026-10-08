@@ -60,6 +60,8 @@ export class Play extends Phaser.Scene {
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private smokeTick = 0;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   private fireworks!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -121,6 +123,10 @@ export class Play extends Phaser.Scene {
       scale: { start: 1.6, end: 0.2 }, alpha: { start: 1, end: 0 }, blendMode: 'ADD', emitting: false,
       tint: [0xff5e8a, 0xffd23f, 0x5ee0ff, 0x9dff7a, 0xc77dff, 0xffffff, 0xff9f40],
     }).setDepth(31);
+    this.smoke = this.add.particles(0, 0, 'glow', {
+      lifespan: { min: 550, max: 800 }, speed: { min: 4, max: 14 }, angle: { min: 0, max: 360 }, gravityY: -14,
+      scale: { start: 0.12, end: 0.42 }, alpha: { start: 0.32, end: 0 }, tint: [0xe8dcf0, 0xffd8b0, 0xd0c8e0], emitting: false,
+    }).setDepth(9);
     this.shards = this.add.particles(0, 0, 'shard', {
       lifespan: 700, speed: { min: 80, max: 220 }, gravityY: 300, rotate: { min: 0, max: 360 },
       scale: { start: 1, end: 0.4 }, alpha: { start: 1, end: 0 }, emitting: false,
@@ -509,6 +515,8 @@ export class Play extends Phaser.Scene {
         const arc = Math.sin(k * Math.PI) * Math.min(90, Math.hypot(l.tx - l.sx, l.ty - l.sy) * 0.35);
         s.body.setPosition(l.x, l.y - arc).setScale(0.6).setAngle(Math.sin(time * 14 + l.id) * 12);
         s.glow.setPosition(l.x, l.y - arc).setScale(0.5).setAlpha(0.6);
+        // 煙の残像: 飛んだ後にふわっと残り、ふくらみながら古い所から消えていく
+        if (this.smokeTick++ % 2 === 0) this.smoke.emitParticleAt(l.x + ((this.smokeTick * 7) % 5 - 2), l.y - arc + 4, 1);
       } else {
         // 置かれた提灯。いつも同じ時間で弾ける(弾ける前ほど火が大きくゆらぐだけ。数字は出さない)
         const k = Math.min(1, l.age / P.fuse);
@@ -565,14 +573,7 @@ export class Play extends Phaser.Scene {
       const tx = l.tx, ty = l.ty;
       const top = Math.min(90, Math.hypot(tx - l.sx, ty - l.sy) * 0.35);
       const k = l.flyT / l.flyDur;
-      this.fx.lineStyle(2, 0xffb060, 0.6);
-      this.fx.beginPath();
-      for (let i = 0; i <= 16; i++) {
-        const u = (i / 16) * k;
-        const px = l.sx + (tx - l.sx) * u, py = l.sy + (ty - l.sy) * u - Math.sin(u * Math.PI) * top;
-        if (i === 0) this.fx.moveTo(px, py); else this.fx.lineTo(px, py);
-      }
-      this.fx.strokePath();
+      void top; void k; // 軌跡は線ではなく煙の残像(render の提灯の所で出す。古い所から薄れて消える)
       this.fx.lineStyle(2, 0xff6040, 0.9);
       this.fx.lineBetween(tx - 6, ty - 6, tx + 6, ty + 6);
       this.fx.lineBetween(tx - 6, ty + 6, tx + 6, ty - 6);
