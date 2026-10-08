@@ -36,6 +36,8 @@ export function readParams() {
     bigPts: tune('score.big'),
     giantHp: tune('ghost.giantHp'),
     giantPts: tune('score.giant'),
+    megaHp: tune('ghost.megaHp'),
+    megaPts: tune('score.mega'),
     waveBonus: tune('wave.bonus'),
     chainBonus: tune('score.chain'),
     formBonus: tune('score.formation'),

@@ -56,7 +56,8 @@ export const snd = {
   /** 下がった提灯が灯った: 風鈴 */
   place: () => { rin(note(12), 0.03, 0, 0.9); rin(note(14), 0.02, 0.09, 0.7); },
   /** 投げた: 息が上がる + 小さな提灯の揺れ */
-  launch: () => { breath(500, 1600, 0.35, 0.05); wood(2600, 0.025, 0.02); },
+  // 置き場所を決めて投げた: カメラのシャッターのような「カチャッ」(2 つの短い金属音)+ ふわっと飛ぶ息
+  launch: () => { noise({ dur: 0.025, gain: 0.09, freq: 3200, q: 4 }); noise({ dur: 0.04, gain: 0.07, freq: 2200, q: 3, delay: 0.06 }); tone({ freq: 2400, dur: 0.03, type: 'square', gain: 0.015, delay: 0.06 }); breath(500, 1600, 0.35, 0.04); },
   /** 下げる: 拍子木 2 打 */
   arm: () => { wood(2100, 0.08); wood(2300, 0.08, 0.13); },
   /** おばけが見とれて止まった: 小さな木魚 */
@@ -92,7 +93,11 @@ export const snd = {
     [0, 2, 4, 7].forEach((k, i) => rin(note(10 + k), 0.04, i * 0.08, 1.6));
     if (n >= 6) kane(note(0) / 2, 0.05, 0.3, 2.5);
   },
-  houseOut: () => { taiko(0.12, 0, 60); tone({ freq: 220, slide: 90, dur: 0.9, type: 'triangle', gain: 0.05, delay: 0.05 }); noise({ dur: 0.6, gain: 0.05, freq: 400, q: 1, delay: 0.05 }); },
+  // 家がやられた: 除夜の鐘のように「ごーん」(低い鐘 + 撞木の当たり + うなり)
+  houseOut: () => { taiko(0.08, 0, 50); kane(72, 0.16, 0, 5); kane(72.6, 0.08, 0, 5); },
+  // 発射位置ロック: カチッ + ピン↑ / ロック解除: カチッ + ピン↓
+  lock: () => { wood(1700, 0.06); tone({ freq: 880, dur: 0.12, type: 'triangle', gain: 0.05, delay: 0.02 }); tone({ freq: 1320, dur: 0.22, type: 'triangle', gain: 0.05, delay: 0.09 }); },
+  unlock: () => { wood(1300, 0.05); tone({ freq: 1320, dur: 0.1, type: 'triangle', gain: 0.04, delay: 0.02 }); tone({ freq: 740, dur: 0.2, type: 'triangle', gain: 0.04, delay: 0.08 }); },
   relight: () => [0, 1, 2, 3, 4].forEach((k, i) => rin(note(10 + k), 0.04, i * 0.07, 1.2)),
   /** 刻の始まり: 寺の鐘 */
   watch: () => kane(note(0) / 2, 0.08),

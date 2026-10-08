@@ -17,9 +17,9 @@ import { startSeed } from '../core/rng';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
 import { isMuted, toggleMuted, pauseAudio } from '../core/audio';
 
-const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant', kaze: 'g_kaze', inazuma: 'g_kaze' } as const;
-const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff, kaze: 0xfff09a, inazuma: 0x9ff0ff };
-const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff, kaze: 0xffe060, inazuma: 0x60e0ff } as const;
+const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant', kaze: 'g_kaze', inazuma: 'g_kaze', mega: 'g_mega' } as const;
+const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff, kaze: 0xfff09a, inazuma: 0x9ff0ff, mega: 0xffe0a0 };
+const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec8, giant: 0xb090ff, kaze: 0xffe060, inazuma: 0x60e0ff, mega: 0xffc060 } as const;
 /** 軒先の提灯の位置(家の中心から) */
 /** 残りの提灯: 家の右下に、少し重ねて横に並べる(数が一目でわかるように) */
 const HANG: ReadonlyArray<[number, number]> = [[0, 12], [0, 15], [0, 12]];
@@ -321,7 +321,7 @@ export class Play extends Phaser.Scene {
         this.sparks.explode(4, e.sx, e.sy);
         break;
       case 'select':
-        snd.ui();
+        if (e.house >= 0) snd.lock(); else snd.unlock();
         break;
       case 'light':
         snd.place();
@@ -706,7 +706,7 @@ export class Play extends Phaser.Scene {
       // ときどき、種類ごとのセリフをしゃべる(画面にたくさん出すぎないよう 3 つまで)
       if (!gh.haunt && !gh.caught && gh.y > 70 && gh.age > 1.4 + (gh.id % 4) * 1.7 && !this.talked.has(gh.id) && this.bubbles.filter((b) => b.active).length < 3) {
         this.talked.add(gh.id);
-        if (gh.id % 2 === 0 || gh.kind === 'big' || gh.kind === 'giant') {
+        if (gh.id % 2 === 0 || gh.kind === 'big' || gh.kind === 'giant' || gh.kind === 'mega') {
           const lines = t(`talk_${gh.kind}`).split('|');
           this.say(gh.x, gh.y - 30, lines[gh.id % lines.length], '#fff6d8', false, s);
         }
@@ -898,13 +898,13 @@ export class Play extends Phaser.Scene {
     else if (gh.stopped) { ox = Math.sin(time * 18 + gh.id) * 2; sy *= 0.92 + 0.08 * Math.abs(Math.sin(time * 9 + gh.id)); }
     else if (gh.haunt) { ox = Math.sin(time * 7 + gh.id) * 8; oy = -10; }
     // 大入道・大大入道: 大きさはそのまま。力が減るほど顔と色が変わる(焦る → もうやられそう。数字は出さない)
-    const k = gh.kind === 'big' ? 1.35 : gh.kind === 'giant' ? 1.03 : 1;
-    if (gh.kind === 'big' || gh.kind === 'giant') {
-      const max = gh.kind === 'big' ? this.game2.P.bigHp : this.game2.P.giantHp, r = gh.hp / max;
+    const k = gh.kind === 'big' ? 1.35 : gh.kind === 'giant' ? 1.03 : gh.kind === 'mega' ? 1 : 1;
+    if (gh.kind === 'big' || gh.kind === 'giant' || gh.kind === 'mega') {
+      const max = gh.kind === 'big' ? this.game2.P.bigHp : gh.kind === 'giant' ? this.game2.P.giantHp : this.game2.P.megaHp, r = gh.hp / max;
       const stage = r > 0.67 ? 0 : r > 0.34 ? 1 : 2;
       const key = stage === 0 ? GHOST_TEX[gh.kind] : `${GHOST_TEX[gh.kind]}_${stage === 1 ? 'worry' : 'cry'}`;
       if (s.texture.key !== key) s.setTexture(key);
-      const tints = gh.kind === 'big' ? [0xffd6ea, 0xffb48a, 0xff7a7a] : [0xd8c8ff, 0xffa8d0, 0xff7070];
+      const tints = gh.kind === 'big' ? [0xffd6ea, 0xffb48a, 0xff7a7a] : gh.kind === 'giant' ? [0xd8c8ff, 0xffa8d0, 0xff7070] : [0xffe0a0, 0xffb070, 0xff6a6a];
       if ((this.flashUntil.get(gh.id) ?? 0) < this.time.now) s.setTint(tints[stage]);
     }
     s.setPosition(gh.x + ox, gh.y + oy + bob * k).setScale(sx * 0.66 * k, sy * 0.66 * k).setAlpha(alpha).setFlipX(gh.face < 0);

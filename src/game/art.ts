@@ -106,6 +106,8 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'g_big', 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c); });
   // 大大入道: さらに大きく(色は Play でうす紫にする)
   make(scene, 'g_giant', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c); });
+  // 特大入道: もっと大きく(色は Play で金色にする)
+  make(scene, 'g_mega', 256, 272, (c) => { c.scale(4, 4); drawFuwa(c); });
   // はやて: 小さめの幽霊に、うしろへ流れる風の線(色は Play で黄色にする)
   const drawKaze = (c: Ctx, ko = false) => {
     c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 2.5; c.lineCap = 'round';
@@ -125,8 +127,10 @@ export function makeArt(scene: Phaser.Scene) {
   for (const f of ['worry', 'cry'] as const) {
     make(scene, `g_big_${f}`, 96, 102, (c) => { c.scale(1.5, 1.5); drawFuwa(c, false, f); });
     make(scene, `g_giant_${f}`, 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c, false, f); });
+    make(scene, `g_mega_${f}`, 256, 272, (c) => { c.scale(4, 4); drawFuwa(c, false, f); });
   }
   make(scene, 'g_giant_ko', 160, 170, (c) => { c.scale(2.5, 2.5); drawFuwa(c, true); });
+  make(scene, 'g_mega_ko', 256, 272, (c) => { c.scale(4, 4); drawFuwa(c, true); });
   make(scene, 'g_kirai', 50, 56, drawKage);
   make(scene, 'wisp', 32, 40, drawWisp);
   make(scene, 'portal', 72, 72, drawPortal);

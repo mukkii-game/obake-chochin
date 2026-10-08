@@ -38,14 +38,14 @@ const HOME_R = 6;
 export const GHOST_R = 13;
 /** 大入道は大きい(力が減るほど小さくなる) */
 /** 当たりの大きさ。大入道・大大入道は力が減っても大きいまま */
-export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * 2.05 : g.kind === 'giant' ? GHOST_R * 3.4 : GHOST_R);
+export const ghostR = (g: { kind: GhostKind; hp: number }) => (g.kind === 'big' ? GHOST_R * 2.05 : g.kind === 'giant' ? GHOST_R * 3.4 : g.kind === 'mega' ? GHOST_R * 5.4 : GHOST_R);
 
 /**
  * おばけの動き(どれも途中で 1〜2 回だけ向きが変わる):
  *   幽霊 = 主に縦(降りる → 少し横 → 降りる)/ 唐傘 = 主に横(少し降りる → 長く横 → 降りる)/ 鬼火 = 輪(ギャラガ)/
  *   大入道 = 大きくてゆっくり、光 3 回で成仏 / 大大入道 = もっと大きくてもっとゆっくり、光 6 回
  */
-export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze' | 'inazuma';
+export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze' | 'inazuma' | 'mega';
 
 /** 提灯の形 = 光の形 = 家の形 */
 export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross';
@@ -383,7 +383,7 @@ export class Game {
 
   addGhost(gr: Group, x: number, form = 0) {
     const kind = gr.kind;
-    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45, kaze: this.P.kazeSpeed, inazuma: this.P.inazumaSpeed }[kind];
+    const mult = { fuwa: 1, kasa: 1.1, oni: 1.3, big: 0.65, giant: 0.45, kaze: this.P.kazeSpeed, inazuma: this.P.inazumaSpeed, mega: 0.32 }[kind];
     // 横から来る組(edge): 左右の端から、turn の高さで横一列に入ってくる
     let y = SPAWN_Y;
     if (gr.edge) {
@@ -394,7 +394,7 @@ export class Game {
     if (target < 0) target = 0;
     const g: Ghost = {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
-      speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
+      speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : kind === 'mega' ? this.P.megaHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
     g.path = kind === 'inazuma' ? this.zigPath(x, y, gr.side ?? 1, this.houses[target])
       : gr.edge && kind !== 'oni'
@@ -589,7 +589,7 @@ export class Game {
         g.dead = true;
         chain.count++;
         chain.forms.set(g.form, (chain.forms.get(g.form) ?? 0) + 1);
-        const pts = P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : g.kind === 'giant' ? P.giantPts : 1);
+        const pts = P.basePts * chain.count * (g.kind === 'big' ? P.bigPts : g.kind === 'giant' ? P.giantPts : g.kind === 'mega' ? P.megaPts : 1);
         chain.pts += pts; this.score += pts; this.purified++;
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });

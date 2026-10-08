@@ -63,6 +63,11 @@ export const PATTERNS: Record<string, Pattern> = {
   loop: (m) => [{ t: 0, kind: 'oni', cols: [X(2, m)], n: 5, gap: 0.9, to: T(3, m), side: m ? -1 : 1 }],
   // 大入道・大大入道(主に縦、ゆっくり、何度も光を当てる)
   big: (m) => [{ t: 0, kind: 'big', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 }],
+  // 特大入道: ときどき来る、いちばん大きな敵(ゆっくり、力 12)。お供のざこと一緒に
+  mega: (m) => [
+    { t: 0, kind: 'mega', cols: [X(6, m)], n: 1, gap: 0, to: T(2, m), turn: 0.5 },
+    { t: 2, kind: 'fuwa', cols: [X(3, m), X(9, m)], n: 2, gap: 3, to: T(2, m), turn: 0.5 },
+  ],
   giant: (m) => [{ t: 0, kind: 'giant', cols: [X(7, m)], n: 1, gap: 0, to: T(3, m), turn: 0.5 }],
 };
 
@@ -117,12 +122,12 @@ const WAVES: Group[][] = [
   // 8/14: はやて(先読み)→ 行進(横の提灯)→ 大入道とお供(コンボ)
   [...Q.kazeLine(false), ...shift(Q.kazeSide(true), 5), ...shift(Q.kazeRow(false), 10), ...shift(few(P.line(true), 3), 12), ...shift(Q.kazeSide(false), 14)],
   [...Q.marchL(false), ...shift(P.big(false), 3), ...shift(Q.zig(true), 5), ...shift(Q.marchK(true), 7), ...shift(P.sideL(false), 11)],
-  [...Q.escort(false), ...shift(Q.escort(true), 7), ...shift(few(P.loop(false), 3), 12), ...shift(P.big(false), 10)],
+  [...Q.escort(false), ...shift(Q.escort(true), 7), ...shift(few(P.loop(false), 3), 12), ...shift(P.big(false), 10), ...shift(P.mega(true), 15)],
   // 8/15 お盆: はさみうち → 大入道まつり → 総力戦(ぜんぶ出る)
   [...P.sides(false), ...shift(Q.marchL(true), 4), ...shift(Q.zig(false), 7), ...shift(Q.kazeSide(false), 10)],
-  [...Q.giantEscort(false), ...shift(Q.escort(true), 5), ...shift(Q.kazeLine(false), 8), ...shift(P.big(false), 10)],
+  [...Q.giantEscort(false), ...shift(Q.escort(true), 5), ...shift(Q.kazeLine(false), 8), ...shift(P.big(false), 10), ...shift(P.mega(false), 13)],
   [...P.line(false), ...shift(P.loop(true), 2), ...shift(P.sides(false), 5), ...shift(Q.kazeRow(true), 8), ...shift(Q.marchK(false), 10),
-    ...shift(Q.escort(false), 12), ...shift(P.giant(true), 14), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22), ...shift(Q.zig(true), 15)],
+    ...shift(Q.escort(false), 12), ...shift(P.giant(true), 14), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22), ...shift(Q.zig(true), 15), ...shift(P.mega(false), 24)],
 ];
 export const WAVE_COUNT = WAVES.length;
 /** n ウェーブ目が何日目か(0 = 8/13)と、その日の何番目か */
