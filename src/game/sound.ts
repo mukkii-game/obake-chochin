@@ -55,11 +55,11 @@ function breath(from: number, to: number, dur: number, gain = 0.05, delay = 0) {
 export const snd = {
   /** 下がった提灯が灯った: 風鈴 */
   // 提灯が着いてセットされた: 「コトッ」と置く音 + 「チリン」(前は鈴だけで小さすぎた)
-  // 提灯が着いてセットされた: カメラのような「カシャッ」(Kenney の効果音を重ねた録音)+ 小さな鈴
-  place: () => { if (setBuf) playSample(setBuf, 0.9, 1); else wood(1000, 0.12); rin(note(14), 0.03, 0.06, 0.6); },
+  // 提灯が着いた: 小さな鈴だけ(音の主役は押した時のシャッター)
+  place: () => rin(note(14), 0.03, 0, 0.6),
   /** 投げた: 息が上がる + 小さな提灯の揺れ */
-  // 置き場所を決めて投げた: カメラのシャッターのような「カチャッ」(2 つの短い金属音)+ ふわっと飛ぶ息
-  launch: () => { noise({ dur: 0.025, gain: 0.09, freq: 3200, q: 4 }); noise({ dur: 0.04, gain: 0.07, freq: 2200, q: 3, delay: 0.06 }); tone({ freq: 2400, dur: 0.03, type: 'square', gain: 0.015, delay: 0.06 }); breath(500, 1600, 0.35, 0.04); },
+  // 置き場所を決めて押した(投げた)瞬間: カメラのシャッターの「カシャッ」(合成して録った音)
+  launch: () => { if (shutterBuf) playSample(shutterBuf, 0.85, 1); else noise({ dur: 0.03, gain: 0.12, freq: 3200, q: 3 }); breath(500, 1600, 0.35, 0.03); },
   /** 下げる: 拍子木 2 打 */
   arm: () => { wood(2100, 0.08); wood(2300, 0.08, 0.13); },
   /** おばけが見とれて止まった: 小さな木魚 */
@@ -129,7 +129,7 @@ export const snd = {
 
 /** 都節音階の半音(0 = 元の高さ、12 = 1 オクターブ上) */
 let boomBuf: AudioBuffer | null = null;
-let setBuf: AudioBuffer | null = null;
+let shutterBuf: AudioBuffer | null = null;
 let voObake: AudioBuffer | null = null;
 /** やられた時のおばけの声(Open JTalk + Mei、高め) */
 const CRIES = ['yarareta', 'hya', 'uwaan', 'kyuu', 'maitta'];
@@ -138,7 +138,7 @@ let lastCry = 0, cryTurn = 0;
 /** 効果音のファイルを読んでおく(遊ぶ前に 1 回) */
 export function preloadSfx() {
   if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; });
-  if (!setBuf) loadBuffer('./audio/se_set.mp3').then((b) => { setBuf = b; });
+  if (!shutterBuf) loadBuffer('./audio/se_shutter.mp3').then((b) => { shutterBuf = b; });
   if (!voObake) loadBuffer('./audio/vo_obake.mp3').then((b) => { voObake = b; });
   if (!cryBufs.size) for (const n of CRIES) loadBuffer(`./audio/vo_${n}.mp3`).then((b) => { if (b) cryBufs.set(n, b); });
 }
