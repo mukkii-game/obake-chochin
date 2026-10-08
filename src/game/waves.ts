@@ -31,6 +31,8 @@ export interface Group {
   turn?: number;
   /** 横から入ってくる(-1 = 左の端から、1 = 右の端から)。横一列に渡ってくるので、横の提灯で一網打尽 */
   edge?: number;
+  /** 集まる所の x(px)。あれば、いったんこの縦の筋に集まってから家へ降りる */
+  via?: number;
   /** 行進(インベーダー): 端から端へ渡っては 1 段ずつ下がる(edge と一緒に使う) */
   march?: boolean;
 }
@@ -138,7 +140,11 @@ export const OPENING_WAVES = WAVES.length;
 
 /** n 刻目の出方(10 刻より先は、型を混ぜて毎回変わる。いまは 10 刻でクリア) */
 export function waveGroups(n: number, rng: Rng): Group[] {
-  if (n < WAVES.length) return WAVES[n].map((g) => ({ ...g }));
+  if (n < WAVES.length) {
+    // 2・3 日目は、刻ごとに決まった縦の筋へみんなが集まってから家へ(狙ってまとめて倒しやすく、家までの道も長く)
+    const via = n >= WAVES_PER_DAY ? [300, 480, 660][n % 3] : undefined;
+    return WAVES[n].map((g) => ({ ...g, via }));
+  }
   const keys = Object.keys(PATTERNS);
   const out: Group[] = [];
   let t = 0;

@@ -403,6 +403,13 @@ export class Game {
       : gr.edge && kind !== 'oni'
       ? (gr.march ? this.marchPath(x, y, gr.edge, this.houses[target]) : [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]]) // 横に渡って、家の真上で降りる
       : this.makePath(kind, x, y, this.houses[target], gr.side ?? 1, gr.turn ?? (kind === 'kasa' ? 0.28 : 0.45));
+    // 集まる所(via): 2・3 日目は、どの組もいったん同じ縦の筋に集まってから、それぞれの家へ降りる。
+    // 道のりが長くなって(やられるまでの時間が延びる)、筋に縦の提灯を置けばまとめて倒せる
+    if (gr.via !== undefined && kind !== 'oni' && kind !== 'inazuma' && !gr.march) {
+      const h = this.houses[target], top = Math.max(y, PLAY.y0);
+      const t1 = gr.edge ? y : top + (h.y - 40 - top) * 0.22, t2 = Math.max(t1 + 60, top + (h.y - 40 - top) * 0.62);
+      g.path = [[x, y], [x, t1], [gr.via, t1], [gr.via, t2], [h.x, t2], [h.x, h.y]];
+    }
     // 横から来る組は家までの道のりが長いので、そのぶん速く(行進は除く)
     if (gr.edge && !gr.march) g.speed *= this.P.sideSpeed;
     this.ghosts.push(g);
