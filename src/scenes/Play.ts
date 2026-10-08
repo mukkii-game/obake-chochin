@@ -6,7 +6,7 @@ import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
 import { txt, pop, dayName, waveLabel } from '../game/view';
-import { dayOf, waveInDay } from '../game/waves';
+import { dayOf, waveInDay, WAVES_PER_DAY } from '../game/waves';
 import { PAPER } from '../game/art';
 import { onTap, onAim, onCancel } from '../ui/taps';
 import { DemoDriver, expose } from '../core/demo';
@@ -15,7 +15,7 @@ import { save, load } from '../core/save';
 import { tune } from '../core/tuning';
 import { startSeed } from '../core/rng';
 import { Recorder, Player, replayFromUrl } from '../core/replay';
-import { isMuted, toggleMuted } from '../core/audio';
+import { isMuted, toggleMuted, pauseAudio } from '../core/audio';
 
 const GHOST_TEX = { fuwa: 'g_fuwa', oni: 'g_oni', kasa: 'g_kasa', big: 'g_big', giant: 'g_giant' } as const;
 const GHOST_TINT: Partial<Record<GhostKind, number>> = { big: 0xffd6ea, giant: 0xd8c8ff };
@@ -66,6 +66,11 @@ export class Play extends Phaser.Scene {
   private scorePunch = false;
   private rushId = -1;
   private continues = 0;
+  private paused = false;
+  private pauseMenu: Phaser.GameObjects.Container | null = null;
+  private pauseItems: Phaser.GameObjects.Text[] = [];
+  private pauseSel = 0;
+  private pauseOff: (() => void) | null = null;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeTick = 0;
   private bloom!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -86,6 +91,7 @@ export class Play extends Phaser.Scene {
   create(data?: { continueWave?: number; continues?: number }) {
     expose('scene', 'Play');
     this.continues = data?.continues ?? 0;
+    this.paused = false; this.pauseMenu = null; this.pauseOff = null; this.time.paused = false;
     this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = []; this.bubbles = []; this.talked = new Set();
     this.gSprites.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
@@ -154,24 +160,30 @@ export class Play extends Phaser.Scene {
     // HUD: 左にスコア(入るたびに跳ねる)、真ん中に刻、右にハイスコアと音
     this.scoreText = this.add.text(PAPER.x0 + 8, 18, '', txt(28)).setOrigin(0, 0.5).setDepth(50);
     this.watchText = this.add.text(W / 2, 18, '', txt(24, '#e8d6ff')).setOrigin(0.5).setDepth(50);
-    this.hiText = this.add.text(PAPER.x1 - 50, 18, '', txt(22, '#ffb0e0')).setOrigin(1, 0.5).setDepth(50);
+    this.hiText = this.add.text(PAPER.x1 - 84, 18, '', txt(22, '#ffb0e0')).setOrigin(1, 0.5).setDepth(50);
     const mute = this.add.text(PAPER.x1 - 8, 4, isMuted() ? '♪×' : '♪', txt(24, '#cfe')).setOrigin(1, 0).setDepth(50);
     this.shownScore = 0; this.scorePunch = false; this.rushId = -1;
     this.chainText = this.add.text(W / 2, H / 2, '', pop(40, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
     else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
 
+    // ポーズ: ESC か、右上の II
+    const pauseBtn = this.add.text(PAPER.x1 - 44, 4, 'II', txt(22, '#cfe')).setOrigin(1, 0).setDepth(50);
+    void pauseBtn;
+    this.input.keyboard?.on('keydown-ESC', () => { if (this.paused) this.resume(); else this.pause(); });
     this.offTap = onTap((x, y) => {
+      if (this.paused) { this.pauseTap(x, y); return; }
+      if (x > PAPER.x1 - 76 && x < PAPER.x1 - 34 && y < 34) { this.pause(); return; }
       // 右上の音ボタン
-      if (x > PAPER.x1 - 50 && y < 34) { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); }
+      if (x > PAPER.x1 - 34 && y < 34) { toggleMuted(); mute.setText(isMuted() ? '♪×' : '♪'); if (isMuted()) bgmStop(); else bgmStart(); }
     });
     // 投げるのは「離した所」。押している間(マウスは動かすだけでも)、投げた時の光の範囲と、連爆するかが見える。
     // 家を押して、そのまま投げたい所まで動かして離すと、その家から投げる
     this.offAim = onAim((phase, x, y) => {
-      if (this.player || this.ended || this.bot) return;
+      if (this.player || this.ended || this.bot || this.paused) { this.aimDown = null; this.aim = null; return; }
       const g = this.game2;
       if (phase === 'down') {
-        if (x > PAPER.x1 - 50 && y < 34) { this.aimDown = null; return; }
+        if (x > PAPER.x1 - 76 && y < 34) { this.aimDown = null; return; }
         this.aimDown = { x, y, house: g.houses.findIndex((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R) };
       }
       if (phase === 'up') {
@@ -191,11 +203,11 @@ export class Play extends Phaser.Scene {
     // 右クリック: 選んだ家を外す(記録に残るよう、その家を押したことにする)
     const offCancel = onCancel(() => {
       const g = this.game2;
-      if (this.player || this.ended || this.bot || g.selected < 0) return;
+      if (this.player || this.ended || this.bot || this.paused || g.selected < 0) return;
       const h = g.houses[g.selected];
       this.pending.push([h.x, h.y]);
     });
-    this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; this.offAim?.(); this.offAim = null; offCancel(); bgmStop(); });
+    this.events.once('shutdown', () => { this.offTap?.(); this.offTap = null; this.offAim?.(); this.offAim = null; offCancel(); bgmStop(); pauseAudio(false); });
 
     bgmStart();
     preloadSfx();
@@ -203,6 +215,7 @@ export class Play extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number) {
+    if (this.paused) return;
     if (this.hitstop > 0) { this.hitstop -= deltaMs; this.render(deltaMs / 1000); return; }
     this.acc += Math.min(deltaMs, 100) / 1000;
     const g = this.game2;
@@ -220,6 +233,61 @@ export class Play extends Phaser.Scene {
     this.updateHud();
     bgmIntensity(g.t / 180);
     if (g.over && !this.ended) this.finish();
+  }
+
+  /** ポーズ: 止めて、戻る / この日のはじめから / タイトルへ を出す */
+  private pause() {
+    if (this.paused || this.ended) return;
+    this.paused = true;
+    this.aim = null; this.aimDown = null;
+    snd.ui();
+    pauseAudio(true);
+    this.tweens.pauseAll(); this.time.paused = true;
+    const g = this.game2;
+    const c = this.add.container(0, 0).setDepth(200);
+    c.add(this.add.rectangle(W / 2, H / 2, W, H, 0x0a0614, 0.7));
+    c.add(this.add.text(W / 2, 150, t('paused'), pop(44, '#ffe27a')).setOrigin(0.5));
+    const items = [t('resume'), `${dayName(dayOf(g.wave))}${t('restartDay')}`, t('toTitle')];
+    this.pauseItems = items.map((s, i) => {
+      const o = this.add.text(W / 2, 250 + i * 64, s, pop(26, '#fff6d8')).setOrigin(0.5);
+      c.add(o); return o;
+    });
+    c.add(this.add.text(W / 2, 450, t('pauseHelp'), txt(14, '#bfb0d8')).setOrigin(0.5));
+    this.pauseMenu = c;
+    this.pauseSel = 0; this.markPause();
+    const kb = this.input.keyboard;
+    const nav = (e: KeyboardEvent) => {
+      if (!this.paused) return;
+      if (e.key === 'ArrowUp' || e.key === 'w') { this.pauseSel = (this.pauseSel + 2) % 3; this.markPause(); }
+      else if (e.key === 'ArrowDown' || e.key === 's') { this.pauseSel = (this.pauseSel + 1) % 3; this.markPause(); }
+      else if (e.key === 'Enter' || e.key === ' ') this.pick(this.pauseSel);
+    };
+    kb?.on('keydown', nav);
+    this.pauseOff = () => kb?.off('keydown', nav);
+  }
+  private markPause() {
+    this.pauseItems.forEach((o, i) => o.setColor(i === this.pauseSel ? '#ffe27a' : '#fff6d8').setScale(i === this.pauseSel ? 1.12 : 1));
+  }
+  private pauseTap(x: number, y: number) {
+    const i = this.pauseItems.findIndex((o) => Phaser.Geom.Rectangle.Contains(Phaser.Geom.Rectangle.Inflate(o.getBounds(), 30, 12), x, y));
+    if (i >= 0) this.pick(i);
+  }
+  private pick(i: number) {
+    const g = this.game2;
+    if (i === 0) { this.resume(); return; }
+    this.resume(false);
+    if (i === 1) this.scene.start('Play', { continueWave: dayOf(g.wave) * WAVES_PER_DAY, continues: this.continues });
+    else this.scene.start('Title');
+  }
+  private resume(sound = true) {
+    if (!this.paused) return;
+    this.paused = false;
+    this.pauseOff?.(); this.pauseOff = null;
+    this.pauseMenu?.destroy(); this.pauseMenu = null;
+    this.tweens.resumeAll(); this.time.paused = false;
+    pauseAudio(false);
+    if (sound) snd.ui();
+    this.acc = 0;
   }
 
   private finish() {

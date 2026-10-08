@@ -40,6 +40,11 @@ const TABLE: Record<string, { ja: string; en: string }> = {
   obakeComing: { ja: 'おばけが、くるぞー!', en: 'Here come the ghosts!' },
   // おばけのセリフ(| で区切って、順番に使う)
   wave: { ja: 'ウェーブ', en: 'Wave' },
+  paused: { ja: 'ポーズ', en: 'PAUSED' },
+  resume: { ja: 'もどる', en: 'Resume' },
+  restartDay: { ja: ' のはじめから', en: ' — restart the day' },
+  pauseHelp: { ja: 'ESC でもどる / ↑↓ と Enter でえらぶ', en: 'ESC to resume / arrows + Enter to choose' },
+  stageSelect: { ja: 'めんセレクト', en: 'STAGE' },
   continue: { ja: 'コンティニュー', en: 'CONTINUE' },
   continueFrom: { ja: ' のはじめから(スコアは 0 から)', en: ' from the start (score resets)' },
   continueCount: { ja: 'コンティニュー', en: 'Continues' },

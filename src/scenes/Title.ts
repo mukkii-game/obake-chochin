@@ -5,7 +5,8 @@ import { load } from '../core/save';
 import { DemoDriver, expose } from '../core/demo';
 import { onTap } from '../ui/taps';
 import { snd, preloadSfx } from '../game/sound';
-import { txt, pop } from '../game/view';
+import { txt, pop, dayName } from '../game/view';
+import { WAVES_PER_DAY } from '../game/waves';
 import { PAPER } from '../game/art';
 import { W, H, PIECE_SETS } from '../game/logic';
 import { readParams } from '../game/params';
@@ -73,10 +74,16 @@ export class Title extends Phaser.Scene {
     });
 
     this.add.text(PAPER.x0 + 14, H - 30, t('musicCredit'), txt(11, '#8a84a0')).setOrigin(0, 0.5);
-    const start = this.add.text(W / 2, 462, t('tapToStart'), pop(26, '#ffe066')).setOrigin(0.5);
+    const start = this.add.text(W / 2, 446, t('tapToStart'), pop(26, '#ffe066')).setOrigin(0.5);
     this.tweens.add({ targets: start, alpha: 0.35, yoyo: true, repeat: -1, duration: 700 });
     const best = load().best;
-    if (best > 0) this.add.text(W / 2, 500, `${t('best')} ${best}`, txt(14, '#cccccc')).setOrigin(0.5);
+    if (best > 0) this.add.text(PAPER.x0 + 14, 36, `${t('best')} ${best}`, txt(14, '#cccccc')).setOrigin(0, 0);
+    // めんセレクト: 8/13・8/14・8/15 のどの日からでも始められる(キー 1・2・3 でも)
+    this.add.text(W / 2 - 210, 484, t('stageSelect'), txt(14, '#ffe9c0')).setOrigin(1, 0.5);
+    const days = [0, 1, 2].map((d) => {
+      const o = this.add.text(W / 2 - 130 + d * 150, 484, dayName(d), pop(15, '#fff6d8', { backgroundColor: 'rgba(60,24,64,0.75)', strokeThickness: 3 })).setOrigin(0.5);
+      return o;
+    });
 
     // 右上: 言語 / 音
     const langBtn = this.add.text(PAPER.x1 - 14, 36, t('lang'), txt(16, '#9cf')).setOrigin(1, 0);
@@ -85,14 +92,15 @@ export class Title extends Phaser.Scene {
 
     let gone = false;
     preloadSfx();
-    const go = () => { if (gone) return; gone = true; snd.ui(); this.scene.start('Play'); };
+    const go = (day = 0) => { if (gone) return; gone = true; snd.ui(); this.scene.start('Play', day ? { continueWave: day * WAVES_PER_DAY } : undefined); };
     const off = onTap((x, y) => {
       if (hit(langBtn, x, y)) { snd.ui(); toggleLang(); this.scene.restart(); return; }
       if (hit(muteBtn, x, y)) { toggleMuted(); muteBtn.setText(isMuted() ? t('unmute') : t('mute')); snd.ui(); return; }
-      go();
+      const d = days.findIndex((o) => hit(o, x, y));
+      go(Math.max(0, d));
     });
     this.events.once('shutdown', off);
-    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (e.key !== 'F2') go(); });
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => { if (e.key === 'F2') return; go(['1', '2', '3'].includes(e.key) ? Number(e.key) - 1 : 0); });
     if (DemoDriver.enabled) this.time.delayedCall(800, go);
   }
 }

@@ -21,7 +21,7 @@ function ensure(): AudioContext | null {
     try { ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); } catch { return null; }
     buildBus(ctx);
   }
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (ctx.state === 'suspended' && !audioPaused) ctx.resume().catch(() => {});
   return ctx;
 }
 
@@ -53,6 +53,13 @@ const out = (c: AudioContext) => bus ?? c.destination;
 
 /** 最初のタップ / キーで呼ぶ。以後 beep が鳴るようになる */
 export function unlock() { ensure(); }
+/** ポーズ中は音を止める(曲も効果音も、その場で止まって、戻すと続きから) */
+let audioPaused = false;
+export function pauseAudio(p: boolean) {
+  audioPaused = p;
+  if (!ctx) return;
+  if (p) ctx.suspend().catch(() => {}); else ctx.resume().catch(() => {});
+}
 
 export function isMuted() { return muted; }
 export function setMuted(m: boolean) { muted = m; save({ muted: m }); if (musicGain) musicGain.gain.value = m ? 0 : musicVol; }
