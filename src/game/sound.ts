@@ -54,7 +54,8 @@ function breath(from: number, to: number, dur: number, gain = 0.05, delay = 0) {
 
 export const snd = {
   /** 下がった提灯が灯った: 風鈴 */
-  place: () => { rin(note(12), 0.03, 0, 0.9); rin(note(14), 0.02, 0.09, 0.7); },
+  // 提灯が着いてセットされた: 「コトッ」と置く音 + 「チリン」(前は鈴だけで小さすぎた)
+  place: () => { wood(1000, 0.08); taiko(0.05, 0, 160); rin(note(12), 0.05, 0.03, 0.9); rin(note(16), 0.04, 0.11, 0.7); },
   /** 投げた: 息が上がる + 小さな提灯の揺れ */
   // 置き場所を決めて投げた: カメラのシャッターのような「カチャッ」(2 つの短い金属音)+ ふわっと飛ぶ息
   launch: () => { noise({ dur: 0.025, gain: 0.09, freq: 3200, q: 4 }); noise({ dur: 0.04, gain: 0.07, freq: 2200, q: 3, delay: 0.06 }); tone({ freq: 2400, dur: 0.03, type: 'square', gain: 0.015, delay: 0.06 }); breath(500, 1600, 0.35, 0.04); },

@@ -45,7 +45,6 @@ export class Title extends Phaser.Scene {
     this.add.image(W / 2 - total / 2 - 26, 92, 'lantern').setScale(0.9).setAngle(-12);
 
     // ひとこと(アーケードの軽さ)と、操作だけをはっきり
-    this.add.text(W / 2, 190, t('catch'), pop(22, '#fff6d8')).setOrigin(0.5);
     // 操作だけ(PC が上、スマホが下)
     this.add.rectangle(W / 2, 286, 600, 84, 0x2a1430, 0.55).setStrokeStyle(2, 0xffd890, 0.4);
     this.add.text(W / 2, 266, t('ctrlPC'), txt(18, '#ffffff')).setOrigin(0.5);
