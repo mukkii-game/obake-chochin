@@ -1,7 +1,7 @@
 // プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
 // 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { Game, DT, W, H, PLAY, HOUSE_R, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
+import { Game, DT, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry } from '../game/sound';
@@ -62,10 +62,10 @@ export class Play extends Phaser.Scene {
   private talked = new Set<number>();
   private scoreText!: Phaser.GameObjects.Text;
   private watchText!: Phaser.GameObjects.Text;
-  private chainText!: Phaser.GameObjects.Text;
   private shownScore = 0;
   private scorePunch = false;
   private rushId = -1;
+  private aimTag!: Phaser.GameObjects.Text;
   private lastDmgShown = 1;
   private continues = 0;
   private paused = false;
@@ -167,7 +167,7 @@ export class Play extends Phaser.Scene {
     this.hiText = this.add.text(PAPER.x1 - 84, 18, '', txt(22, '#ffb0e0')).setOrigin(1, 0.5).setDepth(50);
     const mute = this.add.text(PAPER.x1 - 8, 4, isMuted() ? '♪×' : '♪', txt(24, '#cfe')).setOrigin(1, 0).setDepth(50);
     this.shownScore = 0; this.scorePunch = false; this.rushId = -1;
-    this.chainText = this.add.text(W / 2, H / 2, '', pop(40, '#fff3c0')).setOrigin(0.5).setDepth(60).setAlpha(0);
+    this.aimTag = this.add.text(0, 0, '', pop(15, '#fff0d0', { strokeThickness: 4 })).setOrigin(0.5).setDepth(63).setVisible(false);
     if (this.player) this.add.text(W / 2, H - 22, t('replaying'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
     else if (this.bot) this.add.text(W / 2, H - 22, t('demo'), txt(14, '#aaf')).setOrigin(0.5).setDepth(50);
 
@@ -374,7 +374,7 @@ export class Play extends Phaser.Scene {
         this.say(e.x, e.y - 34, said ? t(`cry_${said}`) : t(`cry_kind_${e.kind}`), '#ffd0e8', true);
         this.sparks.explode(5, e.x, e.y);
         this.popup(e.x, e.y - 14, `${e.pts}`, e.n >= 3 ? '#ffe27a' : '#f3e6c8', 13 + Math.min(e.n, 8));
-        if (e.n >= 3) this.showChain(e.n, e.x, e.y);
+        if (e.n >= 2) this.showChain(e.n, e.x, e.y);
         break;
       }
       case 'chainEnd':
@@ -426,13 +426,13 @@ export class Play extends Phaser.Scene {
         const first = waveInDay(e.n) === 0;
         if (first) {
           // 日のはじめに、画面に置ける提灯の数(日が変わると 1 つ増える)
-          const up = this.add.text(W / 2, H / 2 + 70, t('maxUp').replace('{n}', String(this.game2.maxOnField)), pop(22, '#9ff0ff')).setOrigin(0.5).setDepth(56).setAlpha(0);
+          const up = this.add.text(W / 2, H / 2 + 84, t('maxUp').replace('{n}', String(this.game2.maxOnField)), pop(22, '#9ff0ff')).setOrigin(0.5).setDepth(56).setAlpha(0);
           this.tweens.add({ targets: up, alpha: 1, yoyo: true, hold: 1800, duration: 300, delay: 400, onComplete: () => up.destroy() });
         }
         if (first) {
           // 始まり: かわいい声で「おばけが、くるぞー!」
           sayObake();
-          const v = this.add.text(W / 2, H / 2 + 10, t('obakeComing'), txt(30, '#fff6c0', { strokeThickness: 7 })).setOrigin(0.5).setDepth(56).setScale(0.4);
+          const v = this.add.text(W / 2, H / 2 + 34, t('obakeComing'), txt(30, '#fff6c0', { strokeThickness: 7 })).setOrigin(0.5).setDepth(56).setScale(0.4);
           this.tweens.add({ targets: v, scale: 1, duration: 260, ease: 'Back.Out' });
           this.tweens.add({ targets: v, angle: { from: -4, to: 4 }, yoyo: true, repeat: 3, duration: 160 });
           this.tweens.add({ targets: v, alpha: 0, delay: 1600, duration: 400, onComplete: () => v.destroy() });
@@ -472,17 +472,17 @@ export class Play extends Phaser.Scene {
     }
   }
 
+  /** コンボの瞬間: 倒すたびに「2コンボ!」「3コンボ!」…と、その場で勢いよく弾む(数が増えるほど大きく、色が変わる) */
   private showChain(n: number, x: number, y: number) {
-    const c = this.chainText;
-    c.setText(`${n} ${t('combo')}!`);
-    c.setPosition(Phaser.Math.Clamp(x, 140, W - 140), Phaser.Math.Clamp(y - 70, 70, H - 60));
-    c.setFontSize(Math.min(26 + n * 2, 60));
-    c.setColor(n >= 15 ? '#ffb0e0' : n >= 8 ? '#ffe27a' : '#fff3c0');
-    this.tweens.killTweensOf(c);
-    c.setAlpha(1).setScale(1.3);
-    this.tweens.add({ targets: c, scale: 1, duration: 140, ease: 'Back.Out' });
-    this.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 400 });
+    const cols = ['#fff3c0', '#ffe27a', '#9ff0ff', '#b8ffb0', '#ffb0e0', '#c8a0ff'];
+    const size = Math.min(24 + n * 2.5, 50);
+    const o = this.add.text(Phaser.Math.Clamp(x, 120, W - 120), Phaser.Math.Clamp(y - 48, 60, H - 60), `${n}${t('combo')}!`, pop(size, cols[n % cols.length], { strokeThickness: 6 }))
+      .setOrigin(0.5).setDepth(61).setScale(1.6).setAngle(n % 2 ? -8 : 8);
+    this.tweens.add({ targets: o, scale: 1, angle: 0, duration: 170, ease: 'Back.Out' });
+    this.tweens.add({ targets: o, y: o.y - 34, alpha: 0, delay: 480, duration: 420, ease: 'Quad.In', onComplete: () => o.destroy() });
+    if (n >= 4) this.cameras.main.shake(80, 0.002 + Math.min(n, 10) * 0.0004);
   }
+
 
   /** 灯りが消えた家から、家の人が逃げ出す(小さなドット絵が、画面の端まで走っていく) */
   private flee(x: number, y: number) {
@@ -542,8 +542,9 @@ export class Play extends Phaser.Scene {
     const size = Math.min(34 + n * 3, 72);
     const cols = ['#ffe27a', '#ffb0e0', '#9ff0ff', '#b8ffb0'];
     const xx = Phaser.Math.Clamp(x, 160, W - 160), yy = Phaser.Math.Clamp(y - 20, 90, H - 90);
-    const head = this.add.text(xx, yy, `${n} ${t('combo')}!`, pop(size, cols[n % cols.length])).setOrigin(0.5).setDepth(62).setScale(0.2).setAngle(-8);
-    const sub = this.add.text(xx, yy + size * 0.8, `+${bonus}`, pop(Math.round(size * 0.6), '#fff3c0')).setOrigin(0.5).setDepth(62).setScale(0).setAlpha(0);
+    // その瞬間の「N コンボ!」は倒すたびに出しているので、締めはボーナスの点を大きく
+    const head = this.add.text(xx, yy, `+${bonus}`, pop(size, cols[n % cols.length])).setOrigin(0.5).setDepth(62).setScale(0.2).setAngle(-8);
+    const sub = this.add.text(xx, yy + size * 0.8, t('chainBonus'), pop(Math.round(size * 0.45), '#fff3c0')).setOrigin(0.5).setDepth(62).setScale(0).setAlpha(0);
     this.tweens.add({ targets: head, scale: 1, angle: 0, duration: 260, ease: 'Back.Out' });
     this.tweens.add({ targets: head, angle: { from: -4, to: 4 }, duration: 160, yoyo: true, repeat: 2, delay: 260 });
     this.tweens.add({ targets: sub, scale: 1, alpha: 1, duration: 220, delay: 140, ease: 'Back.Out' });
@@ -743,10 +744,21 @@ export class Play extends Phaser.Scene {
     if (this.aim && !this.ended) {
       const { x, y } = this.aim;
       const from = this.aim.from >= 0 ? this.aim.from : g.selected >= 0 && g.canThrow(g.selected) ? g.selected : g.launchHouse(x, y);
-      const inField = x > PLAY.x0 && x < PLAY.x1 && y > PLAY.y0 && y < PLAY.y1 && !g.houses.some((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R);
-      if (from >= 0 && inField) {
+      const onHouse = g.houses.some((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R);
+      const inField = x > PLAY.x0 && x < PLAY.x1 && y > PLAY.y0 && y < PLAY.y1 && !onHouse;
+      const low = inField && y > GROUND_Y, full = g.lanterns.length >= g.maxOnField;
+      // カーソルを見ているだけで分かるように: 置けない所・いっぱいの時は赤い × と一言、置ける時は「あと N」
+      if (inField && (low || full)) {
+        this.fx.lineStyle(3, 0xff6070, 0.9);
+        this.fx.lineBetween(x - 9, y - 9, x + 9, y + 9); this.fx.lineBetween(x - 9, y + 9, x + 9, y - 9);
+        this.aimTag.setText(low ? t('tooLow') : t('maxOnField').replace('{n}', String(g.maxOnField))).setColor('#ff9aa8').setPosition(x, y - 26).setVisible(true).setAlpha(1);
+        if (low) { this.fx.lineStyle(1.5, 0xffb0b8, 0.35); for (let gx = PLAY.x0; gx < PLAY.x1; gx += 14) this.fx.lineBetween(gx, GROUND_Y, gx + 7, GROUND_Y); }
+      } else if (inField && from >= 0) {
+        this.aimTag.setText(`${t('left')} ${g.maxOnField - g.lanterns.length}`).setColor('#fff0d0').setPosition(x + 30, y + 18).setVisible(true).setAlpha(0.6);
+      } else this.aimTag.setVisible(false);
+      if (from >= 0 && inField && !low && !full) {
         const piece = g.houses[from].piece, me = { piece, tx: x, ty: y };
-        const ok = g.lanterns.length < g.maxOnField;
+        const ok = true;
         this.drawShape(piece, x, y, g.reach(piece), 0, ok ? 0xfff0c0 : 0x8080a0, 0.035);
         this.softEdge(piece, x, y, ok ? 0xfff0c0 : 0x8080a0, 0.07);
         // 連爆する提灯: 真っ白にはっきり光る(輪郭も白く脈打つ)。ここに置けばつながる、が一目でわかる
@@ -767,6 +779,7 @@ export class Play extends Phaser.Scene {
         this.glowFx.fillStyle(0xffe0a0, 0.12); this.glowFx.fillCircle(h.x, h.y, 30);
       }
     }
+    if (!this.aim || this.ended) this.aimTag.setVisible(false);
     // 余韻: 光が通った形が、花火のあとのようにゆっくり薄れて消える
     const now = this.time.now;
     this.afterglow = this.afterglow.filter((a) => now - a.t < 1800);

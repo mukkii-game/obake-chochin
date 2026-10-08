@@ -5,7 +5,7 @@
 // 「着いて fuse 秒後に弾ける」ので、その時におばけがいる所を狙う(提灯に着いたおばけは止まって待つのも勘定する)。
 // lag: 決めてから指が動くまでの遅れ(秒)。noLead: 先読みせず、今いる所へ投げる(比較用)。
 import type { Game } from './logic';
-import { HOUSE_R, PLAY } from './logic';
+import { HOUSE_R, PLAY, GROUND_Y } from './logic';
 import { Rng } from '../core/rng';
 
 type Pt = { x: number; y: number; t: number };
@@ -48,7 +48,7 @@ export class Bot {
     const step = 0.25;
     const paths: Pt[][] = free.map((q) => (this.noLead ? [{ x: q.x, y: q.y, t: 0 }] : g.predict(q, 14, step)));
     const at = (p: Pt[], t: number) => (this.noLead ? p[0] : p[Math.min(p.length - 1, Math.max(0, Math.round(t / step)))]);
-    const ok = (x: number, y: number) => x > PLAY.x0 + 4 && x < PLAY.x1 - 4 && y > PLAY.y0 + 4 && y < PLAY.y1 - 4
+    const ok = (x: number, y: number) => x > PLAY.x0 + 4 && x < PLAY.x1 - 4 && y > PLAY.y0 + 4 && y <= GROUND_Y
       && !g.houses.some((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R + 2) && !g.lanterns.some((l) => Math.hypot(l.tx - x, l.ty - y) < P.grabR + 2);
     let best: { house: number; x: number; y: number; score: number; hits: number } | null = null;
     const span = (Math.max(g.reach('vline'), g.reach('area')) + g.band) / P.lightSpeed;

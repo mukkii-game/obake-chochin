@@ -29,6 +29,8 @@ export const colX = (c: number) => PLAY.x0 + (c + 0.5) * ((PLAY.x1 - PLAY.x0) / 
 
 /** 家並み(一番下。少しずつずれて建つ) */
 export const HOUSE_POS: ReadonlyArray<[number, number]> = [[142, 452], [268, 462], [404, 448], [552, 460], [688, 450], [816, 460]];
+/** 家の高さの線: 提灯はこれより下へは投げられない。おばけもこれより下へは、家に入る時しか降りない */
+export const GROUND_Y = Math.min(...HOUSE_POS.map((p) => p[1])) - 40;
 /** 家を押したとみなす近さ / おばけが家に入ったとみなす近さ */
 export const HOUSE_R = 26;
 const HOME_R = 6;
@@ -209,6 +211,7 @@ export class Game {
       this.events.push({ type: 'select', house: this.selected });
       return;
     }
+    if (y > GROUND_Y) { this.events.push({ type: 'deny', x, y }); return; } // 家の高さより下へは投げない
     const from = this.selected >= 0 && this.canThrow(this.selected) ? this.selected : this.launchHouse(x, y);
     if (from >= 0 && this.lanterns.length >= this.maxOnField) { this.events.push({ type: 'deny', x, y, full: this.maxOnField }); return; }
     if (from < 0 || this.lanterns.some((q) => Math.hypot(q.tx - x, q.ty - y) < this.P.grabR)) {
@@ -450,7 +453,9 @@ export class Game {
     if (t < 0) return;
     g.target = t;
     const h = this.houses[t];
-    g.path = [[g.x, g.y], [g.x, Math.max(g.y, h.y - 40)], [h.x, Math.max(g.y, h.y - 40)], [h.x, h.y]];
+    // 別の家へ: いったん家の高さの線より上へ上がってから横へ渡り、あらためて降りて襲う
+    const up = Math.min(g.y, GROUND_Y - 20);
+    g.path = [[g.x, g.y], [g.x, up], [h.x, up], [h.x, h.y]];
     g.seg = 0; g.segProg = 0;
   }
 
