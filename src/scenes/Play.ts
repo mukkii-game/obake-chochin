@@ -23,6 +23,11 @@ const GHOST_GLOW = { fuwa: 0x8fb4ff, oni: 0x40e0a0, kasa: 0xb070ff, big: 0xff9ec
 /** 軒先の提灯の位置(家の中心から) */
 const HANG: ReadonlyArray<[number, number]> = [[32, -16], [32, -1], [32, 14]];
 
+/** 光の色(外側, 芯)。光ごとに順に変える */
+const BLAST_COLS: Array<[number, number]> = [[0xff6fa0, 0xffc0d8], [0xffb030, 0xffe08a], [0x40c8ff, 0xa8ecff], [0x70e060, 0xc8ffb0], [0xa070ff, 0xd8c0ff]];
+/** 弾けた真ん中の、にじむ大きな粒の数(連爆ほど多い) */
+const big0 = (n: number) => Math.min(8 + n * 4, 32);
+
 export class Play extends Phaser.Scene {
   private game2!: Game;
   private acc = 0;
@@ -62,6 +67,7 @@ export class Play extends Phaser.Scene {
   private rushId = -1;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smokeTick = 0;
+  private bloom!: Phaser.GameObjects.Particles.ParticleEmitter;
   /** 狙いから連爆する提灯の id(前の 1 コマで決めたもの) */
   private chainTargets = new Set<number>();
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -110,7 +116,7 @@ export class Play extends Phaser.Scene {
 
     this.sparks = this.add.particles(0, 0, 'dot', {
       lifespan: 900, speed: { min: 20, max: 110 }, angle: { min: 200, max: 340 }, gravityY: -40,
-      scale: { start: 0.9, end: 0 }, alpha: { start: 1, end: 0 }, tint: [0xfff2b0, 0xffd27a, 0xffffff],
+      scale: { start: 0.9, end: 0 }, alpha: { start: 1, end: 0 }, tint: [0xfff2b0, 0xffd27a, 0xff9ec8],
       blendMode: 'ADD', emitting: false,
     }).setDepth(30);
     // 花火: 光の形に沿って色とりどりの火の粉が広がり、ゆっくり落ちながら消える(余韻)
@@ -123,12 +129,18 @@ export class Play extends Phaser.Scene {
     this.fireworksBig = this.add.particles(0, 0, 'dot', {
       lifespan: { min: 1400, max: 2400 }, speed: { min: 60, max: 260 }, angle: { min: 0, max: 360 }, gravityY: 45,
       scale: { start: 1.6, end: 0.2 }, alpha: { start: 1, end: 0 }, blendMode: 'ADD', emitting: false,
-      tint: [0xff5e8a, 0xffd23f, 0x5ee0ff, 0x9dff7a, 0xc77dff, 0xffffff, 0xff9f40],
+      tint: [0xff5e8a, 0xffd23f, 0x5ee0ff, 0x9dff7a, 0xc77dff, 0xff9f40],
     }).setDepth(31);
     this.smoke = this.add.particles(0, 0, 'glow', {
       lifespan: { min: 550, max: 800 }, speed: { min: 4, max: 14 }, angle: { min: 0, max: 360 }, gravityY: -14,
       scale: { start: 0.12, end: 0.42 }, alpha: { start: 0.32, end: 0 }, tint: [0xe8dcf0, 0xffd8b0, 0xd0c8e0], emitting: false,
     }).setDepth(9);
+    // にじむ花火: ふんわりした大きな色の粒が、にじみながら飛んで消える
+    this.bloom = this.add.particles(0, 0, 'glow', {
+      lifespan: { min: 800, max: 1500 }, speed: { min: 30, max: 150 }, angle: { min: 0, max: 360 }, gravityY: 22,
+      scale: { start: 0.5, end: 0.1 }, alpha: { start: 0.7, end: 0 }, blendMode: 'ADD', emitting: false,
+      tint: [0xff5e8a, 0xffc23f, 0x4ed8ff, 0x8dff6a, 0xb57dff, 0xff8f40],
+    }).setDepth(30);
     this.shards = this.add.particles(0, 0, 'shard', {
       lifespan: 700, speed: { min: 80, max: 220 }, gravityY: 300, rotate: { min: 0, max: 360 },
       scale: { start: 1, end: 0.4 }, alpha: { start: 1, end: 0 }, emitting: false,
@@ -248,6 +260,7 @@ export class Play extends Phaser.Scene {
         snd.break(e.n);
         this.shards.explode(8, e.x, e.y);
         this.sparks.explode(10, e.x, e.y);
+        this.bloom.explode(big0(e.n), e.x, e.y);
         // 花火: 光が伸びるのに合わせて、形の上の各所で火の粉が開く
         const piece = this.lanternPieceAt(e.x, e.y);
         const g = this.game2;
@@ -256,7 +269,7 @@ export class Play extends Phaser.Scene {
         const per = big ? Math.min(5 + e.n * 3, 20) : 5;
         for (const [px, py] of g.shapePoints(piece, e.x, e.y).filter((_, k) => k % (big ? 2 : 3) === 0)) {
           const d = Math.hypot(px - e.x, py - e.y);
-          this.time.delayedCall((d / g.P.lightSpeed) * 1000, () => (big ? this.fireworksBig : this.fireworks).explode(per, px, py));
+          this.time.delayedCall((d / g.P.lightSpeed) * 1000, () => { (big ? this.fireworksBig : this.fireworks).explode(per, px, py); this.bloom.explode(big ? 4 : 2, px, py); });
         }
         if (big) {
           // 真ん中で大きな菊の花火 + 少し揺れる
@@ -376,22 +389,38 @@ export class Play extends Phaser.Scene {
     const cries = t('screams').split('|');
     for (let i = 0; i < 4; i++) {
       const dir = i % 2 ? 1 : -1;
-      const p = this.add.image(x + dir * 6, y + 10, 'px_run0').setDepth(26).setFlipX(dir < 0).setScale(1.15);
-      const toX = dir > 0 ? W + 20 : -20;
-      const dur = (Math.abs(toX - x) / (70 + i * 12)) * 1000;
-      this.tweens.add({ targets: p, x: toX, duration: dur, delay: i * 180, ease: 'Linear', onComplete: () => p.destroy() });
+      const p = this.add.image(x, y - 4, 'px_run0').setDepth(26).setFlipX(dir < 0).setScale(1.6).setAlpha(0);
+      // びっくりして家から大きく跳び出す(家より高く)→ 着地して走って逃げる
+      const landX = x + dir * (26 + (i >> 1) * 18), groundY = y + 10;
+      const jumpH = 70 + (i >> 1) * 22 + (i % 2) * 10, delay = i * 130, up = 320, down = 300;
+      this.tweens.add({ targets: p, alpha: 1, duration: 60, delay });
+      this.tweens.add({ targets: p, x: landX, duration: up + down, delay, ease: 'Linear' });
+      this.tweens.add({ targets: p, angle: dir * 360, duration: up + down, delay, ease: 'Quad.Out' });
+      this.tweens.add({ targets: p, y: y - jumpH, duration: up, delay, ease: 'Quad.Out', onComplete: () => {
+        this.tweens.add({ targets: p, y: groundY, duration: down, ease: 'Quad.In', onComplete: () => run() });
+      } });
       // 叫び声: 文字(頭の上で揺れる)と、合成の声。人ごとに少しずつずらす
       const kind = i % 3, cry = cries[i % cries.length];
-      const lift = 22 + (i >> 1) * 16;
-      const bubble = this.add.text(p.x, p.y - lift, cry, txt(i % 2 ? 15 : 17, i % 2 ? '#ffe0e0' : '#fff6c0', { strokeThickness: 4 })).setOrigin(0.5).setDepth(57).setAlpha(0);
-      this.tweens.add({ targets: bubble, alpha: 1, delay: i * 180 + 60, duration: 120, hold: 900, yoyo: true, onComplete: () => bubble.destroy() });
-      snd.scream(kind, i * 0.18 + 0.05, 1 + (i - 1.5) * 0.06);
-      // 2 コマで走る + 少し跳ねる(叫びの文字も一緒に)
-      this.time.addEvent({ delay: 120, repeat: Math.ceil(dur / 120) + 3, callback: () => {
-        if (!p.active) return;
-        p.setTexture(p.texture.key === 'px_run0' ? 'px_run1' : 'px_run0'); p.y = y + 10 - (p.texture.key === 'px_run1' ? 2 : 0);
-        if (bubble.active) bubble.setPosition(p.x, p.y - lift + Math.sin(this.time.now / 60 + i) * 2).setAngle(Math.sin(this.time.now / 80 + i) * 8);
+      const lift = 26 + (i >> 1) * 16;
+      const bubble = this.add.text(x, y - 40, cry, txt(i % 2 ? 17 : 19, i % 2 ? '#ffe0e0' : '#fff6c0', { strokeThickness: 4 })).setOrigin(0.5).setDepth(57).setAlpha(0);
+      this.tweens.add({ targets: bubble, alpha: 1, delay: delay + 60, duration: 120, hold: 1300, yoyo: true, onComplete: () => bubble.destroy() });
+      snd.scream(kind, i * 0.13 + 0.05, 1 + (i - 1.5) * 0.06);
+      const follow = this.time.addEvent({ delay: 16, loop: true, callback: () => {
+        if (!p.active || !bubble.active) { follow.remove(); return; }
+        bubble.setPosition(p.x, p.y - lift + Math.sin(this.time.now / 60 + i) * 2).setAngle(Math.sin(this.time.now / 80 + i) * 8);
       } });
+      const run = () => {
+        if (!p.active) return;
+        p.setAngle(0).setScale(1.15);
+        const toX = dir > 0 ? W + 20 : -20;
+        const dur = (Math.abs(toX - p.x) / (80 + i * 12)) * 1000;
+        this.tweens.add({ targets: p, x: toX, duration: dur, ease: 'Linear', onComplete: () => p.destroy() });
+        // 2 コマで走る + 少し跳ねる
+        this.time.addEvent({ delay: 120, repeat: Math.ceil(dur / 120) + 3, callback: () => {
+          if (!p.active) return;
+          p.setTexture(p.texture.key === 'px_run0' ? 'px_run1' : 'px_run0'); p.y = groundY - (p.texture.key === 'px_run1' ? 2 : 0);
+        } });
+      };
     }
   }
 
@@ -531,7 +560,7 @@ export class Play extends Phaser.Scene {
         if (l.fuseLit !== undefined) {
           // 誘爆の火が付いた: 白く膨らんで震え、すぐ弾ける
           s.body.setScale(1.15).setAngle(Math.sin(time * 60 + l.id) * 14);
-          s.glow.setTint(0xffffff).setScale(1.3).setAlpha(1);
+          s.glow.setTint(0xffd0a0).setScale(1.1).setAlpha(0.8);
         } else if (this.chainTargets.has(l.id)) {
           // 狙いから連爆する提灯: 白い光が強く脈打つ
           const p = 0.5 + 0.5 * Math.sin(time * 10);
@@ -707,10 +736,11 @@ export class Play extends Phaser.Scene {
     const head = Math.min(L, b.ext), tail = Math.max(0, b.ext - band);
     if (head <= tail) return;
     const fade = b.ext > L ? Math.max(0, 1 - (b.ext - L) / band) : 1;
-    this.drawShape(b.piece, b.x, b.y, head, tail, 0xffb050, 0.3 * fade, 1.35);
-    this.drawShape(b.piece, b.x, b.y, head, tail, 0xfff0c0, 0.45 * fade, 0.9);
-    this.drawShape(b.piece, b.x, b.y, head, Math.max(tail, head - band * 0.4), 0xffffff, 0.55 * fade, 0.55);
-    if (tail <= 0) { this.glowFx.fillStyle(0xfff6d8, 0.5 * fade); this.glowFx.fillCircle(b.x, b.y, 12); }
+    // 真っ白にしない: 光ごとに色を変え(桃・金・水・若草・藤)、芯も淡い色。主役は色とりどりの粒(花火)
+    const [outer, inner] = BLAST_COLS[b.id % BLAST_COLS.length];
+    this.drawShape(b.piece, b.x, b.y, head, tail, outer, 0.2 * fade, 1.35);
+    this.drawShape(b.piece, b.x, b.y, head, tail, inner, 0.22 * fade, 0.8);
+    if (tail <= 0) { this.glowFx.fillStyle(inner, 0.25 * fade); this.glowFx.fillCircle(b.x, b.y, 12); }
   }
 
   private drawGhost(s: Phaser.GameObjects.Image, gh: Ghost, time: number) {

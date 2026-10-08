@@ -458,7 +458,7 @@ export class Game {
       }
       g.caught = false;
       const c: Ghost = { ...g };
-      this.advance(c, g.speed * this.rush() * dt);
+      this.advance(c, this.speedOf(g) * dt);
       const vx = c.x - g.x, vy = c.y - g.y;
       const blocked = this.ghosts.some((o) => o !== g && !o.dead && o.stopped && !o.haunt
         && Math.hypot(o.x - c.x, o.y - c.y) < P.queueGap && (o.x - g.x) * vx + (o.y - g.y) * vy > 0);
@@ -473,6 +473,13 @@ export class Game {
         this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount });
       }
     }
+  }
+
+  /** 今の速さ: 最後の一匹は急ぎ、家のすぐ近くまで来たら、すうっと速くなって家に飛び込む */
+  speedOf(g: Ghost): number {
+    const h = this.houses[g.target];
+    const near = h && g.seg >= g.path.length - 2 && Math.hypot(h.x - g.x, h.y - g.y) < this.P.dashR;
+    return g.speed * this.rush() * (near ? this.P.dashMult : 1);
   }
 
   /** 最後の一匹(その刻にもう出てこない時)は、インベーダーのように速くなる */
@@ -490,7 +497,7 @@ export class Game {
     for (let t = 0; t <= horizon; t += step) {
       out.push({ x: c.x, y: c.y, t });
       if (g.haunt || g.stopped || c.seg >= c.path.length - 1) break;
-      this.advance(c, c.speed * this.rush() * step);
+      this.advance(c, this.speedOf(c) * step);
     }
     return out;
   }

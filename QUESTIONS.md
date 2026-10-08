@@ -46,3 +46,4 @@
 - [ ] (19 回目)スタッフロールの名前: 企画 Mukkii / プログラム・絵・効果音 Claude (Anthropic) / 音楽 魔王魂 / 弾ける音 Kenney / 声 Mei・Open JTalk / 文字 / Phaser。直したい名前があれば src/scenes/Ending.ts の STAFF。
 - [ ] (19 回目)最後の一匹の速さ 1.8 倍(F2 の ghost.last)。
 - [ ] (21 回目)誘爆の間 0.2 秒(F2 の chain.delay。0.1 だと速い連打、0.3 だとためが効く。0 で前の一気に戻る)。
+- [ ] (22 回目)家に飛び込む勢い: 70px 手前から 2.2 倍(F2 の ghost.dashR / ghost.dash)。直前で助けるのは難しくなる。

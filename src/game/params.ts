@@ -14,6 +14,8 @@ export function readParams() {
     queueGap: tune('ghost.queue'),
     lastRush: tune('ghost.last'),
     chainDelay: tune('chain.delay'),
+    dashR: tune('ghost.dashR'),
+    dashMult: tune('ghost.dash'),
     lineReach: tune('light.line'),
     lightWidth: tune('light.width'),
     areaReach: tune('light.area'),
