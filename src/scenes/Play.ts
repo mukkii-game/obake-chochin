@@ -444,7 +444,8 @@ export class Play extends Phaser.Scene {
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.Out' });
         this.tweens.add({ targets: s, alpha: 1, yoyo: true, hold: first ? 1300 : 800, duration: 400, onComplete: () => s.destroy() });
         // ウェーブの題(何が来るか)。総力戦は赤く大きく、揺らして
-        const nm = WAVE_NAMES[e.n];
+        // 日のはじめ(日付と置ける数を出す時)は題を出さない(にぎやかすぎるので)
+        const nm = first ? undefined : WAVE_NAMES[e.n];
         if (nm) {
           const last = e.n === WAVE_NAMES.length - 1;
           const tt = this.add.text(W / 2, H / 2 - 14, lang() === 'ja' ? nm.ja : nm.en, pop(last ? 40 : 24, last ? '#ff7e9e' : '#ffe9c0')).setOrigin(0.5).setDepth(55).setAlpha(0).setScale(0.6);

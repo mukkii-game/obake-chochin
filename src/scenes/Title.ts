@@ -8,8 +8,7 @@ import { snd, preloadSfx } from '../game/sound';
 import { txt, pop, dayName } from '../game/view';
 import { WAVES_PER_DAY } from '../game/waves';
 import { PAPER } from '../game/art';
-import { W, H, PIECE_SETS } from '../game/logic';
-import { readParams } from '../game/params';
+import { W, H } from '../game/logic';
 
 
 export class Title extends Phaser.Scene {
@@ -47,31 +46,10 @@ export class Title extends Phaser.Scene {
 
     // ひとこと(アーケードの軽さ)と、操作だけをはっきり
     this.add.text(W / 2, 190, t('catch'), pop(22, '#fff6d8')).setOrigin(0.5);
-    this.add.text(W / 2, 228, `${t('rule1')}   ${t('rule2')}`, txt(16, '#ffe9c0')).setOrigin(0.5);
-    const box = this.add.rectangle(W / 2, 294, 560, 76, 0x2a1430, 0.55).setStrokeStyle(2, 0xffd890, 0.4);
-    void box;
-    this.add.text(W / 2 - 260, 272, t('ctrlPhone'), txt(15, '#ffffff')).setOrigin(0, 0.5);
-    this.add.text(W / 2 - 260, 294, t('ctrlPhone2'), txt(15, '#ffe9c0')).setOrigin(0, 0.5);
-    this.add.text(W / 2 - 260, 316, t('ctrlPC'), txt(15, '#ffffff')).setOrigin(0, 0.5);
-    // 家の形 = 光の形(絵で見せる)。小さなマス目に光る形を描く
-    const pieces = PIECE_SETS[readParams().pieceSet] ?? PIECE_SETS['縦・横'];
-    pieces.forEach((p, i) => {
-      const x = W / 2 + (i - (pieces.length - 1) / 2) * 130, y = 386;
-      this.add.image(x - 26, y + 22, `house_${p}_lit`).setOrigin(0.5, 0.92).setScale(0.62);
-      const g = this.add.graphics();
-      const cs = 9, cx = x + 26, cy = y;
-      const on: Array<[number, number]> = [[0, 0]];
-      if (p === 'up' || p === 'vline') for (let k = 1; k <= 2; k++) on.push([0, -k]);
-      if (p === 'down' || p === 'vline') for (let k = 1; k <= 2; k++) on.push([0, k]);
-      if (p === 'hline') for (let k = 1; k <= 2; k++) on.push([k, 0], [-k, 0]);
-      if (p === 'cross') for (const [a, b] of [[0, 1], [0, -1], [1, 0], [-1, 0], [0, 2], [0, -2], [2, 0], [-2, 0]]) on.push([a, b]);
-      if (p === 'area') for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (a || b) on.push([a, b]);
-      for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) {
-        const lit = on.some(([u, v]) => u === a && v === b);
-        g.fillStyle(lit ? 0xffe0a0 : 0xffffff, lit ? (a || b ? 0.75 : 1) : 0.06);
-        g.fillRect(cx + a * cs - cs / 2 + 1, cy + b * cs - cs / 2 + 1, cs - 2, cs - 2);
-      }
-    });
+    // 操作だけ(PC が上、スマホが下)
+    this.add.rectangle(W / 2, 286, 600, 84, 0x2a1430, 0.55).setStrokeStyle(2, 0xffd890, 0.4);
+    this.add.text(W / 2, 266, t('ctrlPC'), txt(18, '#ffffff')).setOrigin(0.5);
+    this.add.text(W / 2, 306, t('ctrlPhone'), txt(18, '#ffe9c0')).setOrigin(0.5);
 
     this.add.text(PAPER.x0 + 14, H - 30, t('musicCredit'), txt(11, '#8a84a0')).setOrigin(0, 0.5);
     const start = this.add.text(W / 2, 446, t('tapToStart'), pop(26, '#ffe066')).setOrigin(0.5);
