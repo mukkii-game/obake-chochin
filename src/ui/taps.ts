@@ -7,6 +7,11 @@ import { isRotated } from './orient';
 
 type Listener = (x: number, y: number) => void;
 const listeners = new Set<Listener>();
+/** 狙い: 押した(down)・動かした(move。マウスはボタンを押さずに動かしても hover)・離した(up) */
+export type AimPhase = 'down' | 'move' | 'hover' | 'up';
+type AimListener = (phase: AimPhase, x: number, y: number) => void;
+const aimListeners = new Set<AimListener>();
+let pressed = false;
 export const tapStats: Record<string, number> = {};
 export let lastTap = { x: 0, y: 0, src: '' };
 let game: Phaser.Game | null = null;
@@ -46,6 +51,13 @@ function emit(clientX: number, clientY: number, src: string) {
   for (const f of [...listeners]) f(p[0], p[1]);
 }
 
+function emitAim(phase: AimPhase, clientX: number, clientY: number) {
+  if (!aimListeners.size) return;
+  const p = toGame(clientX, clientY);
+  if (!p) { if (phase === 'up') for (const f of [...aimListeners]) f('up', NaN, NaN); return; }
+  for (const f of [...aimListeners]) f(phase, p[0], p[1]);
+}
+
 function isUi(e: Event) {
   const t = e.target as HTMLElement | null;
   return !!t?.closest?.('[data-ui]');
@@ -62,13 +74,43 @@ export function installTaps(g: Phaser.Game) {
       if (isUi(te) || seen(te)) return;
       sawTouch = true;
       te.preventDefault();
-      for (const tc of Array.from(te.changedTouches)) emit(tc.clientX, tc.clientY, 'touch:' + name);
+      for (const tc of Array.from(te.changedTouches)) { emit(tc.clientX, tc.clientY, 'touch:' + name); emitAim('down', tc.clientX, tc.clientY); }
+      pressed = true;
     }, { capture: true, passive: false });
+    t.addEventListener('touchmove', (e) => {
+      const te = e as TouchEvent;
+      if (isUi(te) || seen(te)) return;
+      te.preventDefault();
+      const tc = te.changedTouches[0];
+      if (tc) emitAim('move', tc.clientX, tc.clientY);
+    }, { capture: true, passive: false });
+    for (const ev of ['touchend', 'touchcancel']) {
+      t.addEventListener(ev, (e) => {
+        const te = e as TouchEvent;
+        if (seen(te) || !pressed) return;
+        pressed = false;
+        const tc = te.changedTouches[0];
+        if (tc && ev === 'touchend') emitAim('up', tc.clientX, tc.clientY); else emitAim('up', NaN, NaN);
+      }, { capture: true });
+    }
     t.addEventListener('pointerdown', (e) => {
       const pe = e as PointerEvent;
       if (isUi(pe) || seen(pe)) return;
       if (pe.pointerType === 'touch' && sawTouch) return;
       emit(pe.clientX, pe.clientY, 'ptr:' + name);
+      emitAim('down', pe.clientX, pe.clientY);
+      pressed = true;
+    }, { capture: true });
+    t.addEventListener('pointermove', (e) => {
+      const pe = e as PointerEvent;
+      if (seen(pe) || (pe.pointerType === 'touch' && sawTouch)) return;
+      emitAim(pressed ? 'move' : 'hover', pe.clientX, pe.clientY);
+    }, { capture: true });
+    t.addEventListener('pointerup', (e) => {
+      const pe = e as PointerEvent;
+      if (seen(pe) || (pe.pointerType === 'touch' && sawTouch) || !pressed) return;
+      pressed = false;
+      emitAim('up', pe.clientX, pe.clientY);
     }, { capture: true });
   }
 }
@@ -77,4 +119,10 @@ export function installTaps(g: Phaser.Game) {
 export function onTap(f: Listener): () => void {
   listeners.add(f);
   return () => listeners.delete(f);
+}
+
+/** 狙い(押す・動かす・離す)を受け取る。ゲームの場で「離した所へ投げる」に使う。戻り値で解除 */
+export function onAim(f: AimListener): () => void {
+  aimListeners.add(f);
+  return () => aimListeners.delete(f);
 }

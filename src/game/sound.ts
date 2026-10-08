@@ -1,8 +1,8 @@
 // この作品の効果音と BGM。
 // 効果音は WebAudio の合成(和の楽器に寄せる: 太鼓・鈴・拍子木・寺の鐘・篠笛の息)。core/audio の残響を通る。
-// BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。タイトル =「揺れる提灯」(民族09)、遊ぶ間 =「和bravery heart」(民族33、和風の戦闘曲)。
+// BGM は魔王魂(CC BY 4.0、表記: 音楽：魔王魂)。タイトル =「ネオ・ユートピア」(ネオロック57、明るく元気)、遊ぶ間 =「Speed Rush」(ネオロック74、生演奏ギター)。
 // 読めない時は合成の爪弾きに切り替える。
-import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice, playSample } from '../core/audio';
+import { tone, noise, audioNow, toneAt, isMuted, loadBuffer, playLoop, voice, playSample, setVolumes } from '../core/audio';
 import { tune } from '../core/tuning';
 
 // 都節音階(D E♭ G A B♭)。和の夜の響き
@@ -103,8 +103,9 @@ export function preloadSfx() { if (!boomBuf) loadBuffer('./audio/se_boom.mp3').t
 
 /** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */
 const TRACKS = {
-  title: { url: './audio/bgm_chochin.mp3', start: 0.529, end: 0.529 + 34 * 4 * 0.3293, gain: 0.3 },
-  play: { url: './audio/bgm_battle.mp3', start: 0.338, end: 0.338 + 47 * 4 * 0.94785, gain: 0.28 },
+  title: { url: './audio/bgm_title.mp3', start: 0.52, end: 76.87, gain: 0.3 },
+  // 繰り返しの切れ目が見つからなかったので、曲の終わり(後ろの無音の手前)から頭へ戻る
+  play: { url: './audio/bgm_rock.mp3', start: 0.73, end: 85.64, gain: 0.3 },
 } as const;
 export type Track = keyof typeof TRACKS;
 let stopFile: (() => void) | null = null;
@@ -118,6 +119,7 @@ const PHRASE = [0, 2, 3, 2, 5, 4, 3, -1, 2, 3, 5, 7, 6, 5, 3, -1];
 
 let current: Track | null = null;
 export function bgmStart(track: Track = 'play') {
+  setVolumes(tune<number>('audio.sfx'), tune<number>('audio.music'));
   if (current === track && (stopFile || starting || timer)) return;
   bgmStop();
   if (!tune<boolean>('audio.bgm')) return;

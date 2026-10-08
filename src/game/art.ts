@@ -68,9 +68,9 @@ export function makeArt(scene: Phaser.Scene) {
     make(scene, `house_${p}_lit`, 72, 72, (c) => drawShapedHouse(c, p, true));
     make(scene, `house_${p}_dark`, 72, 72, (c) => drawShapedHouse(c, p, false));
   }
-  make(scene, 'g_fuwa', 48, 56, drawFuwa);
-  make(scene, 'g_oni', 48, 56, drawOnibi);
-  make(scene, 'g_kasa', 52, 60, drawKarakasa);
+  make(scene, 'g_fuwa', 64, 68, drawFuwa);
+  make(scene, 'g_oni', 64, 68, drawOnibi);
+  make(scene, 'g_kasa', 64, 72, drawKarakasa);
   make(scene, 'g_kirai', 50, 56, drawKage);
   make(scene, 'wisp', 32, 40, drawWisp);
   make(scene, 'portal', 72, 72, drawPortal);
@@ -352,62 +352,105 @@ function drawShapedHouse(c: Ctx, p: 'up' | 'down' | 'area' | 'hline' | 'vline' |
   }
 }
 
-/** ふらふら漂う: 白い幽霊(額に三角の天冠) */
+/** かわいい顔(点の目・ほっぺ・小さい口)。シンプルで丸い、かわいげのある顔 */
+function cuteFace(c: Ctx, cx: number, cy: number, spread: number, mouth: 'w' | 'o' | 'smile' | 'grin' = 'w', eyeR = 2.6, happyEyes = false) {
+  if (happyEyes) {
+    // にこっと閉じた目(∩ ∩)
+    c.strokeStyle = '#2b2020'; c.lineWidth = 1.8; c.lineCap = 'round';
+    for (const s of [-1, 1]) { c.beginPath(); c.arc(cx + s * spread, cy + 1, eyeR * 1.2, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+  } else {
+    c.fillStyle = '#2b2020';
+    for (const s of [-1, 1]) { c.beginPath(); c.ellipse(cx + s * spread, cy, eyeR, eyeR * 1.15, 0, 0, 7); c.fill(); }
+    c.fillStyle = '#fff';
+    for (const s of [-1, 1]) { c.beginPath(); c.arc(cx + s * spread + 0.8, cy - 1, eyeR * 0.38, 0, 7); c.fill(); }
+  }
+  c.fillStyle = 'rgba(255,140,160,0.55)';
+  for (const s of [-1, 1]) { c.beginPath(); c.ellipse(cx + s * (spread + 6), cy + 5, 4.2, 2.6, 0, 0, 7); c.fill(); }
+  c.strokeStyle = '#2b2020'; c.lineWidth = 1.4; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath();
+  if (mouth === 'w') { c.moveTo(cx - 3, cy + 4); c.quadraticCurveTo(cx - 1.5, cy + 6.5, cx, cy + 4.5); c.quadraticCurveTo(cx + 1.5, cy + 6.5, cx + 3, cy + 4); c.stroke(); }
+  else if (mouth === 'smile') { c.arc(cx, cy + 3, 3, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
+  else if (mouth === 'grin') {
+    // 大きく開けて笑う口(▽)と、ちいさい舌
+    c.fillStyle = '#7a2a36'; c.moveTo(cx - 4.5, cy + 3.5); c.lineTo(cx + 4.5, cy + 3.5); c.quadraticCurveTo(cx, cy + 11, cx - 4.5, cy + 3.5); c.fill(); c.stroke();
+    c.fillStyle = '#ff8aa0'; c.beginPath(); c.ellipse(cx, cy + 7.5, 2.2, 1.4, 0, 0, 7); c.fill();
+  }
+  else { c.fillStyle = '#5a2a30'; c.ellipse(cx, cy + 5, 2.2, 2.6, 0, 0, 7); c.fill(); }
+}
+
+/** 幽霊: ころんと丸い白いおもち。小さい天冠と、ちょろっとしたしっぽ */
 function drawFuwa(c: Ctx) {
-  const g = c.createLinearGradient(0, 4, 0, 54);
-  g.addColorStop(0, 'rgba(240,248,255,0.98)'); g.addColorStop(1, 'rgba(170,200,255,0.15)');
-  c.fillStyle = g;
+  const ol = '#4a3c46';
+  c.lineWidth = 2; c.strokeStyle = ol; c.lineJoin = 'round';
+  c.fillStyle = '#fbfaff';
   c.beginPath();
-  c.moveTo(10, 24); c.bezierCurveTo(10, 4, 38, 4, 38, 24);
-  c.bezierCurveTo(40, 36, 34, 44, 28, 54);
-  c.bezierCurveTo(26, 46, 20, 50, 16, 42);
-  c.bezierCurveTo(12, 38, 9, 32, 10, 24);
-  c.fill();
+  c.moveTo(12, 34);
+  c.bezierCurveTo(10, 10, 54, 10, 52, 34);
+  c.bezierCurveTo(53, 46, 47, 54, 40, 56);
+  c.quadraticCurveTo(38, 63, 31, 64); c.quadraticCurveTo(35, 59, 31, 56);
+  c.bezierCurveTo(20, 56, 11, 48, 12, 34);
+  c.closePath(); c.fill(); c.stroke();
+  // ちょこんと手
+  c.beginPath(); c.ellipse(12, 40, 4, 3, 0.4, 0, 7); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(52, 40, 4, 3, -0.4, 0, 7); c.fill(); c.stroke();
   // 天冠
-  c.fillStyle = '#fff'; c.strokeStyle = '#9aa'; c.lineWidth = 0.8;
-  c.beginPath(); c.moveTo(19, 11); c.lineTo(24, 4); c.lineTo(29, 11); c.closePath(); c.fill(); c.stroke();
-  // 目と口
-  c.fillStyle = '#1b1e2c';
-  c.beginPath(); c.ellipse(19, 21, 2.2, 3, 0, 0, 7); c.ellipse(29, 21, 2.2, 3, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(24, 29, 2.5, 2, 0, 0, 7); c.fill();
-  // 手(うらめしや)
-  c.strokeStyle = 'rgba(230,240,255,0.9)'; c.lineWidth = 2.4; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(12, 30); c.lineTo(5, 33); c.lineTo(3, 37); c.stroke();
+  c.fillStyle = '#fff'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(27, 17); c.lineTo(32, 10); c.lineTo(37, 17); c.closePath(); c.fill(); c.stroke();
+  // 影でふんわり
+  c.fillStyle = 'rgba(170,190,240,0.25)';
+  c.beginPath(); c.ellipse(36, 48, 12, 5, 0, 0, 7); c.fill();
+  cuteFace(c, 32, 33, 8, 'grin', 2.6, true);
 }
 
-/** ジグザグ: 青緑の鬼火 */
+/** 鬼火: ぷっくりした青緑の火の玉。ゆらっとした炎の先 */
 function drawOnibi(c: Ctx) {
-  const g = c.createRadialGradient(24, 34, 2, 24, 30, 24);
-  g.addColorStop(0, 'rgba(230,255,240,1)'); g.addColorStop(0.5, 'rgba(90,230,170,0.9)'); g.addColorStop(1, 'rgba(30,140,120,0)');
-  c.fillStyle = g;
+  const ol = '#1f4a42';
+  const g = c.createRadialGradient(32, 42, 2, 32, 40, 26);
+  g.addColorStop(0, '#e8fff4'); g.addColorStop(0.55, '#8ff0cc'); g.addColorStop(1, '#4cc8a4');
+  c.fillStyle = g; c.strokeStyle = ol; c.lineWidth = 2; c.lineJoin = 'round';
   c.beginPath();
-  c.moveTo(24, 2); c.lineTo(30, 14); c.lineTo(28, 18); c.lineTo(36, 22);
-  c.bezierCurveTo(42, 34, 38, 50, 24, 52);
-  c.bezierCurveTo(10, 50, 6, 34, 12, 24); c.lineTo(18, 20); c.lineTo(16, 12); c.closePath(); c.fill();
-  c.fillStyle = '#06301f';
-  // つり目
-  c.beginPath(); c.moveTo(15, 32); c.lineTo(22, 35); c.lineTo(15, 36); c.fill();
-  c.beginPath(); c.moveTo(33, 32); c.lineTo(26, 35); c.lineTo(33, 36); c.fill();
-  c.beginPath(); c.moveTo(19, 42); c.lineTo(22, 40); c.lineTo(24, 43); c.lineTo(26, 40); c.lineTo(29, 42); c.lineWidth = 1.5; c.strokeStyle = '#06301f'; c.stroke();
+  c.moveTo(32, 6);
+  c.bezierCurveTo(36, 16, 44, 14, 44, 22);
+  c.bezierCurveTo(54, 28, 56, 44, 50, 52);
+  c.bezierCurveTo(44, 62, 20, 62, 14, 52);
+  c.bezierCurveTo(8, 44, 10, 28, 20, 22);
+  c.bezierCurveTo(22, 14, 28, 16, 32, 6);
+  c.closePath(); c.fill(); c.stroke();
+  // 内側の明るい芯
+  c.fillStyle = 'rgba(255,255,255,0.45)';
+  c.beginPath(); c.ellipse(26, 36, 5, 7, -0.4, 0, 7); c.fill();
+  cuteFace(c, 32, 43, 8, 'grin');
 }
 
-/** 急に跳ぶ: 唐傘おばけ(一つ目・一本足) */
+/** 唐傘: まるいむらさきの傘に、大きな一つ目とちいさい舌。一本足に下駄 */
 function drawKarakasa(c: Ctx) {
-  c.fillStyle = '#7a4fa8';
-  c.beginPath(); c.moveTo(26, 2); c.lineTo(50, 38); c.quadraticCurveTo(26, 30, 2, 38); c.closePath(); c.fill();
-  c.strokeStyle = 'rgba(30,10,50,0.6)'; c.lineWidth = 1;
-  for (const x of [10, 18, 34, 42]) { c.beginPath(); c.moveTo(26, 3); c.lineTo(x, 35); c.stroke(); }
-  c.fillStyle = 'rgba(255,255,255,0.12)';
-  c.beginPath(); c.moveTo(26, 2); c.lineTo(18, 34); c.lineTo(10, 36); c.closePath(); c.fill();
-  // 一つ目
-  c.fillStyle = '#fff'; c.beginPath(); c.ellipse(26, 20, 6, 5, 0, 0, 7); c.fill();
-  c.fillStyle = '#111'; c.beginPath(); c.arc(27, 20, 2.6, 0, 7); c.fill();
-  // 舌
-  c.fillStyle = '#e04a6a'; c.beginPath(); c.ellipse(26, 30, 3, 5, 0, 0, Math.PI); c.fill();
-  // 一本足
-  c.strokeStyle = '#d9c3a0'; c.lineWidth = 3; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(26, 36); c.lineTo(26, 52); c.stroke();
-  c.fillStyle = '#3a2a1a'; c.fillRect(19, 52, 14, 5);
+  const ol = '#3e2a52';
+  c.lineWidth = 2; c.strokeStyle = ol; c.lineJoin = 'round';
+  c.fillStyle = '#b796e6';
+  c.beginPath();
+  c.moveTo(32, 6);
+  c.bezierCurveTo(50, 8, 60, 26, 60, 42);
+  c.quadraticCurveTo(52, 38, 46, 43); c.quadraticCurveTo(39, 38, 32, 43); c.quadraticCurveTo(25, 38, 18, 43); c.quadraticCurveTo(12, 38, 4, 42);
+  c.bezierCurveTo(4, 26, 14, 8, 32, 6);
+  c.closePath(); c.fill(); c.stroke();
+  // 骨
+  c.strokeStyle = 'rgba(62,42,82,0.35)'; c.lineWidth = 1.2;
+  for (const x of [18, 46]) { c.beginPath(); c.moveTo(32, 8); c.quadraticCurveTo((32 + x) / 2, 24, x, 41); c.stroke(); }
+  c.fillStyle = '#5a3c78'; c.beginPath(); c.arc(32, 6, 3, 0, 7); c.fill();
+  // 大きな一つ目(点の目を大きくしたもの)+ ほっぺ + 舌
+  c.fillStyle = '#fff'; c.strokeStyle = ol; c.lineWidth = 1.6;
+  c.beginPath(); c.ellipse(32, 25, 8, 8.5, 0, 0, 7); c.fill(); c.stroke();
+  c.fillStyle = '#2b2020'; c.beginPath(); c.ellipse(32.5, 26, 4.2, 4.8, 0, 0, 7); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(34, 24, 1.6, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,140,170,0.55)';
+  for (const s of [-1, 1]) { c.beginPath(); c.ellipse(32 + s * 15, 31, 4, 2.4, 0, 0, 7); c.fill(); }
+  c.fillStyle = '#ff7a96'; c.strokeStyle = ol; c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(29, 35); c.quadraticCurveTo(32, 44, 35, 35); c.closePath(); c.fill(); c.stroke();
+  // 一本足と下駄
+  c.strokeStyle = '#e8d2b0'; c.lineWidth = 3.5; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(32, 43); c.lineTo(32, 60); c.stroke();
+  c.fillStyle = '#7a5232'; c.strokeStyle = ol; c.lineWidth = 1.5;
+  c.beginPath(); c.roundRect(24, 60, 16, 5, 2); c.fill(); c.stroke();
 }
 
 /** 光を嫌う: 影法師(黒い靄に赤い目) */

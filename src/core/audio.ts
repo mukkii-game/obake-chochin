@@ -7,6 +7,14 @@ let muted = load().muted;
 /** 効果音の出口(コンプレッサーと、うっすらした残響を通す) */
 let bus: AudioNode | null = null;
 let musicGain: GainNode | null = null;
+let sfxMaster: GainNode | null = null;
+/** 全体の音量(0..1)。AI が聴かずに決めた音は大きめになりがちなので、控えめから始める */
+let sfxVol = 0.5, musicVol = 0.5;
+export function setVolumes(sfx: number, music: number) {
+  sfxVol = sfx; musicVol = music;
+  if (sfxMaster) sfxMaster.gain.value = sfx;
+  if (musicGain) musicGain.gain.value = muted ? 0 : music;
+}
 
 function ensure(): AudioContext | null {
   if (!ctx) {
@@ -21,7 +29,8 @@ function ensure(): AudioContext | null {
 function buildBus(c: AudioContext) {
   const comp = c.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 4;
-  comp.connect(c.destination);
+  sfxMaster = c.createGain(); sfxMaster.gain.value = sfxVol;
+  comp.connect(sfxMaster).connect(c.destination);
   const dry = c.createGain(); dry.gain.value = 1;
   const wet = c.createGain(); wet.gain.value = 0.28;
   const conv = c.createConvolver();
@@ -37,7 +46,7 @@ function buildBus(c: AudioContext) {
   input.connect(dry).connect(comp);
   input.connect(conv).connect(wet).connect(comp);
   bus = input;
-  musicGain = c.createGain(); musicGain.gain.value = muted ? 0 : 1;
+  musicGain = c.createGain(); musicGain.gain.value = muted ? 0 : musicVol;
   musicGain.connect(c.destination);
 }
 const out = (c: AudioContext) => bus ?? c.destination;
@@ -46,7 +55,7 @@ const out = (c: AudioContext) => bus ?? c.destination;
 export function unlock() { ensure(); }
 
 export function isMuted() { return muted; }
-export function setMuted(m: boolean) { muted = m; save({ muted: m }); if (musicGain) musicGain.gain.value = m ? 0 : 1; }
+export function setMuted(m: boolean) { muted = m; save({ muted: m }); if (musicGain) musicGain.gain.value = m ? 0 : musicVol; }
 export function toggleMuted() { setMuted(!muted); return muted; }
 
 /** 短い合成音。freq Hz、dur 秒、type 波形 */

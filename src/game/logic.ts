@@ -33,7 +33,7 @@ export const HOUSE_POS: ReadonlyArray<[number, number]> = [[142, 452], [268, 462
 export const HOUSE_R = 26;
 const HOME_R = 6;
 /** おばけの体の大きさ(光に触れたかの判定) */
-export const GHOST_R = 11;
+export const GHOST_R = 13;
 
 /** おばけの動き: 階段(縦・横・縦)/ ジグザグ(斜めと縦)/ 輪(ギャラガ) */
 export type GhostKind = 'fuwa' | 'kasa' | 'oni';

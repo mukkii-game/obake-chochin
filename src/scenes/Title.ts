@@ -18,8 +18,10 @@ export class Title extends Phaser.Scene {
     expose('scene', 'Title');
     this.cameras.main.fadeIn(400, 5, 3, 10);
     this.add.image(0, 0, 'bg').setOrigin(0);
-    this.add.image(PAPER.x1 - 120, 92, 'moon');
-    this.add.rectangle(W / 2, 300, 700, 160, 0x07060c, 0.45);
+    // タイトルは夕暮れ(遊び始めと同じ空)
+    this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD);
+    this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8);
+    this.add.rectangle(W / 2, 300, 720, 160, 0x1a0c18, 0.3);
 
     // 飾り: 漂うおばけと提灯
     const deco: Array<[string, number, number]> = [['g_fuwa', 140, 430], ['g_oni', 215, 470], ['g_kasa', 760, 460], ['g_oni', 830, 410], ['g_fuwa', 690, 480]];
