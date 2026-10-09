@@ -197,7 +197,15 @@ export class Game {
       const order = [...this.houses.keys()].sort((a, b) => ((a * 7) % n) - ((b * 7) % n));
       order.slice(lit).forEach((i) => { this.houses[i].lit = false; this.houses[i].takenForm = -1; });
     }
-    this.selected = -1;
+    // 投げる家がいつも決まっている時は、はじめは真ん中の家
+    this.selected = this.P.fixedHouse ? this.centerHouse(W / 2) : -1;
+  }
+
+  /** x に一番近い、投げられる家(なければ -1) */
+  centerHouse(x: number): number {
+    let best = -1, bd = Infinity;
+    this.houses.forEach((h, i) => { if (this.canThrow(i) && Math.abs(h.x - x) < bd) { bd = Math.abs(h.x - x); best = i; } });
+    return best;
   }
 
   get litCount() { return this.houses.filter((h) => h.lit).length; }
@@ -243,7 +251,12 @@ export class Game {
     if (x < PLAY.x0 || x > PLAY.x1 || y < PLAY.y0 || y > PLAY.y1) return;
     const hi = this.houses.findIndex((h) => Math.hypot(h.x - x, h.y - y) < HOUSE_R);
     if (hi >= 0) {
-      if (this.selected === hi) this.selected = -1;
+      if (this.P.fixedHouse) {
+        // 決まった家の切り替え(外すことはない。同じ家を押しても何もしない)
+        if (hi === this.selected) return;
+        if (!this.canThrow(hi)) { this.events.push({ type: 'deny', x, y }); return; }
+        this.selected = hi;
+      } else if (this.selected === hi) this.selected = -1;
       else if (this.canThrow(hi)) this.selected = hi;
       else { this.events.push({ type: 'deny', x, y }); return; }
       this.events.push({ type: 'select', house: this.selected });
@@ -258,7 +271,7 @@ export class Game {
     const h = this.houses[from];
     // 提灯の数はもう数えない(置ける数だけ。家ごとの在庫は無し)
     // 選んだ家は 1 回投げたら外れる(続けたい時は、その都度選ぶ)
-    this.selected = -1;
+    if (!this.P.fixedHouse) this.selected = -1;
     const sy = h.y - 14;
     this.lanterns.push({ id: this.nextId++, piece: h.piece, tx: x, ty: y, sx: h.x, sy, x: h.x, y: sy, flying: true, flyT: 0, flyDur: this.flightTime(x, y, from), age: 0 });
     this.events.push({ type: 'launch', sx: h.x, sy, x, y, house: from });
@@ -350,7 +363,12 @@ export class Game {
     for (const [x, y] of taps) this.tap(x, y);
     const P = this.P, dt = DT;
     this.t += dt; this.frame++;
-    if (this.selected >= 0 && !this.canThrow(this.selected)) { this.selected = -1; this.events.push({ type: 'select', house: -1 }); }
+    if (this.P.fixedHouse ? !this.canThrow(this.selected) : this.selected >= 0 && !this.canThrow(this.selected)) {
+      // 投げる家がやられた: 決まった家の時は、いちばん近い家へ移る
+      const old = this.houses[this.selected];
+      const nx = this.P.fixedHouse ? this.centerHouse(old ? old.x : W / 2) : -1;
+      if (nx !== this.selected) { this.selected = nx; this.events.push({ type: 'select', house: nx }); }
+    }
 
     this.spawn(dt);
     // あせる時間: feverFrom から feverDur 秒。feverEvery 秒ごとにくり返す(0 = 1 回だけ)

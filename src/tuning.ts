@@ -26,6 +26,7 @@ export const KNOBS: Knob[] = [
   { key: 'light.width', label: '縦・横の光の太さ', value: 30, min: 8, max: 120, step: 2, unit: 'px' },
   { key: 'light.area', label: '丸の光の半径', value: 48, min: 16, max: 200, step: 4, unit: 'px' },
   { key: 'light.dayGrow', label: '日ごとに光が広がる割合', value: 0.5, min: 0, max: 0.6, step: 0.05, unit: '倍', aim: '2 日目は 1.5 倍、3 日目は 2 倍の長さ・広さ(置ける数は増えない)' },
+  { key: 'aim.fixed', label: '投げる家はいつも決まっている(1)/ カーソルに近い家から(0)', value: 1, min: 0, max: 1, step: 1, unit: '', aim: '1: はじめは真ん中の家。自分で家を押して変えるまで同じ家から投げる(やられたら近い家へ移る)' },
   { key: 'house.hp', label: '家がやられるまでに入られる数', value: 3, min: 1, max: 6, step: 1, unit: '匹', aim: '軒下の灯りが 1 匹ごとに 1 つ消える。大入道は 2、大大入道・特大入道は一発で全部' },
   { key: 'house.carry', label: '次の日に灯る家 = 守った家 + この数', value: 9, min: 0, max: 9, step: 1, unit: '軒', aim: '前の日の出来が響く。9 で毎日ぜんぶ灯る' },
   { key: 'light.speed', label: '光の伸びる速さ', value: 150, min: 20, max: 800, step: 10, unit: 'px/秒', aim: 'ゆっくり伸びる。伸びる先におばけが来る時を読む' },

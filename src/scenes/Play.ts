@@ -228,7 +228,7 @@ export class Play extends Phaser.Scene {
     // 右クリック: 選んだ家を外す(記録に残るよう、その家を押したことにする)
     const offCancel = onCancel(() => {
       const g = this.game2;
-      if (this.player || this.ended || this.bot || this.paused || g.selected < 0) return;
+      if (this.player || this.ended || this.bot || this.paused || g.selected < 0 || g.P.fixedHouse) return; // 決まった家は外さない
       const h = g.houses[g.selected];
       this.pending.push([h.x, h.y]);
     });
@@ -782,7 +782,11 @@ export class Play extends Phaser.Scene {
     if (hover >= 0 && hover !== g.selected) ring(hover, blink ? 0.4 : 0.1);
     // 押すとどうなるかを一言: 選んでいない家は「発射位置ロック!」、選んだ家は「ロック解除!」
     this.hoverHouse = hover;
-    if (hover >= 0) {
+    if (hover >= 0 && g.P.fixedHouse) {
+      // 決まった家: ほかの家に寄せた時だけ「この家から投げる!」
+      const h = g.houses[hover];
+      if (hover !== g.selected) this.aimTag.setText(t('switchHouse')).setColor('#ff9ec8').setPosition(h.x, h.y - 66).setVisible(true).setAlpha(blink ? 1 : 0.6);
+    } else if (hover >= 0) {
       const h = g.houses[hover];
       this.aimTag.setText(hover === g.selected ? t('unlock') : t('lock')).setColor(hover === g.selected ? '#ffd0e0' : '#ff9ec8')
         .setPosition(h.x, h.y - 66).setVisible(true).setAlpha(blink ? 1 : 0.6);

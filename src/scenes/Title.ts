@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { tune } from '../core/tuning';
 import { t, toggleLang } from '../core/i18n';
 import { isMuted, toggleMuted } from '../core/audio';
 import { load } from '../core/save';
@@ -47,8 +48,8 @@ export class Title extends Phaser.Scene {
     // ひとこと(アーケードの軽さ)と、操作だけをはっきり
     // 操作だけ(PC が上、スマホが下)
     this.add.rectangle(W / 2, 286, 600, 84, 0x2a1430, 0.55).setStrokeStyle(2, 0xffd890, 0.4);
-    this.add.text(W / 2, 266, t('ctrlPC'), txt(18, '#ffffff')).setOrigin(0.5);
-    this.add.text(W / 2, 306, t('ctrlPhone'), txt(18, '#ffe9c0')).setOrigin(0.5);
+    this.add.text(W / 2, 266, t(tune('aim.fixed') ? 'ctrlPCFixed' : 'ctrlPC'), txt(18, '#ffffff')).setOrigin(0.5);
+    this.add.text(W / 2, 306, t(tune('aim.fixed') ? 'ctrlPhoneFixed' : 'ctrlPhone'), txt(18, '#ffe9c0')).setOrigin(0.5);
 
     this.add.text(PAPER.x0 + 14, H - 30, t('musicCredit'), txt(11, '#8a84a0')).setOrigin(0, 0.5);
     const start = this.add.text(W / 2, 446, t('tapToStart'), pop(26, '#ffe066')).setOrigin(0.5);

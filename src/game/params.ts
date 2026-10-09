@@ -10,6 +10,7 @@ export function readParams() {
     flySpeed: tune('lantern.speed'),
     fuse: tune('lantern.fuse'),
     houseHp: tune('house.hp'),
+    fixedHouse: tune('aim.fixed'),
     moveSet: tune('ghost.moves'),
     diagSlope: tune('ghost.diag'),
     catchR: tune('lantern.catch'),
