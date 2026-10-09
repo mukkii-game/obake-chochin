@@ -41,9 +41,9 @@ export const KNOBS: Knob[] = [
   // おばけ(動きは種類ごとに決まっている)
   { key: 'ghost.speed', label: 'おばけの速さ', value: 32, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
-  { key: 'ghost.bigHp', label: '大入道の力', value: 5, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
-  { key: 'ghost.giantHp', label: '大大入道の力', value: 9, min: 1, max: 20, step: 1, unit: '回' },
-  { key: 'ghost.megaHp', label: '特大入道の力(光何回で成仏)', value: 18, min: 3, max: 40, step: 1, unit: '回', aim: 'ときどき来る、いちばん大きな敵。コンボの力で削る' },
+  { key: 'ghost.bigHp', label: '大入道の力', value: 6, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
+  { key: 'ghost.giantHp', label: '大大入道の力', value: 12, min: 1, max: 20, step: 1, unit: '回' },
+  { key: 'ghost.megaHp', label: '特大入道の力(光何回で成仏)', value: 24, min: 3, max: 40, step: 1, unit: '回', aim: 'ときどき来る、いちばん大きな敵。コンボの力で削る' },
   { key: 'ghost.queue', label: 'つかえたおばけの間', value: 18, min: 6, max: 60, step: 1, unit: 'px', aim: '止まったおばけのこれだけ手前で、後ろのおばけも止まる(せき止め)' },
   { key: 'ghost.last', label: '最後の一匹・一隊列の速さ(倍)', value: 2, min: 1, max: 4, step: 0.1, unit: '倍', aim: 'インベーダーのように、残りが 1 匹か 1 つの隊列だけになったら急いで来る' },
   { key: 'fever.at', label: 'あせる時間が始まる(刻が始まってから)', value: 9, min: 0, max: 30, step: 0.5, unit: '秒', aim: '第二・第三刻の途中で、おばけも曲も速くなる' },

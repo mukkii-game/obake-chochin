@@ -196,7 +196,8 @@ export class Game {
   get ammo() { return this.litCount; }
   get waveCount() { return WAVE_COUNT; }
   /** 画面に同時に置ける提灯の数: 1 日目 3・2 日目 4・3 日目 5(lantern.max + 日) */
-  get maxOnField() { return this.P.maxLanterns; }
+  /** 画面に置ける提灯の数 = その日の家の数(1 日目 3・2 日目 4・3 日目 5) */
+  get maxOnField() { return this.P.maxLanterns + Math.min(2, dayOf(this.wave)); }
   canThrow(i: number) { const h = this.houses[i]; return !!h && h.lit && h.haunt <= 0; }
 
   /** 一番近い灯りの家 */
