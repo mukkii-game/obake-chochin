@@ -59,7 +59,7 @@ export class Play extends Phaser.Scene {
   private gSprites = new Map<number, Phaser.GameObjects.Image>();
   private gGlows = new Map<number, Phaser.GameObjects.Image>();
   private lSprites = new Map<number, { body: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; key: string; peeks: Phaser.GameObjects.Image[]; back: Phaser.GameObjects.Shape; aura: Phaser.GameObjects.Image; wisps: Phaser.GameObjects.Image[] }> = [];
+  private houseImgs: Array<{ img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; hang: Phaser.GameObjects.Image[]; lamps: Phaser.GameObjects.Image[]; key: string; peeks: Phaser.GameObjects.Image[]; back: Phaser.GameObjects.Shape; aura: Phaser.GameObjects.Image; wisps: Phaser.GameObjects.Image[] }> = [];
   /** 家に入り込んだおばけ(家ごと)と、入ったおばけの id(跳ね返る絵を出さない) */
   private peek: Array<GhostKind[] | undefined> = [];
   private entered = new Set<number>();
@@ -262,7 +262,7 @@ export class Play extends Phaser.Scene {
 
   /** 家の絵を建てる(日が変わると家の数が変わるので建て直す) */
   private buildHouseImgs() {
-    for (const o of this.houseImgs) { o.img.destroy(); o.glow.destroy(); o.hang.forEach((x) => x.destroy()); o.back.destroy(); o.aura.destroy(); o.wisps.forEach((x) => x.destroy()); o.peeks.forEach((x) => x.destroy()); }
+    for (const o of this.houseImgs) { o.img.destroy(); o.glow.destroy(); o.hang.forEach((x) => x.destroy()); o.lamps.forEach((x) => x.destroy()); o.back.destroy(); o.aura.destroy(); o.wisps.forEach((x) => x.destroy()); o.peeks.forEach((x) => x.destroy()); }
     this.houseImgs = []; this.peek = [];
     for (const h of this.game2.houses) {
       const glow = this.add.image(h.x, h.y + 6, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.55);
@@ -278,7 +278,11 @@ export class Play extends Phaser.Scene {
       // のっとられた家の青い魂のオーラと人魂(灯りのついた家・提灯の暖かい色と対比)
       const aura = this.add.image(h.x, h.y - 6, 'glow').setTint(0x4f7dff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.6).setVisible(false);
       const wisps = [0, 1, 2].map(() => this.add.image(h.x, h.y, 'wisp').setTint(0x8fd8ff).setBlendMode(Phaser.BlendModes.ADD).setDepth(2.7).setScale(0.55).setVisible(false));
-      this.houseImgs.push({ img, glow, hang, key, back, aura, wisps, peeks: [] });
+      // 家の前の小さな灯り(あと何匹入られたらやられるか)。1 匹入るごとに 1 つ消える
+      const nl = this.game2.P.houseHp;
+      const lamps = nl > 1 ? Array.from({ length: nl }, (_, k) => this.add.image(h.x + (k - (nl - 1) / 2) * 15, h.y + 36, 'glow')
+        .setTint(0xffc860).setBlendMode(Phaser.BlendModes.ADD).setScale(0.16).setDepth(4.5)) : [];
+      this.houseImgs.push({ img, glow, hang, lamps, key, back, aura, wisps, peeks: [] });
     }
   }
 
@@ -461,6 +465,16 @@ export class Play extends Phaser.Scene {
         (this.peek[e.house] ??= []).push(e.kind);
         snd.catch();
         break;
+      case 'houseHit': {
+        // 1 匹入った: 家の前の灯りが 1 つ消える(小さな ごーん)。家はまだ平気
+        this.entered.add(e.ghost);
+        snd.houseHit();
+        this.cameras.main.shake(140, tune<number>('juice.shake') * 0.5);
+        this.puff(e.x, e.y);
+        const lp = this.houseImgs[e.house]?.lamps[e.hp];
+        if (lp) { this.sparks.explode(8, lp.x, lp.y); this.tweens.add({ targets: lp, scale: { from: 0.4, to: 0.16 }, duration: 400 }); }
+        break;
+      }
       case 'houseOut':
         // おばけは家に入り込んだ(跳ね返らない): 窓から顔を出す。大きいのは目だけ見える
         if (e.ghost !== undefined) this.entered.add(e.ghost);
@@ -742,6 +756,11 @@ export class Play extends Phaser.Scene {
       });
       for (let j = list.length; j < o.peeks.length; j++) o.peeks[j].setVisible(false);
       // 軒先の提灯: この家の光の形を見せるだけ(数は数えない)
+      o.lamps.forEach((lp, k) => {
+        const on = h.lit && k < h.hp;
+        // 残り 1 つになったら、最後の灯りが心細くまたたく
+        lp.setVisible(h.lit).setTint(on ? 0xffc860 : 0x404058).setAlpha(on ? (h.hp === 1 ? 0.55 + 0.45 * Math.sin(time * 9) : 1) : 0.5);
+      });
       o.hang.forEach((hg, k) => hg.setVisible(h.lit).setY(h.y + HANG[k][1] + Math.sin(time * 2 + k * 1.3 + i) * 1.2));
     });
     // 選んだ家: 家の人が提灯を掲げて待つ(家のマスの縁がほんのり明るい)

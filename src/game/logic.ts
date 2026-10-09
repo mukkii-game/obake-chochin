@@ -91,7 +91,8 @@ export interface Lantern {
   landT?: number;
 }
 /** takenForm: この家をのっとった隊列(仲間は向かい直さず、同じ家へ入っていく) */
-export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece; takenForm?: number }
+/** hp: あと何匹入られたらやられるか(軒下の灯りの数) */
+export interface House { x: number; y: number; hp: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece; takenForm?: number }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
 /** grow: 光の大きさの倍率、dmg: 当たった時の力(どちらもコンボの何発目かで増える) */
 export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number; grow: number; dmg: number }
@@ -112,6 +113,7 @@ export type GameEvent =
   | { type: 'haunt'; x: number; y: number; house: number }
   | { type: 'saved'; x: number; y: number; house: number }
   | { type: 'houseOut'; x: number; y: number; house: number; left: number; kind?: GhostKind; ghost?: number }
+  | { type: 'houseHit'; x: number; y: number; house: number; hp: number; kind: GhostKind; ghost: number }
   | { type: 'relight'; x: number; y: number; from: [number, number] }
   | { type: 'spawn'; x: number; y: number; kind: GhostKind }
   | { type: 'watch'; n: number }
@@ -186,7 +188,7 @@ export class Game {
     const x0 = HOUSE_POS[0][0], x1 = HOUSE_POS[HOUSE_POS.length - 1][0];
     this.houses = kinds.map((piece, i) => ({
       x: Math.round(x0 + ((x1 - x0) * (i + 0.5)) / n + (n === 3 ? 0 : 0)), y: HOUSE_POS[i % 2][1],
-      lit: true, ammo: 1, regen: 0, haunt: 0, flash: 0, piece,
+      hp: this.P.houseHp, lit: true, ammo: 1, regen: 0, haunt: 0, flash: 0, piece,
     }));
     // 前の日に守り切った家の数 + carryBonus 軒だけ灯る(残りは最初からのっとられたまま = 前の日の出来が響く)
     if (carry !== undefined) {
@@ -456,6 +458,22 @@ export class Game {
       id: this.nextId++, kind, x, y, path: [], seg: 0, segProg: 0,
       speed: this.P.ghostSpeed * mult, target, age: 0, face: 1, form, hp: kind === 'big' ? this.P.bigHp : kind === 'giant' ? this.P.giantHp : kind === 'mega' ? this.P.megaHp : 1, hitBy: [], stopped: false, caught: false, haunt: false, dead: false,
     };
+    if (this.P.moveSet >= 1) {
+      // 読みやすい動き(曲がるのは 1〜2 回。集まる筋や輪は無し)
+      const h = this.houses[target];
+      if (gr.march && gr.edge) g.path = this.marchPath(x, y, gr.edge, h);
+      else if (kind === 'oni' || kind === 'inazuma') g.path = this.diagPath(x, y, gr.side ?? (x < W / 2 ? 1 : -1), h, this.P.diagSlope * (kind === 'inazuma' ? 0.7 : 1));
+      else if (gr.edge || kind === 'kasa') {
+        // 端から横一列に渡ってきて、家の真上で降りる(唐傘はいつもこれ)
+        const edge = gr.edge ?? (x < W / 2 ? -1 : 1);
+        if (!gr.edge) { g.x = x = edge < 0 ? PLAY.x0 - 30 : PLAY.x1 + 30; g.y = y = Math.round(PLAY.y0 + (GROUND_Y - PLAY.y0) * (gr.turn ?? 0.3)); }
+        g.path = [[x, y], [h.x, y], [h.x, h.y]];
+        g.speed *= this.P.sideSpeed;
+      } else g.path = this.makePath('fuwa', x, y, h, 1, gr.turn ?? 0.45); // まっすぐ降りて、1 回だけ横へ曲がって家へ
+      this.ghosts.push(g);
+      this.events.push({ type: 'spawn', x, y, kind });
+      return g;
+    }
     g.path = kind === 'inazuma' ? this.zigPath(x, y, gr.side ?? 1, this.houses[target])
       : gr.edge && kind !== 'oni'
       ? (gr.march ? this.marchPath(x, y, gr.edge, this.houses[target]) : [[x, y], [this.houses[target].x, y], [this.houses[target].x, this.houses[target].y]]) // 横に渡って、家の真上で降りる
@@ -597,9 +615,15 @@ export class Game {
       g.stopped = false; // c は止まる前の写しなので、写した後で戻す(写す前に戻すと、止まったままの印が残る)
       const h = this.houses[g.target];
       if (h.lit && g.seg >= g.path.length - 1 && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
-        // 家に触れたら、その場で家はやられる(待ち時間なし)
+        // 家に入った: 軒下の灯りが 1 つ消える(大入道は 2、大大入道・特大入道は全部)。灯りが尽きたら家はやられる
         g.dead = true; g.x = h.x; g.y = h.y;
-        h.lit = false; h.ammo = 0; h.flash = 0.6; h.haunt = 0; h.takenForm = g.form;
+        h.hp -= g.kind === 'big' ? 2 : g.kind === 'giant' || g.kind === 'mega' ? 99 : 1;
+        if (h.hp > 0) {
+          h.flash = 0.4;
+          this.events.push({ type: 'houseHit', x: h.x, y: h.y, house: g.target, hp: h.hp, kind: g.kind, ghost: g.id });
+          continue;
+        }
+        h.hp = 0; h.lit = false; h.ammo = 0; h.flash = 0.6; h.haunt = 0; h.takenForm = g.form;
         this.events.push({ type: 'houseOut', x: h.x, y: h.y, house: g.target, left: this.litCount, kind: g.kind, ghost: g.id });
       } else if (!h.lit && h.takenForm === g.form && g.seg >= g.path.length - 1 && Math.hypot(h.x - g.x, h.y - g.y) < HOME_R) {
         // 同じ隊列の仲間: 先にのっとった家へ、みんな入っていく
@@ -629,6 +653,20 @@ export class Game {
     }
     go(h.x, Math.min(y, floor));
     pts.push([h.x, h.y]);
+    return pts;
+  }
+
+  /** 斜めに降りる: 45° より寝た傾き(slope = 縦/横)で、左右の壁で折り返しながら家の少し上まで。そこから家の真上へ渡って降りる */
+  diagPath(sx: number, sy: number, side: number, h: { x: number; y: number }, slope: number): Array<[number, number]> {
+    const pts: Array<[number, number]> = [[sx, sy]];
+    const xl = PLAY.x0 + 30, xr = PLAY.x1 - 30, bottom = GROUND_Y - 40;
+    let x = sx, y = sy, dir = side;
+    for (let i = 0; i < 20 && y < bottom; i++) {
+      const ex = dir > 0 ? xr : xl, ny = y + Math.abs(ex - x) * slope;
+      if (ny >= bottom) { x += ((bottom - y) / slope) * dir; y = bottom; pts.push([x, y]); break; }
+      x = ex; y = ny; pts.push([x, y]); dir = -dir;
+    }
+    pts.push([h.x, y], [h.x, h.y]);
     return pts;
   }
 
@@ -739,7 +777,7 @@ export class Game {
       const dark = this.houses.filter((h) => !h.lit);
       if (!dark.length) continue;
       dark.sort((a, b) => Math.hypot(a.x - last[0], a.y - last[1]) - Math.hypot(b.x - last[0], b.y - last[1]));
-      dark[0].lit = true; dark[0].flash = 0.8; dark[0].takenForm = undefined;
+      dark[0].lit = true; dark[0].hp = this.P.houseHp; dark[0].flash = 0.8; dark[0].takenForm = undefined;
       this.events.push({ type: 'relight', x: dark[0].x, y: dark[0].y, from: last });
     }
   }
