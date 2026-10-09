@@ -919,7 +919,8 @@ export class Play extends Phaser.Scene {
         // 連爆する提灯: 真っ白にはっきり光る(輪郭も白く脈打つ)。ここに置けばつながる、が一目でわかる
         const pulse = 0.5 + 0.5 * Math.sin(time * 10);
         // まだ飛んでいる提灯も、着く所で判定して光らせる(コンボになりうる所が先に分かる)
-        for (const l of g.lanterns) if (g.touches(me, l)) {
+        // もう弾けはじめた提灯(誘爆の火が付いたもの)には、いま投げてもつながらない
+        for (const l of g.lanterns) if (l.fuseLit === undefined && g.touches(me, l)) {
           this.chainTargets.add(l.id);
           this.drawShape(l.piece, l.tx, l.ty, g.reach(l.piece), 0, 0xffffff, 0.07 + 0.05 * pulse);
           this.outlineShape(l.piece, l.tx, l.ty, 0xffffff, 0.45 + 0.4 * pulse, 2.5);

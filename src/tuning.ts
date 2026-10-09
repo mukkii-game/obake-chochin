@@ -39,7 +39,7 @@ export const KNOBS: Knob[] = [
   { key: 'score.formation', label: '編隊ボーナス', value: 40, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
   // おばけ(動きは種類ごとに決まっている)
-  { key: 'ghost.speed', label: 'おばけの速さ', value: 35, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
+  { key: 'ghost.speed', label: 'おばけの速さ', value: 30, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.day1', label: '1 日目のおばけの速さ(倍)', value: 0.75, min: 0.5, max: 1, step: 0.05, unit: '倍', aim: '1 日目は家が 3 軒しかないので、やさしく' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
   { key: 'ghost.bigHp', label: '大入道の力', value: 6, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
@@ -49,7 +49,7 @@ export const KNOBS: Knob[] = [
   { key: 'ghost.last', label: '最後の一匹・一隊列の速さ(倍)', value: 2, min: 1, max: 4, step: 0.1, unit: '倍', aim: 'インベーダーのように、残りが 1 匹か 1 つの隊列だけになったら急いで来る' },
   { key: 'fever.at', label: 'あせる時間が始まる(刻が始まってから)', value: 9, min: 0, max: 30, step: 0.5, unit: '秒', aim: '第二・第三刻の途中で、おばけも曲も速くなる' },
   { key: 'fever.dur', label: 'あせる時間の長さ', value: 8, min: 0, max: 20, step: 0.5, unit: '秒' },
-  { key: 'fever.mult', label: 'あせる時間の速さ(倍)', value: 1.3, min: 1, max: 2, step: 0.05, unit: '倍', aim: '曲も同じ倍率で速くなる' },
+  { key: 'fever.mult', label: 'あせる時間の速さ(倍)', value: 1.5, min: 1, max: 2, step: 0.05, unit: '倍', aim: '曲も同じ倍率で速くなる' },
   { key: 'fever.every', label: 'あせる時間のくり返し(秒ごと。0 = 1 刻に 1 回)', value: 15, min: 0, max: 40, step: 1, unit: '秒', aim: '短いほど頻繁にあせる(難しさのつまみ)' },
   { key: 'fever.fromHour', label: 'あせる時間がある刻(何番目の刻から)', value: 0, min: 0, max: 2, step: 1, unit: '番目', aim: '0 = 第一刻から、1 = 第二刻から' },
   { key: 'ghost.dashR', label: '家に飛び込み始める距離', value: 70, min: 0, max: 160, step: 5, unit: 'px', aim: '家のすぐ近くで、すうっと速くなる' },

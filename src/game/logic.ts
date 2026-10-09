@@ -87,13 +87,16 @@ export interface Lantern {
   age: number;
   /** 誘爆の火が付いた: あと何秒で弾けるか(ぴん、ぽん、ぱーん と間をあけて弾ける)と、つながる連鎖 */
   fuseLit?: number; litChain?: number;
+  /** 着いた時刻(連鎖が始まった後に着いた提灯は、その連鎖には加わらない) */
+  landT?: number;
 }
 /** takenForm: この家をのっとった隊列(仲間は向かい直さず、同じ家へ入っていく) */
 export interface House { x: number; y: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece; takenForm?: number }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
 /** grow: 光の大きさの倍率、dmg: 当たった時の力(どちらもコンボの何発目かで増える) */
 export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number; grow: number; dmg: number }
-export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number>; bursts: number }
+/** t0: 連鎖が始まった時刻 */
+export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number>; bursts: number; t0: number }
 
 export type GameEvent =
   | { type: 'launch'; sx: number; sy: number; x: number; y: number; house: number }
@@ -350,7 +353,9 @@ export class Game {
     this.spawn(dt);
     // あせる時間: feverFrom から feverDur 秒。feverEvery 秒ごとにくり返す(0 = 1 回だけ)
     const since = this.t - this.feverFrom, cyc = this.P.feverEvery > 0 ? since % this.P.feverEvery : since;
-    const fv = since >= 0 && cyc < this.P.feverDur && !this.over;
+    // おばけがいない時は張り切らない(始まるのは、その時おばけがいる時だけ。いなくなったら終わる)
+    const win = since >= 0 && cyc < this.P.feverDur && !this.over && this.ghosts.length > 0;
+    const fv = win && (this.fever || cyc < 0.5);
     if (fv !== this.fever) { this.fever = fv; this.events.push({ type: 'fever', on: fv }); }
 
     for (const l of [...this.lanterns]) {
@@ -367,7 +372,7 @@ export class Game {
       l.flyT += dt;
       const k = Math.min(1, l.flyT / l.flyDur);
       l.x = lerp(l.sx, l.tx, k); l.y = lerp(l.sy, l.ty, k);
-      if (k >= 1) { l.flying = false; this.events.push({ type: 'light', x: l.x, y: l.y }); }
+      if (k >= 1) { l.flying = false; l.landT = this.t; this.events.push({ type: 'light', x: l.x, y: l.y }); }
     }
 
     for (const h of this.houses) h.flash = Math.max(0, h.flash - dt);
@@ -384,7 +389,7 @@ export class Game {
   }
 
   private newChain(x: number, y: number): Chain {
-    const c: Chain = { id: this.nextId++, count: 0, pts: 0, lx: x, ly: y, forms: new Map(), bursts: 0 };
+    const c: Chain = { id: this.nextId++, count: 0, pts: 0, lx: x, ly: y, forms: new Map(), bursts: 0, t0: this.t };
     this.chains.set(c.id, c);
     return c;
   }
@@ -685,7 +690,8 @@ export class Game {
       // 誘爆: 光が届いた提灯は、すぐ弾ける(置かれたものだけ。飛んでいるものは除く)
       // 連爆は、光がその提灯の光の範囲に触れるだけで起きる(提灯そのものに当たらなくてよい)
       for (const l of [...this.lanterns]) {
-        if (l.flying || l.fuseLit !== undefined || !this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, P.chainPad))) continue;
+        // 連鎖が始まった後に着いた提灯は加わらない(弾けている最中に投げ足して、どこまでもつなぐことはできない)
+        if (l.flying || l.fuseLit !== undefined || (l.landT ?? 0) > chain.t0 || !this.shapePoints(l.piece, l.tx, l.ty).some(([x, y]) => this.lit(b, x, y, P.chainPad))) continue;
         // 誘爆は一気でなく、少し間をあけて順に(元の残り時間とは関係なく chainDelay 秒後)
         if (P.chainDelay <= 0) this.burst(l, chain);
         else { l.fuseLit = P.chainDelay; l.litChain = chain.id; this.events.push({ type: 'ignite', x: l.tx, y: l.ty }); }
