@@ -48,7 +48,7 @@ export const KNOBS: Knob[] = [
   { key: 'ghost.queue', label: 'つかえたおばけの間', value: 18, min: 6, max: 60, step: 1, unit: 'px', aim: '止まったおばけのこれだけ手前で、後ろのおばけも止まる(せき止め)' },
   { key: 'ghost.last', label: '最後の一匹・一隊列の速さ(倍)', value: 2, min: 1, max: 4, step: 0.1, unit: '倍', aim: 'インベーダーのように、残りが 1 匹か 1 つの隊列だけになったら急いで来る' },
   { key: 'fever.at', label: 'あせる時間が始まる(刻が始まってから)', value: 9, min: 0, max: 30, step: 0.5, unit: '秒', aim: '第二・第三刻の途中で、おばけも曲も速くなる' },
-  { key: 'fever.dur', label: 'あせる時間の長さ', value: 6, min: 0, max: 20, step: 0.5, unit: '秒' },
+  { key: 'fever.dur', label: 'あせる時間の長さ', value: 8, min: 0, max: 20, step: 0.5, unit: '秒' },
   { key: 'fever.mult', label: 'あせる時間の速さ(倍)', value: 1.3, min: 1, max: 2, step: 0.05, unit: '倍', aim: '曲も同じ倍率で速くなる' },
   { key: 'fever.every', label: 'あせる時間のくり返し(秒ごと。0 = 1 刻に 1 回)', value: 15, min: 0, max: 40, step: 1, unit: '秒', aim: '短いほど頻繁にあせる(難しさのつまみ)' },
   { key: 'fever.fromHour', label: 'あせる時間がある刻(何番目の刻から)', value: 0, min: 0, max: 2, step: 1, unit: '番目', aim: '0 = 第一刻から、1 = 第二刻から' },

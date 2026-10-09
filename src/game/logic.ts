@@ -167,16 +167,19 @@ export class Game {
 
   /**
    * その日の家を建てる: 1 日目 3 軒・2 日目 4 軒・3 日目 5 軒、横に等間隔。
-   * 形(縦・横・丸)はどれも必ず 1 軒はあり、どこに建つかは毎回変わる。提灯はいくらでも投げられる(数えない)
+   * 形は重ならないように配り、どこに建つかは毎回変わる。提灯はいくらでも投げられる(数えない)
    */
   private buildHouses(day: number, carry?: number) {
     const n = 3 + Math.min(2, day);
-    // 1 日目は 縦・横・丸 が 1 軒ずつ。2 日目からは斜め(右・左)も入って、形はランダム(斜めは必ず 1 軒)
+    // 1 日目は 縦・横・丸 が 1 軒ずつ。2 日目からは斜め(右・左)も入って、形はランダム。
+    // 札を配るように引く(切った山から重ならずに取り、尽きたら切り直す)ので、同じ形はなるべく 2 軒目にならない
     const pool: Piece[] = day >= 1 ? [...this.pieces, 'dr', 'dl'] : this.pieces;
-    const kinds: Piece[] = day >= 1 ? [this.rng.pick<Piece>(['dr', 'dl'])] : [...this.pieces];
-    while (kinds.length < n) kinds.push(this.rng.pick(pool));
-    kinds.length = n;
-    for (let i = kinds.length - 1; i > 0; i--) { const j = this.rng.int(0, i); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
+    const kinds: Piece[] = [];
+    while (kinds.length < n) {
+      const deck = [...pool];
+      for (let i = deck.length - 1; i > 0; i--) { const j = this.rng.int(0, i); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+      kinds.push(...deck.slice(0, n - kinds.length));
+    }
     const x0 = HOUSE_POS[0][0], x1 = HOUSE_POS[HOUSE_POS.length - 1][0];
     this.houses = kinds.map((piece, i) => ({
       x: Math.round(x0 + ((x1 - x0) * (i + 0.5)) / n + (n === 3 ? 0 : 0)), y: HOUSE_POS[i % 2][1],
@@ -195,7 +198,6 @@ export class Game {
   get litCount() { return this.houses.filter((h) => h.lit).length; }
   get ammo() { return this.litCount; }
   get waveCount() { return WAVE_COUNT; }
-  /** 画面に同時に置ける提灯の数: 1 日目 3・2 日目 4・3 日目 5(lantern.max + 日) */
   /** 画面に置ける提灯の数(日が変わっても増えない。代わりに光が広がる) */
   get maxOnField() { return this.P.maxLanterns; }
   canThrow(i: number) { const h = this.houses[i]; return !!h && h.lit && h.haunt <= 0; }
