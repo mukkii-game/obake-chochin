@@ -418,7 +418,7 @@ export class Game {
       this.pause = WAVE_PAUSE;
       // 日が変わる時(次の晩): 家はみんな灯り直し、提灯も満タン
       if (dayOf(this.wave + 1) !== dayOf(this.wave)) {
-        this.pause = WAVE_PAUSE + 1.5;
+        this.pause = WAVE_PAUSE + 4.5; // 日の変わり目は小休止(3 秒ほど長く)
         // 次の日: 家を建て直す(1 日目 3 軒 → 2 日目 4 軒 → 3 日目 5 軒)
         this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
         this.buildHouses(dayOf(this.wave + 1), this.P.carryBonus >= 9 ? undefined : this.litCount);

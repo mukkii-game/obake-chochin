@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { Game, DT, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
-import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, beatPos, cry, ouch, bgmRate } from '../game/sound';
+import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, sayDay, beatPos, cry, ouch, bgmRate } from '../game/sound';
 import { txt, pop, dayName, waveLabel, hourName } from '../game/view';
 import { dayOf, waveInDay, WAVES_PER_DAY, WAVE_NAMES } from '../game/waves';
 import { PAPER } from '../game/art';
@@ -485,8 +485,9 @@ export class Play extends Phaser.Scene {
           this.tweens.add({ targets: up, alpha: 1, yoyo: true, hold: 1800, duration: 300, delay: 400, onComplete: () => up.destroy() });
         }
         if (first) {
-          // 始まり: かわいい声で「おばけが、くるぞー!」
-          sayObake();
+          // 日のはじめ: かわいい声で「いちにちめ、むかえぼん!」→「おばけが、くるぞー!」
+          sayDay(dayOf(e.n));
+          this.time.delayedCall(1900, () => sayObake());
           const v = this.add.text(W / 2, H / 2 + 34, t('obakeComing'), txt(30, '#fff6c0', { strokeThickness: 7 })).setOrigin(0.5).setDepth(56).setScale(0.4);
           this.tweens.add({ targets: v, scale: 1, duration: 260, ease: 'Back.Out' });
           this.tweens.add({ targets: v, angle: { from: -4, to: 4 }, yoyo: true, repeat: 3, duration: 160 });

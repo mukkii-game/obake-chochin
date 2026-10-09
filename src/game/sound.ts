@@ -140,6 +140,7 @@ export function preloadSfx() {
   if (!boomBuf) loadBuffer('./audio/se_boom.mp3').then((b) => { boomBuf = b; });
   if (!shutterBuf) loadBuffer('./audio/se_shutter.mp3').then((b) => { shutterBuf = b; });
   if (!voObake) loadBuffer('./audio/vo_obake.mp3').then((b) => { voObake = b; });
+  [0, 1, 2].forEach((d) => { if (!dayBufs[d]) loadBuffer(`./audio/vo_day${d + 1}.mp3`).then((b) => { dayBufs[d] = b; }); });
   if (!cryBufs.size) for (const n of CRIES) loadBuffer(`./audio/vo_${n}.mp3`).then((b) => { if (b) cryBufs.set(n, b); });
 }
 /** 大きなおばけに光が当たった: かわいい小さな悲鳴(やられた声を高く短く。間をあけて重ねない) */
@@ -168,6 +169,9 @@ export function cry(n: number): string | null {
 
 /** 始まりの声「おばけが、くるぞー!」 */
 export function sayObake() { if (voObake) playSample(voObake, 0.9); }
+/** 日のはじめの声「いちにちめ、むかえぼん!」「ふつかめ、なかび!」「みっかめ、おぼん!」(Open JTalk + Mei) */
+const dayBufs: Array<AudioBuffer | null> = [null, null, null];
+export function sayDay(d: number) { const b = dayBufs[Math.min(2, d)]; if (b) playSample(b, 0.95); }
 
 /** 曲ごとのループ点(曲頭の無音を飛ばし、拍の推定から小節の切れ目で戻す。ffmpeg の silencedetect と拍の自己相関で決めた) */
 const TRACKS = {
