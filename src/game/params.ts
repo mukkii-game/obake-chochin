@@ -25,6 +25,8 @@ export function readParams() {
     feverAt: tune('fever.at'),
     feverDur: tune('fever.dur'),
     feverMult: tune('fever.mult'),
+    feverEvery: tune('fever.every'),
+    feverFromHour: tune('fever.fromHour'),
     lureSpeed: tune('lantern.lureSpeed'),
     sideSpeed: tune('ghost.side'),
     inazumaSpeed: tune('ghost.inazuma'),

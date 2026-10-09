@@ -345,7 +345,9 @@ export class Game {
     if (this.selected >= 0 && !this.canThrow(this.selected)) { this.selected = -1; this.events.push({ type: 'select', house: -1 }); }
 
     this.spawn(dt);
-    const fv = this.t >= this.feverFrom && this.t < this.feverFrom + this.P.feverDur && !this.over;
+    // あせる時間: feverFrom から feverDur 秒。feverEvery 秒ごとにくり返す(0 = 1 回だけ)
+    const since = this.t - this.feverFrom, cyc = this.P.feverEvery > 0 ? since % this.P.feverEvery : since;
+    const fv = since >= 0 && cyc < this.P.feverDur && !this.over;
     if (fv !== this.fever) { this.fever = fv; this.events.push({ type: 'fever', on: fv }); }
 
     for (const l of [...this.lanterns]) {
@@ -398,7 +400,7 @@ export class Game {
         this.begun = true;
         this.events.push({ type: 'watch', n: this.wave });
         // あせる時間: 第二・第三刻の途中で、しばらくおばけが速くなる(曲も速くなる)
-        this.feverFrom = waveInDay(this.wave) >= 1 ? this.t + this.P.feverAt : Infinity;
+        this.feverFrom = waveInDay(this.wave) >= this.P.feverFromHour ? this.t + this.P.feverAt : Infinity;
         for (const g of this.groups) {
           const form = this.nextId++;
           this.formSize.set(form, g.n * g.cols.length);

@@ -39,7 +39,7 @@ export const KNOBS: Knob[] = [
   { key: 'score.formation', label: '編隊ボーナス', value: 40, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
   // おばけ(動きは種類ごとに決まっている)
-  { key: 'ghost.speed', label: 'おばけの速さ', value: 36, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
+  { key: 'ghost.speed', label: 'おばけの速さ', value: 32, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
   { key: 'ghost.bigHp', label: '大入道の力', value: 5, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
   { key: 'ghost.giantHp', label: '大大入道の力', value: 9, min: 1, max: 20, step: 1, unit: '回' },
@@ -49,6 +49,8 @@ export const KNOBS: Knob[] = [
   { key: 'fever.at', label: 'あせる時間が始まる(刻が始まってから)', value: 9, min: 0, max: 30, step: 0.5, unit: '秒', aim: '第二・第三刻の途中で、おばけも曲も速くなる' },
   { key: 'fever.dur', label: 'あせる時間の長さ', value: 6, min: 0, max: 20, step: 0.5, unit: '秒' },
   { key: 'fever.mult', label: 'あせる時間の速さ(倍)', value: 1.3, min: 1, max: 2, step: 0.05, unit: '倍', aim: '曲も同じ倍率で速くなる' },
+  { key: 'fever.every', label: 'あせる時間のくり返し(秒ごと。0 = 1 刻に 1 回)', value: 15, min: 0, max: 40, step: 1, unit: '秒', aim: '短いほど頻繁にあせる(難しさのつまみ)' },
+  { key: 'fever.fromHour', label: 'あせる時間がある刻(何番目の刻から)', value: 0, min: 0, max: 2, step: 1, unit: '番目', aim: '0 = 第一刻から、1 = 第二刻から' },
   { key: 'ghost.dashR', label: '家に飛び込み始める距離', value: 70, min: 0, max: 160, step: 5, unit: 'px', aim: '家のすぐ近くで、すうっと速くなる' },
   { key: 'ghost.dash', label: '家に飛び込む速さ(倍)', value: 2.2, min: 1, max: 4, step: 0.1, unit: '倍', aim: '最後の一押しの勢い。大きいほど直前の救出が難しい' },
   { key: 'chain.delay', label: '誘爆の間(火が付いてから弾けるまで)', value: 0.2, min: 0, max: 0.6, step: 0.02, unit: '秒', aim: 'ぴん、ぽん、ぱーん! と 1 つずつ弾ける気持ちよさ。0 で一気に' },
