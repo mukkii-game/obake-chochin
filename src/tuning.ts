@@ -22,7 +22,7 @@ export const KNOBS: Knob[] = [
   { key: 'lantern.grab', label: '提灯を押したとみなす近さ', value: 26, min: 8, max: 60, step: 1, unit: 'px', aim: '提灯のこれだけ近くには重ねて投げられない' },
   { key: 'lantern.fuse', label: '置いた提灯が弾けるまで', value: 3, min: 0.5, max: 10, step: 0.1, unit: '秒', aim: 'ボンバーマン。光が届いた提灯はすぐ弾ける(誘爆)ので、つなぐために置く手もある' },
   // 光
-  { key: 'light.line', label: '縦・横の光の長さ(中心から)', value: 72, min: 20, max: 400, step: 4, unit: 'px', aim: '最初はポーンより少し先まで。遠くへは提灯を並べて誘爆でつなぐ' },
+  { key: 'light.line', label: '縦・横の光の長さ(中心から)', value: 164, min: 20, max: 400, step: 4, unit: 'px', aim: '丸と同じ面積になる長さ(2×長さ×太さ = π×半径²)' },
   { key: 'light.width', label: '縦・横の光の太さ', value: 30, min: 8, max: 120, step: 2, unit: 'px' },
   { key: 'light.area', label: '丸の光の半径', value: 56, min: 16, max: 200, step: 4, unit: 'px' },
   { key: 'light.dayGrow', label: '日ごとに光が広がる割合', value: 0.5, min: 0, max: 0.6, step: 0.05, unit: '倍', aim: '2 日目は 1.5 倍、3 日目は 2 倍の長さ・広さ(置ける数は増えない)' },
@@ -39,12 +39,12 @@ export const KNOBS: Knob[] = [
   { key: 'score.formation', label: '編隊ボーナス', value: 40, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
   // おばけ(動きは種類ごとに決まっている)
-  { key: 'ghost.speed', label: 'おばけの速さ', value: 32, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
+  { key: 'ghost.speed', label: 'おばけの速さ', value: 36, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
   { key: 'ghost.day1', label: '1 日目のおばけの速さ(倍)', value: 0.75, min: 0.5, max: 1, step: 0.05, unit: '倍', aim: '1 日目は家が 3 軒しかないので、やさしく' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
   { key: 'ghost.bigHp', label: '大入道の力', value: 6, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
-  { key: 'ghost.giantHp', label: '大大入道の力', value: 12, min: 1, max: 20, step: 1, unit: '回' },
-  { key: 'ghost.megaHp', label: '特大入道の力(光何回で成仏)', value: 24, min: 3, max: 40, step: 1, unit: '回', aim: 'ときどき来る、いちばん大きな敵。コンボの力で削る' },
+  { key: 'ghost.giantHp', label: '大大入道の力', value: 14, min: 1, max: 20, step: 1, unit: '回' },
+  { key: 'ghost.megaHp', label: '特大入道の力(光何回で成仏)', value: 28, min: 3, max: 40, step: 1, unit: '回', aim: 'ときどき来る、いちばん大きな敵。コンボの力で削る' },
   { key: 'ghost.queue', label: 'つかえたおばけの間', value: 18, min: 6, max: 60, step: 1, unit: 'px', aim: '止まったおばけのこれだけ手前で、後ろのおばけも止まる(せき止め)' },
   { key: 'ghost.last', label: '最後の一匹・一隊列の速さ(倍)', value: 2, min: 1, max: 4, step: 0.1, unit: '倍', aim: 'インベーダーのように、残りが 1 匹か 1 つの隊列だけになったら急いで来る' },
   { key: 'fever.at', label: 'あせる時間が始まる(刻が始まってから)', value: 9, min: 0, max: 30, step: 0.5, unit: '秒', aim: '第二・第三刻の途中で、おばけも曲も速くなる' },
