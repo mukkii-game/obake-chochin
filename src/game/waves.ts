@@ -129,7 +129,7 @@ const WAVES: Group[][] = [
   // 8/14: はやて(先読み)→ 行進(横の提灯)→ 大入道とお供(コンボ)
   [...Q.kazeLine(false), ...shift(Q.kazeSide(true), 5), ...shift(Q.kazeRow(false), 10), ...shift(few(P.line(true), 3), 12), ...shift(Q.kazeSide(false), 14), ...shift(P.big(true), 7)],
   [...Q.marchL(false), ...shift(P.big(false), 3), ...shift(Q.zig(true), 5), ...shift(Q.marchK(true), 7), ...shift(P.sideL(false), 11), ...shift(Q.escort(true), 13)],
-  [...Q.escort(false), ...shift(Q.escort(true), 7), ...shift(few(P.loop(false), 3), 12), ...shift(P.big(false), 10), ...shift(P.mega(true), 15), ...shift(P.giant(true), 4)],
+  [...Q.escort(false), ...shift(Q.escort(true), 7), ...shift(few(P.loop(false), 3), 12), ...shift(P.big(false), 10), ...shift(P.mega(true), 15)],
   // 8/15 お盆: はさみうち → 大入道まつり → 総力戦(ぜんぶ出る)
   [...P.sides(false), ...shift(Q.marchL(true), 4), ...shift(Q.zig(false), 7), ...shift(Q.kazeSide(false), 10), ...shift(Q.escort(true), 6), ...shift(P.giant(false), 12)],
   [...Q.giantEscort(false), ...shift(Q.escort(true), 5), ...shift(Q.kazeLine(false), 8), ...shift(P.big(false), 10), ...shift(P.mega(false), 13), ...shift(P.giant(true), 16)],

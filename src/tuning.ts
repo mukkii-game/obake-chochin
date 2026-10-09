@@ -40,6 +40,7 @@ export const KNOBS: Knob[] = [
   // 家
   // おばけ(動きは種類ごとに決まっている)
   { key: 'ghost.speed', label: 'おばけの速さ', value: 32, min: 8, max: 100, step: 1, unit: 'px/秒', aim: '上から家まで約 18 秒' },
+  { key: 'ghost.day1', label: '1 日目のおばけの速さ(倍)', value: 0.75, min: 0.5, max: 1, step: 0.05, unit: '倍', aim: '1 日目は家が 3 軒しかないので、やさしく' },
   { key: 'ghost.loop', label: '鬼火の輪の半径', value: 38, min: 10, max: 120, step: 2, unit: 'px', aim: '輪を描く間は丸の光が有利' },
   { key: 'ghost.bigHp', label: '大入道の力', value: 6, min: 1, max: 12, step: 1, unit: '回', aim: '光が当たるたびに減って、顔と色が変わる(数字は出さない)' },
   { key: 'ghost.giantHp', label: '大大入道の力', value: 12, min: 1, max: 20, step: 1, unit: '回' },

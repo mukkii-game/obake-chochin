@@ -645,7 +645,9 @@ export class Game {
   speedOf(g: Ghost): number {
     const h = this.houses[g.target];
     const near = h && g.seg >= g.path.length - 2 && Math.hypot(h.x - g.x, h.y - g.y) < this.P.dashR;
-    return g.speed * this.rush() * (near ? this.P.dashMult : 1) * (this.fever ? this.P.feverMult : 1);
+    // 1 日目は家が 3 軒しかないので、おばけはゆっくり(day1Speed 倍)
+    const day1 = dayOf(this.wave) === 0 ? this.P.day1Speed : 1;
+    return g.speed * day1 * this.rush() * (near ? this.P.dashMult : 1) * (this.fever ? this.P.feverMult : 1);
   }
 
   /** 最後の一匹(その刻にもう出てこない時)は、インベーダーのように速くなる */
