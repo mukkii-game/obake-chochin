@@ -2,6 +2,7 @@
 // 見た目を差し替える時は、同じキーで assets/mine/ の画像を load すればよい。
 import Phaser from 'phaser';
 import { Rng } from '../core/rng';
+import { tune } from '../core/tuning';
 import { W, H, FIELD, PLAY, GUIDE } from './logic';
 
 type Ctx = CanvasRenderingContext2D;
@@ -49,7 +50,9 @@ export function makeArt(scene: Phaser.Scene) {
   make(scene, 'lantern_area', 44, 48, (c) => drawShapedLantern(c, 44, 48, 18, 17));
   make(scene, 'lantern_up', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));
   // 斜めの提灯: 縦長の提灯を 45° 傾けたもの(右斜め / 左斜め)
-  for (const [k, a] of [['dr', Math.PI / 4], ['dl', -Math.PI / 4]] as const) {
+  // 傾きは light.diag に合わせる(縦の提灯を 90° − 傾き だけ回す)
+  const tilt = Math.PI / 2 - (tune<number>('light.diag') * Math.PI) / 180;
+  for (const [k, a] of [['dr', tilt], ['dl', -tilt]] as const) {
     make(scene, `lantern_${k}`, 52, 52, (c) => { c.translate(26, 26); c.rotate(a); c.scale(0.78, 0.78); c.translate(-14, -30); drawShapedLantern(c, 28, 60, 9, 25); });
   }
   make(scene, 'lantern_down', 28, 60, (c) => drawShapedLantern(c, 28, 60, 9, 25));

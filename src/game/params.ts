@@ -10,6 +10,8 @@ export function readParams() {
     flySpeed: tune('lantern.speed'),
     fuse: tune('lantern.fuse'),
     houseHp: tune('house.hp'),
+    spread: tune('ghost.spread'),
+    diagAngle: tune('light.diag'),
     fixedHouse: tune('aim.fixed'),
     moveSet: tune('ghost.moves'),
     diagSlope: tune('ghost.diag'),

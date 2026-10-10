@@ -24,6 +24,7 @@ export const KNOBS: Knob[] = [
   // 光
   { key: 'light.line', label: '縦・横の光の長さ(中心から)', value: 120, min: 20, max: 400, step: 4, unit: 'px', aim: '丸と同じ面積になる長さ(2×長さ×太さ = π×半径²)' },
   { key: 'light.width', label: '縦・横の光の太さ', value: 30, min: 8, max: 120, step: 2, unit: 'px' },
+  { key: 'light.diag', label: '斜めの光の傾き(横からの角度)', value: 45, min: 10, max: 80, step: 0.5, unit: '°', aim: '斜めに降りるおばけの傾きに合わせると、列ごとまとめて取れる(傾き 0.5 = 26.6°)' },
   { key: 'light.area', label: '丸の光の半径', value: 48, min: 16, max: 200, step: 4, unit: 'px' },
   { key: 'light.dayGrow', label: '日ごとに光が広がる割合', value: 0.5, min: 0, max: 0.6, step: 0.05, unit: '倍', aim: '2 日目は 1.5 倍、3 日目は 2 倍の長さ・広さ(置ける数は増えない)' },
   { key: 'aim.fixed', label: '投げる家はいつも決まっている(1)/ カーソルに近い家から(0)', value: 1, min: 0, max: 1, step: 1, unit: '', aim: '1: はじめは真ん中の家。自分で家を押して変えるまで同じ家から投げる(やられたら近い家へ移る)' },
@@ -61,6 +62,7 @@ export const KNOBS: Knob[] = [
   { key: 'chain.pad', label: '連鎖の当たりの余裕(見えている縁)', value: 12, min: 0, max: 30, step: 1, unit: 'px', aim: '光の範囲の縁どうしが触れているだけで連鎖する' },
   { key: 'ghost.moves', label: 'おばけの動き(0 = 前の動き / 1 = 読みやすい動き)', value: 1, min: 0, max: 1, step: 1, unit: '', aim: '1: 幽霊は縦に降りて 1 回曲がる・唐傘は端から横に渡って降りる・鬼火といなずまは斜めに壁で折り返しながら降りる・行進はインベーダー。集まる筋や輪は無し' },
   { key: 'ghost.diag', label: '斜めに降りる傾き(鬼火)', value: 0.5, min: 0.2, max: 1.2, step: 0.05, unit: '縦/横', aim: '小さいほど横に長く、壁で何度も折り返す。いなずまはこの 0.7 倍' },
+  { key: 'ghost.spread', label: '隊列の間の広さ(倍)', value: 1, min: 0.5, max: 5, step: 0.1, unit: '倍', aim: '広いほど丸ではまとめて取れず、隊列に合った形(縦・横・斜め)が効く。3〜4 倍で形の差がはっきり出る' },
   { key: 'ghost.kaze', label: 'はやて(速いおばけ)の速さ', value: 2.1, min: 1, max: 4, step: 0.1, unit: '倍', aim: '先読みを強く求める' },
   { key: 'ghost.side', label: '横から来る組の速さ', value: 1.3, min: 1, max: 3, step: 0.1, unit: '倍', aim: '家までの道のりが長いぶん速く' },
   { key: 'ghost.inazuma', label: 'いなずま(すごく速いおばけ)の速さ', value: 4.2, min: 2, max: 8, step: 0.1, unit: '倍', aim: '家へまっすぐ来ないぶん、うんと速く' },

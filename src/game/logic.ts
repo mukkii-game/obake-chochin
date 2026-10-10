@@ -50,7 +50,6 @@ export type GhostKind = 'fuwa' | 'kasa' | 'oni' | 'big' | 'giant' | 'kaze' | 'in
 /** 提灯の形 = 光の形 = 家の形 */
 /** dr = 右斜め(/)、dl = 左斜め(\\)。2 日目から */
 export type Piece = 'vline' | 'hline' | 'area' | 'up' | 'down' | 'cross' | 'dr' | 'dl';
-const R2 = Math.SQRT1_2;
 export const PIECE_SETS: Record<string, Piece[]> = {
   '縦・横・丸': ['vline', 'hline', 'area'],
   '縦・横': ['vline', 'hline'],
@@ -277,6 +276,9 @@ export class Game {
     this.events.push({ type: 'launch', sx: h.x, sy, x, y, house: from });
   }
 
+  /** 斜めの光の向き [cos, sin](light.diag 度) */
+  get diag(): [number, number] { const a = (this.P.diagAngle * Math.PI) / 180; return [Math.cos(a), Math.sin(a)]; }
+
   /** 光の形の長さ(中心から。丸は半径) */
   /** 光の届く長さ。2 日目・3 日目は広くなる(置ける数は増えない) */
   reach(piece: Piece) {
@@ -297,8 +299,9 @@ export class Game {
       case 'down': return dy >= -w && Math.abs(dx) <= w && dy <= L ? Math.max(0, dy) : -1;
       case 'cross': { const a = line(dy, dx), b = line(dx, dy); return a < 0 ? b : b < 0 ? a : Math.min(a, b); }
       case 'area': { const d = Math.hypot(dx, dy); return d <= L ? Math.max(0, d - r) : -1; }
-      case 'dr': return line((dx - dy) * R2, (dx + dy) * R2);
-      case 'dl': return line((-dx - dy) * R2, (dx - dy) * R2);
+      // 斜め: 右上がり(dr)は向き (c, -s)、左上がり(dl)は (-c, -s)。c, s = 傾きの cos, sin
+      case 'dr': { const [c, s] = this.diag; return line(dx * c - dy * s, dx * s + dy * c); }
+      case 'dl': { const [c, s] = this.diag; return line(-dx * c - dy * s, -dx * s + dy * c); }
     }
   }
 
@@ -315,8 +318,8 @@ export class Game {
       case 'up': line(0, -1); break;
       case 'down': line(0, 1); break;
       case 'cross': line(0, -1); line(0, 1); line(-1, 0); line(1, 0); break;
-      case 'dr': line(R2, -R2); line(-R2, R2); break;
-      case 'dl': line(-R2, -R2); line(R2, R2); break;
+      case 'dr': { const [c, s] = this.diag; line(c, -s); line(-c, s); break; }
+      case 'dl': { const [c, s] = this.diag; line(-c, -s); line(c, s); break; }
       case 'area': for (let a = 0; a < 24; a++) for (const k of [0.5, 1]) pts.push([x + Math.cos((a * Math.PI) / 12) * L * k, y + Math.sin((a * Math.PI) / 12) * L * k]); break;
     }
     return pts;
@@ -432,7 +435,7 @@ export class Game {
         for (const g of this.groups) {
           const form = this.nextId++;
           this.formSize.set(form, g.n * g.cols.length);
-          for (let i = 0; i < g.n; i++) this.queue.push({ at: this.t + g.t + i * g.gap, g, form });
+          for (let i = 0; i < g.n; i++) this.queue.push({ at: this.t + g.t + i * g.gap * this.P.spread, g, form });
         }
       }
       return;
