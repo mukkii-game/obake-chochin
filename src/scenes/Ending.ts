@@ -22,8 +22,11 @@ export class Ending extends Phaser.Scene {
 
   create(d: Record<string, unknown>) {
     expose('scene', 'Ending');
-    this.cameras.main.fadeIn(800, 5, 3, 10);
     this.add.image(0, 0, 'bg').setOrigin(0);
+    // 夜明け: 遊んでいた画面の明け方の明るさから、さらにゆっくり明るく(日の出までは行かない)
+    const dawn = this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(Number(d.dawn ?? 0));
+    this.tweens.add({ targets: dawn, alpha: 0.75, duration: 16000, ease: 'Sine.InOut' });
+    if (d.dawn === undefined) this.cameras.main.fadeIn(800, 5, 3, 10);
     const moon = this.add.image(W - 160, 90, 'moon_3').setScale(0.9);
     this.tweens.add({ targets: moon, angle: { from: -8, to: 8 }, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.InOut' });
     const ja = lang() === 'ja';

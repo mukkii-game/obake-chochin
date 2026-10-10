@@ -1,7 +1,7 @@
 // プレイ画面。ゲームの中身(src/game/logic.ts)を 1/60 秒刻みで進め、その state を絵にするだけ。
 // 入力はタップ(src/ui/taps.ts)→ 次の step に渡す。同じ入力列を Recorder に残す(?replay= で再現)。
 import Phaser from 'phaser';
-import { Game, DT, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
+import { Game, DT, DAY_FADE, W, H, PLAY, HOUSE_R, GROUND_Y, encodeTaps, decodeTaps, type Ghost, type GameEvent, type Blast, type Piece, type GhostKind } from '../game/logic';
 import { readParams } from '../game/params';
 import { Bot } from '../game/bot';
 import { snd, bgmStart, bgmStop, bgmIntensity, preloadSfx, sayObake, sayDay, beatPos, cry, ouch, bgmRate } from '../game/sound';
@@ -71,6 +71,11 @@ export class Play extends Phaser.Scene {
   private hi = 0;
   private hiText!: Phaser.GameObjects.Text;
   private nightK = 0;
+  /** 日の変わり目の暗転(画面全体)と、その始まりの時刻(ゲームの時刻、-1 = 無し) */
+  private dayShade!: Phaser.GameObjects.Rectangle;
+  private dayFadeT0 = -1;
+  /** 3 日を凌いだ後: 夜が明けていく */
+  private dawn = false;
   private banners: Phaser.GameObjects.Text[] = [];
   private bubbles: Phaser.GameObjects.Text[] = [];
   private talked = new Set<number>();
@@ -116,7 +121,7 @@ export class Play extends Phaser.Scene {
     expose('scene', 'Play');
     this.continues = data?.continues ?? 0;
     this.paused = false; this.pauseMenu = null; this.pauseOff = null; this.time.paused = false;
-    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.afterglow = []; this.banners = []; this.bubbles = []; this.talked = new Set();
+    this.ended = false; this.acc = 0; this.pending = []; this.hitstop = 0; this.nightK = 0; this.dayFadeT0 = -1; this.dawn = false; this.afterglow = []; this.banners = []; this.bubbles = []; this.talked = new Set();
     this.gSprites.clear(); this.peek = []; this.entered.clear(); this.gGlows.clear(); this.lSprites.clear(); this.houseImgs = []; this.portalImgs = []; this.trails.clear();
 
     const replay = replayFromUrl();
@@ -133,6 +138,7 @@ export class Play extends Phaser.Scene {
     this.add.image(0, 0, 'bg').setOrigin(0);
     // 夕方から始まり、刻が進むほど暗くなって夜になる
     this.dusk = this.add.image(0, 0, 'dusk').setOrigin(0).setBlendMode(Phaser.BlendModes.ADD);
+    this.dayShade = this.add.rectangle(0, 0, W, H, 0x05030a).setOrigin(0).setDepth(200).setAlpha(0);
     this.moon = this.add.image(0, 0, 'moon_0').setAlpha(0);
     this.hi = load().best;
     this.selFx = this.add.graphics().setDepth(27);
@@ -349,13 +355,14 @@ export class Play extends Phaser.Scene {
     expose('replay', this.rec.toString());
     bgmStop();
     if (g.cleared) snd.relight(); else snd.over();
-    this.cameras.main.fadeOut(1400, 5, 3, 10);
+    // 3 日を凌いだら暗転せず、夜が明けていく(そのままエンディングへ)。負けた時は暗転
+    if (g.cleared) this.dawn = true; else this.cameras.main.fadeOut(1400, 5, 3, 10);
     const res = {
       score: g.score, best, newBest: g.score > prev.best && g.score > 0, bestChain: g.bestChain, purified: g.purified,
       watch: g.wave, seconds: Math.floor(g.t), replay: this.rec.toString(), cleared: g.cleared, formations: g.formations, continues: this.continues,
     };
     // 3 日を凌いだらエンディングとスタッフロール、その後に結果
-    this.time.delayedCall(1500, () => this.scene.start(g.cleared ? 'Ending' : 'Result', res));
+    this.time.delayedCall(g.cleared ? 4200 : 1500, () => this.scene.start(g.cleared ? 'Ending' : 'Result', { ...res, dawn: 1 - this.nightK }));
   }
 
   private onEvent(e: GameEvent) {
@@ -542,11 +549,13 @@ export class Play extends Phaser.Scene {
         break;
       }
       case 'houses':
-        // 次の日の家(数が変わる)を建て直す
+        // 次の日の家(数が変わる)を建て直す。真っ暗の間なので、空も夕方に戻しておく
         this.buildHouseImgs();
+        this.nightK = 0;
         break;
       case 'dayEnd': {
-        // その晩を凌いだ: 家がみんな灯り直す
+        // その晩を凌いだ: ほっとする間 → ゆっくり真っ暗に → 次の日が明るくなってくる(暗さは render で)
+        this.dayFadeT0 = this.game2.t;
         snd.chainEnd(5);
         const d = this.add.text(W / 2, H / 2 + 30, `${dayName(e.day)}  ${t('daySurvived')}`, pop(34, '#ffb0e0')).setOrigin(0.5).setDepth(56).setScale(0.3);
         this.tweens.add({ targets: d, scale: 1, duration: 300, ease: 'Back.Out' });
@@ -698,8 +707,18 @@ export class Play extends Phaser.Scene {
 
     // 夕方 → 夜: 毎日 1 ウェーブ目は夕焼け、3 ウェーブ目で夜になる(次の日はまた夕方から)。月は暗くなるにつれて昇る
     const nextW = g.pause > 0 && g.begun ? g.wave + 1 : g.wave;
-    const night = Math.min(1, (waveInDay(nextW) + (g.pause > 0 ? 0 : 0.6)) / 2.4);
-    this.nightK += (night - this.nightK) * Math.min(1, dt * 0.5);
+    let night = Math.min(1, (waveInDay(nextW) + (g.pause > 0 ? 0 : 0.6)) / 2.4);
+    if (g.rebuildAt > 0) night = 1; // 日の変わり目: 真っ暗になるまでは夜のまま
+    // 3 日を凌いだ: 暗いところから、ゆっくり明けていく(日の出までは行かない)
+    if (this.dawn) night = 0.45;
+    this.nightK += (night - this.nightK) * Math.min(1, dt * (this.dawn ? 0.35 : 0.5));
+    // 日の変わり目の暗転: ゆっくり暗く → 真っ暗(この間に家を建て直す)→ ゆっくり明るく
+    if (this.dayFadeT0 >= 0) {
+      const s = g.t - this.dayFadeT0, F = DAY_FADE, k0 = F.dark - 0.4;
+      const a = s < F.out ? 0 : s < k0 ? (s - F.out) / (k0 - F.out) : s < F.in ? 1 : s < F.done ? 1 - (s - F.in) / (F.done - F.in) : 0;
+      this.dayShade.setAlpha(a * a * (3 - 2 * a));
+      if (s >= F.done) this.dayFadeT0 = -1;
+    }
     this.dusk.setAlpha(1 - this.nightK);
     const k = this.nightK;
     // お月さまの顔は日ごとに変わる(8/13 にこにこ → 8/14 わくわく → 8/15 大笑い)。拍に合わせてちょっと揺れる

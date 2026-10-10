@@ -41,6 +41,12 @@ jobs:
           (cd dist && zip -qr "../$SLUG" . -x '.*' 'kit/*')
           mkdir -p dist/kit && mv "$SLUG" dist/kit/
           node tools/build-kit.mjs dist publish.json
+      # これまでの版(history ブランチにビルド済みで置いてある)を /history/ に載せる。無ければ飛ばす
+      - name: Old builds under /history/
+        run: |
+          if git fetch --depth=1 origin history; then
+            mkdir -p dist/history && git archive FETCH_HEAD | tar -x -C dist/history && rm -f dist/history/README.md
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -127,6 +127,8 @@ export type GameEvent =
 
 /** 刻の前の一息 */
 export const WAVE_PAUSE = 3.5;
+/** 日の変わり目の間(秒): 暗くなり始める・真っ暗(家を建て直す)・明るくなり始める・明けきる・小休止の長さ */
+export const DAY_FADE = { out: 2.2, dark: 4.2, in: 5.0, done: 6.8, total: 5.5 };
 /** おばけが出てくる高さ(巻物の上の外。光の届かない所から降りてくる。出口で待ち伏せはできない) */
 const SPAWN_Y = PLAY.y0 - 40;
 
@@ -152,6 +154,8 @@ export class Game {
   events: GameEvent[] = [];
   wave = 0;
   pause = WAVE_PAUSE;
+  /** 日の変わり目: この時刻に次の日の家を建てる(0 = 無し) */
+  rebuildAt = 0;
   readonly pieces: Piece[];
   private nextId = 1;
   begun = false;
@@ -419,6 +423,13 @@ export class Game {
 
   private spawn(dt: number) {
     const P = this.P;
+    if (this.rebuildAt > 0 && this.t >= this.rebuildAt) {
+      // 次の日: 家を建て直す(1 日目 3 軒 → 2 日目 4 軒 → 3 日目 5 軒)。画面が真っ暗の間に
+      this.rebuildAt = 0;
+      this.buildHouses(dayOf(this.wave + 1), this.P.carryBonus >= 9 ? undefined : this.litCount);
+      for (const h of this.houses) h.flash = 0.4;
+      this.events.push({ type: 'houses' });
+    }
     for (const q of [...this.queue]) {
       if (q.at > this.t) continue;
       this.queue = this.queue.filter((o) => o !== q);
@@ -448,12 +459,10 @@ export class Game {
       this.pause = WAVE_PAUSE;
       // 日が変わる時(次の晩): 家はみんな灯り直し、提灯も満タン
       if (dayOf(this.wave + 1) !== dayOf(this.wave)) {
-        this.pause = WAVE_PAUSE + 4.5; // 日の変わり目は小休止(3 秒ほど長く)
-        // 次の日: 家を建て直す(1 日目 3 軒 → 2 日目 4 軒 → 3 日目 5 軒)
+        // 日の変わり目は小休止: ほっとして → ゆっくり暗くなり → 真っ暗の間に次の日の家を建て → 明るくなって次の日
+        this.pause = WAVE_PAUSE + DAY_FADE.total;
         this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
-        this.buildHouses(dayOf(this.wave + 1), this.P.carryBonus >= 9 ? undefined : this.litCount);
-        for (const h of this.houses) h.flash = 0.4;
-        this.events.push({ type: 'houses' });
+        this.rebuildAt = this.t + DAY_FADE.dark;
       }
       this.groups = waveGroups(this.wave + 1, this.rng);
     }
