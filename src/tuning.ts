@@ -39,6 +39,7 @@ export const KNOBS: Knob[] = [
   { key: 'score.big', label: '大入道の点の倍率', value: 5, min: 1, max: 20, step: 1, unit: '倍' },
   { key: 'score.giant', label: '大大入道の点の倍率', value: 12, min: 1, max: 50, step: 1, unit: '倍' },
   { key: 'score.mega', label: '特大入道の点の倍率', value: 25, min: 1, max: 60, step: 1, unit: '倍', aim: '倒した時のごほうび' },
+  { key: 'score.multi', label: 'まとめ倒しの点(1 発で n 体目)', value: 20, min: 0, max: 200, step: 5, unit: '点×(n-1)', aim: '1 発の光で 2 体目から、巻き込むたびに足す(3 体で 0+1+2 倍ぶん)。「×n」の表示と一緒' },
   { key: 'score.formation', label: '編隊ボーナス', value: 40, min: 0, max: 1000, step: 10, unit: '点×数×刻', aim: '一緒に来た群れを、一度の光(と誘爆)で全部倒した時' },
   // 家
   // おばけ(動きは種類ごとに決まっている)
@@ -69,10 +70,19 @@ export const KNOBS: Knob[] = [
   { key: 'ghost.zigLen', label: 'いなずまが家へ向かうまでに走る道のり', value: 1500, min: 400, max: 3000, step: 50, unit: 'px', aim: '速さ × 道のりで、倒すまでの猶予がほかと同じくらいになるように' },
   { key: 'ghost.march', label: '行進が 1 段で下がる高さ', value: 46, min: 20, max: 120, step: 2, unit: 'px', aim: 'インベーダーのように、端で下がる' },
   // 刻
+  // 敵の数と群れ(2026-10-13「少し敵が増えて、まとめて倒した感」)。硬さ(力)は変えずに数で
+  { key: 'wave.more1', label: '1 日目: 群れ 1 つに足すおばけ', value: 0.5, min: 0, max: 3, step: 0.25, unit: '体/群れ', aim: '小さいおばけの縦の群れ(2 体以上)に足す。小数は組に配る(0.5 = 2 組に 1 体)。0 = 前のまま' },
+  { key: 'wave.more2', label: '2 日目: 群れ 1 つに足すおばけ', value: 0.5, min: 0, max: 3, step: 0.25, unit: '体/群れ' },
+  { key: 'wave.more3', label: '3 日目: 群れ 1 つに足すおばけ', value: 0, min: 0, max: 3, step: 0.25, unit: '体/群れ', aim: '3 日目は足しすぎると崖(2 体でクリア率が半分)。少しずつ' },
+  { key: 'wave.packGap', label: '群れの詰まり(出る間の倍率)', value: 0.85, min: 0.4, max: 1.5, step: 0.05, unit: '倍', aim: '小さいほど群れが詰まって、1 発でまとめて取りやすい(同時に画面にいる数も増える)' },
+  { key: 'wave.swarm', label: '群れの組を足す(1)/ 足さない(0)', value: 1, min: 0, max: 1, step: 1, unit: '', aim: '各刻に 1 組、幽霊が横に詰めて 2 段で来る(1 日目 4 体、2・3 日目 6 体)。丸や横の光 1 発でまとめて取れる' },
+  { key: 'wave.swarmLast', label: '総力戦にも群れを足す', value: 0, min: 0, max: 1, step: 1, unit: '', aim: '総力戦は崖になりやすいので別のつまみ' },
   { key: 'wave.bonus', label: '刻を越えた時の 1 軒あたりの点', value: 50, min: 0, max: 500, step: 10, unit: '点×刻' },
   // 演出
   { key: 'juice.shake', label: '家の灯りが消えた時の揺れ', value: 0.012, min: 0, max: 0.05, step: 0.002, unit: '画面比' },
   { key: 'juice.hitstop', label: '大連鎖の一瞬の止まり', value: 60, min: 0, max: 200, step: 10, unit: 'ms', aim: '6 連以上で効く' },
+  { key: 'juice.multiStop', label: 'まとめ倒しの一瞬の止まり(×3 から、1 体ごと)', value: 30, min: 0, max: 80, step: 5, unit: 'ms', aim: '×3 で 1 倍、×4 で 2 倍、×5 以上で 3 倍。長いと重たく感じる' },
+  { key: 'juice.multiRing', label: 'まとめ倒しの光の輪の大きさ', value: 1, min: 0, max: 3, step: 0.1, unit: '倍', aim: '巻き込んだ数ほど大きく(×n で 1 + 0.45n 倍)' },
   { key: 'audio.bgm', label: 'BGM', value: true },
   { key: 'audio.sfx', label: '効果音の音量', value: 0.45, min: 0, max: 1, step: 0.05, aim: 'AI は聴かずに音量を決めるので大きめになりがち。控えめから' },
   { key: 'audio.music', label: 'BGM の音量', value: 0.28, min: 0, max: 1, step: 0.05 },

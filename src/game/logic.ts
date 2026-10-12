@@ -94,7 +94,8 @@ export interface Lantern {
 export interface House { x: number; y: number; hp: number; lit: boolean; ammo: number; regen: number; haunt: number; flash: number; piece: Piece; takenForm?: number }
 /** 光。中心から形どおりに伸びる。ext = 伸びた長さ(px)。中心からの距離が [ext - 帯, ext] の所が光っている */
 /** grow: 光の大きさの倍率、dmg: 当たった時の力(どちらもコンボの何発目かで増える) */
-export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number; grow: number; dmg: number }
+/** kills: この 1 発の光だけで成仏させた数(まとめ倒し) */
+export interface Blast { id: number; x: number; y: number; piece: Piece; ext: number; chain: number; grow: number; dmg: number; kills: number }
 /** t0: 連鎖が始まった時刻 */
 export interface Chain { id: number; count: number; pts: number; lx: number; ly: number; forms: Map<number, number>; bursts: number; t0: number }
 
@@ -109,6 +110,8 @@ export type GameEvent =
   | { type: 'purify'; x: number; y: number; n: number; pts: number; kind: GhostKind }
   | { type: 'chainEnd'; x: number; y: number; n: number; pts: number; bonus: number }
   | { type: 'formation'; x: number; y: number; size: number; bonus: number }
+  /** 1 発の光で n 体目を巻き込んだ(n >= 2 の時だけ。その場で「×n」) */
+  | { type: 'multi'; x: number; y: number; n: number; bonus: number }
   | { type: 'haunt'; x: number; y: number; house: number }
   | { type: 'saved'; x: number; y: number; house: number }
   | { type: 'houseOut'; x: number; y: number; house: number; left: number; kind?: GhostKind; ghost?: number }
@@ -170,7 +173,7 @@ export class Game {
     this.wave = startWave;
     this.pieces = PIECE_SETS[P.pieceSet] ?? PIECE_SETS['縦・横・丸'];
     this.buildHouses(dayOf(startWave));
-    this.groups = waveGroups(startWave, this.rng);
+    this.groups = waveGroups(startWave, this.rng, this.P.swarm, this.P.swarmLast);
   }
 
   /**
@@ -352,7 +355,7 @@ export class Game {
     const k = c.bursts - 1;
     const grow = 1 + Math.min(k, 4) * this.P.chainGrow;
     const dmg = Math.min(3, 1 + Math.floor(k / 2));
-    this.blasts.push({ id: this.nextId++, x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id, grow, dmg });
+    this.blasts.push({ id: this.nextId++, x: l.tx, y: l.ty, piece: l.piece, ext: 0, chain: c.id, grow, dmg, kills: 0 });
     this.lanterns = this.lanterns.filter((q) => q !== l);
     this.events.push({ type: 'break', x: l.tx, y: l.ty, chained: !!chain, n: c.bursts, dmg, grow });
   }
@@ -443,10 +446,17 @@ export class Game {
         this.events.push({ type: 'watch', n: this.wave });
         // あせる時間: 第二・第三刻の途中で、しばらくおばけが速くなる(曲も速くなる)
         this.feverFrom = waveInDay(this.wave) >= this.P.feverFromHour ? this.t + this.P.feverAt : Infinity;
+        // 群れを少し増やして詰める: 小さいおばけの縦の群れ(2 体以上)に、日ごとの数を足す(小数は組に配る。0.5 なら 2 組に 1 体)
+        const more = [this.P.more1, this.P.more2, this.P.more3][Math.min(2, dayOf(this.wave))];
+        let k = 0;
         for (const g of this.groups) {
           const form = this.nextId++;
-          this.formSize.set(form, g.n * g.cols.length);
-          for (let i = 0; i < g.n; i++) this.queue.push({ at: this.t + g.t + i * g.gap * this.P.spread, g, form });
+          const small = g.kind !== 'big' && g.kind !== 'giant' && g.kind !== 'mega' && g.n >= 2;
+          const add = small ? Math.floor(more * (k + 1)) - Math.floor(more * k) : 0;
+          if (small) k++;
+          const n = g.n + add, gap = g.gap * this.P.spread * (small ? this.P.packGap : 1);
+          this.formSize.set(form, n * g.cols.length);
+          for (let i = 0; i < n; i++) this.queue.push({ at: this.t + g.t + i * gap, g, form });
         }
       }
       return;
@@ -464,7 +474,7 @@ export class Game {
         this.events.push({ type: 'dayEnd', day: dayOf(this.wave) });
         this.rebuildAt = this.t + DAY_FADE.dark;
       }
-      this.groups = waveGroups(this.wave + 1, this.rng);
+      this.groups = waveGroups(this.wave + 1, this.rng, this.P.swarm, this.P.swarmLast);
     }
   }
 
@@ -776,6 +786,13 @@ export class Game {
         chain.pts += pts; this.score += pts; this.purified++;
         chain.lx = g.x; chain.ly = g.y;
         this.events.push({ type: 'purify', x: g.x, y: g.y, n: chain.count, pts, kind: g.kind });
+        // まとめ倒し: 同じ 1 発の光で 2 体目・3 体目…を巻き込むたびに、その場で「×n」と点(n 体目は multiPts × (n-1))
+        b.kills++;
+        if (b.kills >= 2) {
+          const mb = Math.round(P.multiPts * (b.kills - 1));
+          chain.pts += mb; this.score += mb;
+          this.events.push({ type: 'multi', x: g.x, y: g.y, n: b.kills, bonus: mb });
+        }
       }
     }
   }

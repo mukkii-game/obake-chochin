@@ -48,6 +48,8 @@ export class Play extends Phaser.Scene {
   private player: Player | null = null;
   private bot: Bot | null = null;
   private hitstop = 0;
+  private multiText?: Phaser.GameObjects.Text;
+  private multiAt = 0;
   private ended = false;
   private offTap: (() => void) | null = null;
   private offAim: (() => void) | null = null;
@@ -432,6 +434,9 @@ export class Play extends Phaser.Scene {
         if (e.n >= 2) this.showChain(e.n, e.x, e.y);
         break;
       }
+      case 'multi':
+        this.showMulti(e.n, e.bonus, e.x, e.y);
+        break;
       case 'chainEnd':
         snd.chainEnd(e.n);
         if (e.bonus > 0) this.combo(e.n, e.bonus, e.x, e.y);
@@ -570,6 +575,33 @@ export class Play extends Phaser.Scene {
 
   /** コンボの瞬間: 倒すたびに「2コンボ!」「3コンボ!」…と、その場で勢いよく弾む(数が増えるほど大きく、色が変わる) */
   /** コンボの瞬間: 1 つの文字を書き換えていく(2コンボ → 3コンボ…)。増やさず、その場で弾んで色が変わる */
+  /** まとめ倒し: 1 発の光で 2 体目・3 体目…を巻き込むたびに、その場で「×n」が大きくなり、音が上がり、×3 から一瞬止まる */
+  private showMulti(n: number, bonus: number, x: number, y: number) {
+    snd.multi(n);
+    const cols = ['#9ff0ff', '#ffe27a', '#ffb0e0', '#b8ffb0', '#c8a0ff'];
+    const col = cols[(n - 2) % cols.length], size = Math.min(22 + n * 6, 64);
+    const xx = Phaser.Math.Clamp(x, 80, W - 80), yy = Phaser.Math.Clamp(y + 30, 60, H - 60);
+    // 同じ光の続き(近くで少し前に出たもの)なら、その「×n」を差し替えて大きくする
+    let o = this.multiText;
+    if (!o || !o.active || this.time.now - this.multiAt > 700 || Math.hypot(o.x - xx, o.y - yy) > 220) {
+      o = this.add.text(xx, yy, '', pop(size, col, { strokeThickness: 6 })).setOrigin(0.5).setDepth(62);
+      this.multiText = o;
+    }
+    this.multiAt = this.time.now;
+    this.tweens.killTweensOf(o);
+    o.setText(`×${n}${bonus > 0 ? `  +${bonus}` : ''}`).setFontSize(size).setColor(col).setAlpha(1).setScale(1.7).setAngle(n % 2 ? 6 : -6);
+    this.tweens.add({ targets: o, x: Phaser.Math.Linear(o.x, xx, 0.4), y: Phaser.Math.Linear(o.y, yy, 0.4), scale: 1, angle: 0, duration: 160, ease: 'Back.Out' });
+    this.tweens.add({ targets: o, y: '-=24', alpha: 0, delay: 650, duration: 380, ease: 'Quad.In', onComplete: () => { o!.destroy(); if (this.multiText === o) this.multiText = undefined; } });
+    // 巻き込むほど大きな光の輪と火の粉
+    const ring = this.add.image(x, y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(Phaser.Display.Color.HexStringToColor(col).color).setScale(0.3).setDepth(29);
+    this.tweens.add({ targets: ring, scale: tune<number>('juice.multiRing') * (1 + n * 0.45), alpha: 0, duration: 420 + n * 60, ease: 'Quad.Out', onComplete: () => ring.destroy() });
+    this.fireworksBig.explode(Math.min(6 + n * 5, 40), x, y);
+    if (n >= 3) {
+      this.hitstop = Math.max(this.hitstop, tune<number>('juice.multiStop') * Math.min(n - 2, 3));
+      this.cameras.main.shake(70 + n * 15, 0.0015 + Math.min(n, 6) * 0.0006);
+    }
+  }
+
   private showChain(n: number, x: number, y: number) {
     const cols = ['#fff3c0', '#ffe27a', '#9ff0ff', '#b8ffb0', '#ffb0e0', '#c8a0ff'];
     const size = Math.min(26 + n * 2.5, 52);

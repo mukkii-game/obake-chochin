@@ -136,6 +136,17 @@ const WAVES: Group[][] = [
   [...P.line(false), ...shift(P.loop(true), 2), ...shift(P.sides(false), 5), ...shift(Q.kazeRow(true), 8), ...shift(Q.marchK(false), 10),
     ...shift(Q.escort(false), 12), ...shift(P.cross(false), 17), ...shift(P.giant(false), 20), ...shift(Q.kazeSide(true), 22), ...shift(Q.zig(true), 15), ...shift(P.mega(false), 24)],
 ];
+// 群れ(2026-10-13): 小さい幽霊が横に詰めて 2 段で来る組。丸や横の光 1 発で「×4」「×6」とまとめて取れる。
+// 刻ごとに [出る秒, 列の数, 左右反転, 向かう家]。wave.swarm が 1 の時だけ足す(総力戦は wave.swarmLast)
+const swarm = (t: number, w: number, m: boolean, to: number): Group => {
+  const c0 = X(w === 2 ? 5 : 4, m);
+  return { t, kind: 'fuwa', cols: Array.from({ length: w }, (_, i) => (m ? c0 - i : c0 + i)), n: 2, gap: 0.55, to: T(to, m), turn: 0.5 };
+};
+const SWARMS: Array<Array<Parameters<typeof swarm>>> = [
+  [[11, 2, true, 2]], [[7, 2, false, 2]], [[5, 3, true, 3]],
+  [[7, 3, false, 2]], [[13, 3, true, 3]], [[4, 3, false, 3]],
+  [[12, 3, true, 2]], [[16, 3, false, 2]], [[18, 3, true, 3]],
+];
 export const WAVE_COUNT = WAVES.length;
 /** n ウェーブ目が何日目か(0 = 8/13)と、その日の何番目か */
 export const dayOf = (n: number) => Math.floor(n / WAVES_PER_DAY);
@@ -143,13 +154,14 @@ export const waveInDay = (n: number) => n % WAVES_PER_DAY;
 export const OPENING_WAVES = WAVES.length;
 
 /** n 刻目の出方(10 刻より先は、型を混ぜて毎回変わる。いまは 10 刻でクリア) */
-export function waveGroups(n: number, rng: Rng): Group[] {
+export function waveGroups(n: number, rng: Rng, swarms = 0, swarmLast = 0): Group[] {
   if (n < WAVES.length) {
+    const extra = swarms > 0 && (n < WAVES.length - 1 || swarmLast > 0) ? SWARMS[n].map((a) => swarm(...a)) : [];
     // 2・3 日目は、刻ごとに決まった縦の筋へみんなが集まってから家へ(狙ってまとめて倒しやすく、家までの道も長く)
     // 3 日目は第一・第二刻だけ集まりを弱める(筋に寄らない組を混ぜる)代わりに、総力戦は少し軽く
     // 2・3 日目は、刻ごとに決まった縦の筋へいったん集まってから家へ(やりすぎないよう、3 日目の第一・第二刻は半分の組だけ)
     const via = n >= WAVES_PER_DAY ? [300, 480, 660][n % 3] : undefined;
-    return WAVES[n].map((g, k) => ({ ...g, via: n >= 2 * WAVES_PER_DAY && n < WAVES.length - 1 && k % 2 ? undefined : via }));
+    return [...WAVES[n], ...extra].map((g, k) => ({ ...g, via: n >= 2 * WAVES_PER_DAY && n < WAVES.length - 1 && k % 2 ? undefined : via }));
   }
   const keys = Object.keys(PATTERNS);
   const out: Group[] = [];

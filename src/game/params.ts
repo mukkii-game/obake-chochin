@@ -58,6 +58,13 @@ export function readParams() {
     waveBonus: tune('wave.bonus'),
     chainBonus: tune('score.chain'),
     formBonus: tune('score.formation'),
+    multiPts: tune('score.multi'),
+    more1: tune('wave.more1'),
+    more2: tune('wave.more2'),
+    more3: tune('wave.more3'),
+    packGap: tune('wave.packGap'),
+    swarm: tune('wave.swarm'),
+    swarmLast: tune('wave.swarmLast'),
   };
 }
 export type Params = ReturnType<typeof readParams>;

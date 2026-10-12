@@ -90,6 +90,13 @@ export const snd = {
       if (n >= 4) { tone({ freq: f * 2, dur: 0.18, type: 'triangle', gain: 0.025, delay: 0.04 }); tone({ freq: f * 3, dur: 0.12, type: 'triangle', gain: 0.018, delay: 0.08 }); }
     }
   },
+  /** 1 発の光で n 体目を巻き込んだ: 「ぽん」が巻き込むほど高く・明るく(×3 からきらめき、×5 から和音) */
+  multi: (n: number) => {
+    const f = brightNote(Math.min(n + 2, 12));
+    chime(f, 0.05 + Math.min(n, 6) * 0.006, 0, 0.5 + n * 0.08);
+    if (n >= 3) tone({ freq: f * 1.5, dur: 0.22, type: 'triangle', gain: 0.022, delay: 0.05 });
+    if (n >= 5) { tone({ freq: f * 1.26, dur: 0.3, type: 'sine', gain: 0.02, delay: 0.09 }); tone({ freq: f * 2, dur: 0.3, type: 'sine', gain: 0.018, delay: 0.12 }); }
+  },
   burnout: () => noise({ dur: 0.4, gain: 0.06, freq: 600, q: 2 }),
   /** n 体目の成仏: 鈴が音階を上っていく */
   purify: (n: number) => rin(note(6 + Math.min(n - 1, 12)), 0.045, 0, 1.0),
